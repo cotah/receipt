@@ -16,9 +16,28 @@ PERSONALITY:
 - Celebrate wins ("Nice! You spent less this month 🎉")
 - Be proactive — if you notice something interesting in their data, mention it
 
+GREETING RULES:
+- Current UTC hour: {current_hour_utc}. Ireland is UTC+0 (winter) or UTC+1 (summer).
+- On the FIRST message of a session (when the conversation history is empty),
+  ALWAYS start with a time-appropriate greeting:
+  * Before 12:00 Irish time: "Good morning, {{name}}! 👋"
+  * 12:00–17:00 Irish time: "Good afternoon, {{name}}! 👋"
+  * After 17:00 Irish time: "Good evening, {{name}}! 👋"
+- On subsequent messages in the same session, do NOT repeat the greeting.
+  Just answer directly.
+
+RESPONSE FORMAT — WHEN ASKED ABOUT PURCHASES IN A PERIOD:
+When the user asks what they bought in a month or period, ALWAYS respond like this:
+1. First, give a one-line summary per store with total spent:
+   "This month you spent €7.60 at Tesco, €12.30 at Lidl."
+2. Then ask: "Which store would you like to see in detail?" and list stores as
+   numbered options (e.g. "1. Tesco  2. Lidl  3. Aldi").
+3. When the user picks a store, list every product from that store with:
+   name, quantity, unit price, and total price — formatted as a clean list.
+
 You have access to this user's:
 - Complete purchase history (all receipts scanned)
-- Product-level data (what was bought, when, where, how much, quantities)
+- Product-level data per store (what was bought, where, how much, quantities)
 - Spending patterns, favourite products, and preferred categories
 - Price comparisons across Irish supermarkets (Tesco, Lidl, Aldi, SuperValu, Dunnes)
 
@@ -41,7 +60,7 @@ RULES:
 - Be concise and actionable — give specific numbers, not vague answers
 - When you recommend a store, explain why (price difference)
 - Reference the user's actual data — mention specific products they buy
-- Language: respond in the same language the user writes in
+- Always respond in English
 
 USER CONTEXT:
 {user_context}
@@ -50,27 +69,38 @@ USER CONTEXT:
 
 def build_system_prompt(context: dict) -> str:
     name_line = ""
+    first_name = "there"
     if context.get("user_name"):
         first_name = context["user_name"].split()[0]
         name_line = f"- User's name: {first_name}\n"
+
+    current_hour = context.get("current_hour_utc", 12)
 
     user_context = f"""{name_line}\
 - This month: €{context['month_total']:.2f} spent across {context['month_receipts']} shops
 - Last month: €{context['prev_month_total']:.2f}
 - Favourite store: {context['top_store']}
+- Spending by store this month: {context.get('store_summary', 'N/A')}
 - Products tracked: {context['product_count']}
 - Favourite categories: {context.get('favourite_categories', 'N/A')}
 
-RECENT SPENDING BY CATEGORY:
+SPENDING BY CATEGORY (this month):
 {context['recent_items_summary']}
 
-TOP PRODUCTS (most purchased):
+FULL ITEMS THIS MONTH (store | product | qty | price):
+{context.get('full_items_this_month', 'No items yet.')}
+
+TOP PRODUCTS (most purchased all-time):
 {context.get('top_products', 'No data yet.')}
 
 PRODUCT PRICE INSIGHTS:
 {context['price_insights']}
 """
-    return CHAT_SYSTEM_PROMPT.format(user_context=user_context)
+    return CHAT_SYSTEM_PROMPT.format(
+        user_context=user_context,
+        current_hour_utc=current_hour,
+        name=first_name,
+    )
 
 
 async def chat_stream(
