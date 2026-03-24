@@ -1,6 +1,6 @@
 import uuid
 import json
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from app.utils.auth_utils import get_current_user
 from app.database import get_service_client

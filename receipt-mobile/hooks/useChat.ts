@@ -43,12 +43,25 @@ export function useChat() {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
+          'ngrok-skip-browser-warning': 'true',
         },
         body: JSON.stringify({
-          session_id: currentSessionId,
+          session_id: currentSessionId ?? undefined,
           message: text,
         }),
       });
+
+      if (!response.ok) {
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            ...updated[updated.length - 1],
+            content: `Error: Server returned ${response.status}. Please try again.`,
+          };
+          return updated;
+        });
+        return;
+      }
 
       const reader = response.body?.getReader();
       if (!reader) return;

@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
@@ -61,13 +63,13 @@ export default function SettingsScreen() {
       const ext = asset.uri.split('.').pop() ?? 'jpg';
       const path = `${profile!.id}/avatar.${ext}`;
 
-      const response = await fetch(asset.uri);
-      const blob = await response.blob();
-      const arrayBuffer = await blob.arrayBuffer();
+      const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(path, arrayBuffer, {
+        .upload(path, decode(base64), {
           contentType: `image/${ext}`,
           upsert: true,
         });

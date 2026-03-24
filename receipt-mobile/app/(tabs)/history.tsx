@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, Pressable, StyleSheet, RefreshControl, Modal, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import ReceiptCard from '../../components/receipts/ReceiptCard';
 import { Colors } from '../../constants/colors';
@@ -11,11 +12,14 @@ import { STORE_NAMES } from '../../constants/stores';
 import { useReceipts } from '../../hooks/useReceipts';
 import { useTabSwipe } from '../../hooks/useTabSwipe';
 
+const FILTER_OPTIONS = ['All', ...STORE_NAMES];
+
 export default function HistoryScreen() {
   const router = useRouter();
   const { receipts, isLoading, pagination, fetchReceipts } = useReceipts();
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [pickerVisible, setPickerVisible] = useState(false);
 
   useEffect(() => {
     fetchReceipts(1, selectedStore ?? undefined);
@@ -33,24 +37,45 @@ export default function HistoryScreen() {
     }
   };
 
+  const handleSelect = (store: string) => {
+    setSelectedStore(store === 'All' ? null : store);
+    setPickerVisible(false);
+  };
+
   const swipe = useTabSwipe(1);
 
   return (
     <GestureDetector gesture={swipe}>
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>History</Text>
-
-      {/* Store filter — pill grid (max 2 lines) */}
-      <View style={styles.filters}>
-        <Pressable onPress={() => setSelectedStore(null)} style={[styles.filterChip, !selectedStore && styles.filterActive]}>
-          <Text style={[styles.filterText, !selectedStore && styles.filterTextActive]}>All</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>History</Text>
+        <Pressable onPress={() => setPickerVisible(true)} style={styles.dropdownBtn}>
+          <Text style={styles.dropdownText}>{selectedStore ?? 'All Stores'}</Text>
+          <Feather name="chevron-down" size={16} color={Colors.text.secondary} />
         </Pressable>
-        {STORE_NAMES.map((store) => (
-          <Pressable key={store} onPress={() => setSelectedStore(store === selectedStore ? null : store)} style={[styles.filterChip, store === selectedStore && styles.filterActive]}>
-            <Text style={[styles.filterText, store === selectedStore && styles.filterTextActive]}>{store}</Text>
-          </Pressable>
-        ))}
       </View>
+
+      {/* Store picker modal */}
+      <Modal visible={pickerVisible} transparent animationType="fade" onRequestClose={() => setPickerVisible(false)}>
+        <Pressable style={styles.overlay} onPress={() => setPickerVisible(false)}>
+          <View style={styles.pickerCard}>
+            <Text style={styles.pickerTitle}>Filter by store</Text>
+            <FlatList
+              data={FILTER_OPTIONS}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => {
+                const isActive = item === 'All' ? !selectedStore : item === selectedStore;
+                return (
+                  <Pressable onPress={() => handleSelect(item)} style={[styles.pickerItem, isActive && styles.pickerItemActive]}>
+                    <Text style={[styles.pickerItemText, isActive && styles.pickerItemTextActive]}>{item}</Text>
+                    {isActive && <Feather name="check" size={16} color={Colors.primary.default} />}
+                  </Pressable>
+                );
+              }}
+            />
+          </View>
+        </Pressable>
+      </Modal>
 
       {receipts.length === 0 && !isLoading ? (
         <View style={styles.empty}>
@@ -79,25 +104,68 @@ export default function HistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface.background },
-  title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: Colors.primary.dark, paddingHorizontal: Spacing.md, paddingTop: Spacing.md },
-  filters: {
+  headerRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: Spacing.md,
-    marginVertical: Spacing.md,
-    maxHeight: 88,
-    overflow: 'hidden',
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
-  filterChip: {
+  title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: Colors.primary.dark },
+  dropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: 9999,
     backgroundColor: Colors.surface.card,
   },
-  filterActive: { backgroundColor: Colors.primary.dark },
-  filterText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.secondary },
-  filterTextActive: { color: Colors.text.inverse },
+  dropdownText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.secondary },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  pickerCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: Colors.surface.card,
+    borderRadius: 16,
+    padding: Spacing.md,
+    maxHeight: 400,
+  },
+  pickerTitle: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 16,
+    color: Colors.text.primary,
+    marginBottom: Spacing.md,
+    textAlign: 'center',
+  },
+  pickerItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.md,
+    borderRadius: 10,
+    marginBottom: 2,
+  },
+  pickerItemActive: {
+    backgroundColor: Colors.primary.pale,
+  },
+  pickerItemText: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 15,
+    color: Colors.text.primary,
+  },
+  pickerItemTextActive: {
+    color: Colors.primary.default,
+    fontFamily: 'DMSans_700Bold',
+  },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xxl },
   emptyTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm },
   emptyText: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.secondary, textAlign: 'center' },
