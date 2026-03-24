@@ -40,7 +40,12 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* Header */}
-        <Text style={styles.greeting}>{greeting}, {name}</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.greeting}>{greeting}, {name}</Text>
+          <Pressable onPress={() => router.push('/(tabs)/settings')} hitSlop={12}>
+            <Feather name="settings" size={22} color={Colors.text.secondary} />
+          </Pressable>
+        </View>
 
         {/* Main card */}
         <Card variant="elevated" style={styles.mainCard}>
@@ -108,7 +113,8 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface.background },
   scroll: { padding: Spacing.md, paddingBottom: 100 },
-  greeting: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: Colors.primary.dark, marginBottom: Spacing.md },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  greeting: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: Colors.primary.dark },
   mainCard: { marginBottom: Spacing.md, alignItems: 'center', paddingVertical: Spacing.lg },
   mainLabel: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.text.secondary },
   mainAmount: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 40, color: Colors.accent.amber, marginVertical: 4 },
