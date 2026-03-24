@@ -35,7 +35,6 @@ export default function HomeScreen() {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
   const monthTotal = monthReceipts.reduce((s, r) => s + r.total_amount, 0);
-  const monthSaved = monthReceipts.reduce((s, r) => s + r.discount_total, 0);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -47,7 +46,7 @@ export default function HomeScreen() {
         <Card variant="elevated" style={styles.mainCard}>
           <Text style={styles.mainLabel}>Spent this month</Text>
           <Text style={styles.mainAmount}>{formatCurrency(monthTotal)}</Text>
-          <Text style={styles.mainSub}>{monthReceipts.length} shops · {monthSaved > 0 ? `Saved ${formatCurrency(monthSaved)}` : ''}</Text>
+          <Text style={styles.mainSub}>{monthReceipts.length} shops</Text>
         </Card>
 
         {/* Stats row */}
@@ -61,8 +60,9 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Receipts</Text>
           </Card>
           <Card style={styles.statCard}>
-            <Text style={[styles.statValue, { color: Colors.accent.green }]}>{formatCurrency(monthSaved)}</Text>
+            <Text style={[styles.statValue, { color: Colors.text.tertiary }]}>—</Text>
             <Text style={styles.statLabel}>Saved</Text>
+            <Text style={styles.comingSoon}>Coming soon</Text>
           </Card>
         </View>
 
@@ -117,6 +117,7 @@ const styles = StyleSheet.create({
   statCard: { flex: 1, alignItems: 'center', paddingVertical: Spacing.md },
   statValue: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 20, color: Colors.text.primary },
   statLabel: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, marginTop: 2 },
+  comingSoon: { fontFamily: 'DMSans_400Regular', fontSize: 9, color: Colors.text.tertiary, marginTop: 1 },
   section: { marginBottom: Spacing.lg },
   sectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm },
   lowCard: { width: 140, padding: Spacing.sm, gap: 4 },

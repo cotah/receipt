@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     LEAFLET_CRON_DAY: int = 4
     ALERT_CHECK_INTERVAL_MINUTES: int = 60
     PRICE_CLEANUP_INTERVAL_HOURS: int = 6
+    REPORT_CRON_DAY: int = 1
+    REPORT_CRON_HOUR: int = 9
+
+    # Email (Resend)
+    RESEND_API_KEY: str = ""
+    FROM_EMAIL: str = "Receipt <reports@receipt.app>"
 
     # Storage
     RECEIPT_IMAGES_BUCKET: str = "receipt-images"

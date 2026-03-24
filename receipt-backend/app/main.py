@@ -18,6 +18,7 @@ async def lifespan(app: FastAPI):
     from app.workers.leaflet_worker import setup_leaflet_scheduler
     from app.workers.alerts_worker import setup_alert_scheduler
     from app.workers.prices_worker import setup_price_scheduler
+    from app.workers.email_report_worker import setup_email_report_scheduler
 
     # Verify critical API keys are set
     _missing = []
@@ -40,6 +41,7 @@ async def lifespan(app: FastAPI):
     setup_leaflet_scheduler(scheduler)
     setup_alert_scheduler(scheduler)
     setup_price_scheduler(scheduler)
+    setup_email_report_scheduler(scheduler)
     scheduler.start()
     log.info("Background workers started")
 
