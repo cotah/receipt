@@ -1,6 +1,8 @@
 import asyncio
 import logging
+import re
 from datetime import datetime, timedelta, timezone
+from typing import NamedTuple
 
 import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -12,21 +14,8 @@ from app.utils.text_utils import generate_product_key
 
 log = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Dunnes Stores promotion scraper
-# ---------------------------------------------------------------------------
-
-DUNNES_SESSION_URL = (
-    "https://www.dunnesstoresgrocery.com/sm/delivery/rsid/258/promotions"
-)
-DUNNES_API_URL = (
-    "https://storefrontgateway.dunnesstoresgrocery.com/api/stores/258"
-    "/locations/5df95c07-402e-419a-a699-8b895311ac5a"
-    "/aisle/page_promotion"
-)
-DUNNES_PAGE_SIZE = 30
-DUNNES_TOTAL_PAGES = 215
-DUNNES_REQUEST_DELAY = 1  # seconds between requests
+PAGE_SIZE = 30
+REQUEST_DELAY = 1  # seconds between requests
 
 BROWSER_HEADERS = {
     "User-Agent": (
@@ -36,9 +25,66 @@ BROWSER_HEADERS = {
     ),
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-IE,en;q=0.9",
-    "Referer": "https://www.dunnesstoresgrocery.com/sm/delivery/rsid/258/promotions",
-    "Origin": "https://www.dunnesstoresgrocery.com",
 }
+
+
+# ---------------------------------------------------------------------------
+# Mi9 store configurations
+# ---------------------------------------------------------------------------
+
+
+class Mi9Store(NamedTuple):
+    store_name: str
+    session_url: str
+    api_base: str
+    location_id: str | None  # None = discover at runtime
+    total_pages: int
+    referer: str
+    origin: str
+
+
+DUNNES = Mi9Store(
+    store_name="Dunnes",
+    session_url=(
+        "https://www.dunnesstoresgrocery.com"
+        "/sm/delivery/rsid/258/promotions"
+    ),
+    api_base=(
+        "https://storefrontgateway.dunnesstoresgrocery.com"
+        "/api/stores/258/locations"
+    ),
+    location_id="5df95c07-402e-419a-a699-8b895311ac5a",
+    total_pages=215,
+    referer=(
+        "https://www.dunnesstoresgrocery.com"
+        "/sm/delivery/rsid/258/promotions"
+    ),
+    origin="https://www.dunnesstoresgrocery.com",
+)
+
+SUPERVALU = Mi9Store(
+    store_name="SuperValu",
+    session_url=(
+        "https://shop.supervalu.ie"
+        "/sm/delivery/rsid/5550/promotions"
+    ),
+    api_base=(
+        "https://storefrontgateway.supervalu.ie"
+        "/api/stores/5550/locations"
+    ),
+    location_id=None,  # discovered from session response
+    total_pages=121,
+    referer=(
+        "https://shop.supervalu.ie"
+        "/sm/delivery/rsid/5550/promotions"
+    ),
+    origin="https://shop.supervalu.ie",
+)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 
 def _parse_expires(item: dict, fallback: datetime) -> datetime:
@@ -57,58 +103,115 @@ def _parse_expires(item: dict, fallback: datetime) -> datetime:
     return fallback
 
 
-async def scrape_dunnes_promotions() -> None:
-    """Scrape all Dunnes Stores promotion pages and save to collective_prices."""
+_LOCATION_RE = re.compile(
+    r"/locations/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
+    re.IGNORECASE,
+)
+
+
+async def _discover_location_id(
+    client: httpx.AsyncClient,
+    store: Mi9Store,
+) -> str | None:
+    """Try to extract the Mi9 location UUID from the session page or its
+    subsequent API calls.  Falls back to scraping the HTML body."""
+    # The session page often redirects through URLs containing the location id
+    for redirect in client.history:
+        m = _LOCATION_RE.search(str(redirect.url))
+        if m:
+            return m.group(1)
+
+    # Also check the final URL
+    # (client.history only populated after a followed redirect chain)
+    # Try fetching the store-info endpoint which usually contains it
+    try:
+        info_resp = await client.get(
+            f"{store.api_base.rsplit('/locations', 1)[0]}/info",
+        )
+        if info_resp.status_code == 200:
+            info = info_resp.json()
+            loc_id = info.get("locationId") or info.get("location_id")
+            if loc_id:
+                return loc_id
+    except Exception:
+        pass
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Generic Mi9 scraper
+# ---------------------------------------------------------------------------
+
+
+async def scrape_mi9_store(store: Mi9Store) -> None:
+    """Scrape all promotion pages for a Mi9-based store."""
     db = get_service_client()
     now = datetime.now(timezone.utc)
     default_expires = now + timedelta(days=7)
     total_saved = 0
     errors = 0
+    label = f"{store.store_name} scraper"
 
-    log.info("Dunnes scraper: starting (%d pages)...", DUNNES_TOTAL_PAGES)
+    log.info("%s: starting (%d pages)...", label, store.total_pages)
 
-    # 1. Clean up expired Dunnes leaflet entries
+    # 1. Clean up expired entries
     db.table("collective_prices").delete().eq(
-        "store_name", "Dunnes"
+        "store_name", store.store_name,
     ).eq("source", "leaflet").lt(
-        "expires_at", now.isoformat()
+        "expires_at", now.isoformat(),
     ).execute()
-    log.info("Dunnes scraper: expired entries removed")
+    log.info("%s: expired entries removed", label)
 
-    # 2. Open session to get cookies
+    # 2. Open session
+    headers = {
+        **BROWSER_HEADERS,
+        "Referer": store.referer,
+        "Origin": store.origin,
+    }
     async with httpx.AsyncClient(
         timeout=30,
         follow_redirects=True,
-        headers=BROWSER_HEADERS,
+        headers=headers,
     ) as client:
         try:
-            session_resp = await client.get(DUNNES_SESSION_URL)
+            session_resp = await client.get(store.session_url)
             session_resp.raise_for_status()
             log.info(
-                "Dunnes scraper: session established (%d cookies)",
+                "%s: session established (%d cookies)",
+                label,
                 len(client.cookies),
             )
         except Exception as e:
-            log.error("Dunnes scraper: failed to get session cookies: %s", e)
+            log.error("%s: failed to get session cookies: %s", label, e)
             return
 
-        # 3. Iterate all pages
-        for page in range(1, DUNNES_TOTAL_PAGES + 1):
-            skip = (page - 1) * DUNNES_PAGE_SIZE
-            params = {
-                "page": page,
-                "skip": skip,
-                "pageSize": DUNNES_PAGE_SIZE,
-            }
+        # 3. Resolve location id
+        location_id = store.location_id
+        if location_id is None:
+            location_id = await _discover_location_id(client, store)
+            if location_id is None:
+                log.error(
+                    "%s: could not discover location_id — aborting", label
+                )
+                return
+            log.info("%s: discovered location_id=%s", label, location_id)
+
+        api_url = f"{store.api_base}/{location_id}/aisle/page_promotion"
+
+        # 4. Iterate pages
+        for page in range(1, store.total_pages + 1):
+            skip = (page - 1) * PAGE_SIZE
+            params = {"page": page, "skip": skip, "pageSize": PAGE_SIZE}
 
             try:
-                resp = await client.get(DUNNES_API_URL, params=params)
+                resp = await client.get(api_url, params=params)
                 resp.raise_for_status()
                 data = resp.json()
             except Exception as e:
                 errors += 1
-                log.warning("Dunnes scraper: page %d failed (%s)", page, e)
-                await asyncio.sleep(DUNNES_REQUEST_DELAY)
+                log.warning("%s: page %d failed (%s)", label, page, e)
+                await asyncio.sleep(REQUEST_DELAY)
                 continue
 
             products = (
@@ -136,7 +239,7 @@ async def scrape_dunnes_promotions() -> None:
                     if categories and len(categories) > 0:
                         category = categories[0].get("category", "Other")
 
-                    # Expiry from endDateUtc
+                    # Expiry
                     expires_at = _parse_expires(item, default_expires)
 
                     product_key = generate_product_key(name)
@@ -145,7 +248,7 @@ async def scrape_dunnes_promotions() -> None:
                         "product_key": product_key,
                         "product_name": name,
                         "category": category,
-                        "store_name": "Dunnes",
+                        "store_name": store.store_name,
                         "unit_price": float(price),
                         "is_on_offer": promo_name is not None,
                         "source": "leaflet",
@@ -156,21 +259,23 @@ async def scrape_dunnes_promotions() -> None:
                 except Exception as e:
                     errors += 1
                     log.warning(
-                        "Dunnes scraper: item error on page %d: %s", page, e
+                        "%s: item error on page %d: %s", label, page, e
                     )
 
             if page % 50 == 0:
                 log.info(
-                    "Dunnes scraper: %d/%d pages (%d items saved)",
+                    "%s: %d/%d pages (%d items saved)",
+                    label,
                     page,
-                    DUNNES_TOTAL_PAGES,
+                    store.total_pages,
                     total_saved,
                 )
 
-            await asyncio.sleep(DUNNES_REQUEST_DELAY)
+            await asyncio.sleep(REQUEST_DELAY)
 
     log.info(
-        "Dunnes scraper: finished — %d items saved, %d errors",
+        "%s: finished — %d items saved, %d errors",
+        label,
         total_saved,
         errors,
     )
@@ -194,18 +299,19 @@ async def run_leaflet_job():
         log.error(f"Leaflet job failed: {e}")
 
 
-async def run_dunnes_job():
-    """Standalone Dunnes scraper job (runs on its own schedule)."""
-    log.info("Starting Dunnes promotions scraper...")
-    try:
-        await scrape_dunnes_promotions()
-    except Exception as e:
-        log.error(f"Dunnes scraper failed: {e}")
+async def run_mi9_scrapers():
+    """Run all Mi9-based store scrapers sequentially."""
+    for store in (DUNNES, SUPERVALU):
+        log.info("Starting %s promotions scraper...", store.store_name)
+        try:
+            await scrape_mi9_store(store)
+        except Exception as e:
+            log.error(f"{store.store_name} scraper failed: {e}")
 
 
 def setup_leaflet_scheduler(scheduler: AsyncIOScheduler):
-    """Schedule leaflet and Dunnes scraper jobs."""
-    # PDF leaflets — weekly on Thursday
+    """Schedule leaflet and Mi9 scraper jobs."""
+    # PDF leaflets — weekly on configured day
     scheduler.add_job(
         run_leaflet_job,
         "cron",
@@ -221,14 +327,14 @@ def setup_leaflet_scheduler(scheduler: AsyncIOScheduler):
         settings.LEAFLET_CRON_HOUR,
     )
 
-    # Dunnes promotions — Wednesday and Saturday at 06:00
+    # Mi9 scrapers (Dunnes + SuperValu) — Wednesday and Saturday at 06:00
     scheduler.add_job(
-        run_dunnes_job,
+        run_mi9_scrapers,
         "cron",
         day_of_week="wed,sat",
         hour=6,
         minute=0,
-        id="dunnes_scraper",
+        id="mi9_scrapers",
         replace_existing=True,
     )
-    log.info("Dunnes scraper scheduled: Wed+Sat at 06:00")
+    log.info("Mi9 scrapers scheduled (Dunnes + SuperValu): Wed+Sat at 06:00")
