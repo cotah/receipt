@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, Image, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { Link } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Input from '../../components/ui/Input';
@@ -32,7 +32,11 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.logo}>SmartDocket</Text>
+          <Image
+            source={require('../../assets/smartdocket-wordmark.png')}
+            style={styles.wordmark}
+            resizeMode="contain"
+          />
           <Text style={styles.subtitle}>Smart grocery spending</Text>
         </View>
 
@@ -74,7 +78,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface.background },
   content: { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.lg },
   header: { alignItems: 'center', marginBottom: Spacing.xxl },
-  logo: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 48, color: Colors.primary.dark },
+  wordmark: { width: 260, height: 80 },
   subtitle: { fontFamily: 'DMSans_500Medium', fontSize: 16, color: Colors.text.secondary, marginTop: 4 },
   form: { gap: Spacing.md },
   link: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.primary.default, textAlign: 'center', marginTop: Spacing.md },
