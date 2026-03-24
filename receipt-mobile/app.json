@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Receipt",
+    "name": "SmartDocket",
     "slug": "receipt",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,8 +12,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "ie.receipt.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Receipt needs camera access to scan your grocery receipts",
-        "NSPhotoLibraryUsageDescription": "Receipt needs photo library access to import receipt images"
+        "NSCameraUsageDescription": "SmartDocket needs camera access to scan your grocery receipts",
+        "NSPhotoLibraryUsageDescription": "SmartDocket needs photo library access to import receipt images"
       }
     },
     "android": {
@@ -44,13 +44,13 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Receipt needs camera access to scan your grocery receipts"
+          "cameraPermission": "SmartDocket needs camera access to scan your grocery receipts"
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Receipt needs photo library access to import receipt images"
+          "photosPermission": "SmartDocket needs photo library access to import receipt images"
         }
       ],
       "expo-secure-store",

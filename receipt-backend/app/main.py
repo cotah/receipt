@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Receipt API",
+    title="SmartDocket API",
     description="Smart grocery spending intelligence for Ireland",
     version="1.0.0",
     lifespan=lifespan,

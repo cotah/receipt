@@ -6,7 +6,7 @@ from typing import AsyncGenerator
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 CHAT_SYSTEM_PROMPT = """
-You are the AI assistant for Receipt, a smart grocery spending app in Ireland.
+You are the AI assistant for SmartDocket, a smart grocery spending app in Ireland.
 Your ONLY purpose is to help the user understand their grocery spending.
 
 You have access to this user's:

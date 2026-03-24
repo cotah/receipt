@@ -21,7 +21,7 @@ export default function ChatScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Receipt AI</Text>
+        <Text style={styles.title}>SmartDocket AI</Text>
         <Text style={styles.subtitle}>Ask about your spending</Text>
       </View>
 

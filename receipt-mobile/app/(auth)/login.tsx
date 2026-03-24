@@ -32,7 +32,7 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.logo}>Receipt</Text>
+          <Text style={styles.logo}>SmartDocket</Text>
           <Text style={styles.subtitle}>Smart grocery spending</Text>
         </View>
 

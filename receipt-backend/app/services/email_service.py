@@ -137,7 +137,7 @@ def build_monthly_report_html(report: dict, user_name: str) -> str:
 
   <!-- HEADER -->
   <tr><td style="background-color:{_PRIMARY};border-radius:12px 12px 0 0;padding:32px 24px;text-align:center">
-    <h1 style="margin:0;font-family:Georgia,serif;font-size:28px;color:#FFFFFF;letter-spacing:1px">Receipt</h1>
+    <h1 style="margin:0;font-family:Georgia,serif;font-size:28px;color:#FFFFFF;letter-spacing:1px">SmartDocket</h1>
     <p style="margin:8px 0 0;font-family:sans-serif;font-size:14px;color:#C8E6D0">Your monthly spending report</p>
   </td></tr>
 
@@ -256,7 +256,7 @@ def build_monthly_report_html(report: dict, user_name: str) -> str:
   <!-- FOOTER -->
   <tr><td style="background-color:{_PRIMARY_DARK};border-radius:0 0 12px 12px;padding:24px;text-align:center">
     <p style="margin:0;font-family:sans-serif;font-size:12px;color:#9CA3AF">
-      You received this email because you have reports enabled in Receipt.<br>
+      You received this email because you have reports enabled in SmartDocket.<br>
       To unsubscribe, open the app &rarr; Profile &rarr; turn off Monthly Reports.
     </p>
   </td></tr>
