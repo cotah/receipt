@@ -37,8 +37,13 @@ export function useChat() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
+      const chatUrl = `${process.env.EXPO_PUBLIC_API_URL}/chat/message`;
 
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/chat/message`, {
+      console.log('[Chat] POST', chatUrl);
+      console.log('[Chat] token:', token ? `${token.substring(0, 20)}...` : 'NONE');
+      console.log('[Chat] session_id:', currentSessionId ?? 'new');
+
+      const response = await fetch(chatUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -51,6 +56,8 @@ export function useChat() {
       });
 
       if (!response.ok) {
+        const errorBody = await response.text().catch(() => '');
+        console.error(`[Chat] Error ${response.status}:`, errorBody);
         setMessages((prev) => {
           const updated = [...prev];
           updated[updated.length - 1] = {
