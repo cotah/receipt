@@ -14,7 +14,8 @@ if settings.SENTRY_DSN:
         environment=settings.ENVIRONMENT,
         send_default_pii=False,
     )
-from app.api.v1 import receipts, products, prices, chat, alerts, reports, leaflets, users
+from fastapi.staticfiles import StaticFiles
+from app.api.v1 import receipts, products, prices, chat, alerts, reports, leaflets, users, admin
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -87,6 +88,10 @@ app.include_router(alerts.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
 app.include_router(leaflets.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")
+
+# Admin panel static files
+app.mount("/admin", StaticFiles(directory="admin", html=True), name="admin")
 
 
 @app.get("/health")

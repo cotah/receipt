@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SmartDocket Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--primary:#1A4D35;--light:#2E7D52;--accent:#3CB371;--amber:#E8A020;--bg:#F7F5F0;--card:#FFF;--text:#1A1A1A;--sec:#6B7280;--border:#E5E7EB;--danger:#DC3545}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh}
+/* Sidebar */
+.sidebar{width:240px;background:var(--primary);color:#fff;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;transition:transform .3s}
+.sidebar-header{padding:24px 20px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sidebar-header h1{font-size:20px;font-weight:700;letter-spacing:.5px}
+.sidebar-header span{font-size:11px;opacity:.6;display:block;margin-top:2px}
+.sidebar nav{flex:1;padding:12px 0}
+.sidebar nav a{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.7);text-decoration:none;font-size:14px;font-weight:500;border-left:3px solid transparent;transition:all .15s}
+.sidebar nav a:hover,.sidebar nav a.active{color:#fff;background:rgba(255,255,255,.08);border-left-color:var(--accent)}
+.sidebar nav a svg{width:18px;height:18px;fill:currentColor;flex-shrink:0}
+/* Main */
+.main{margin-left:240px;flex:1;padding:24px 32px;max-width:1200px}
+/* Top bar */
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:16px;flex-wrap:wrap}
+.topbar h2{font-size:22px;font-weight:700;color:var(--primary)}
+.topbar .token-input{display:flex;gap:8px;align-items:center}
+.topbar input{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:260px}
+.topbar button{padding:8px 16px;background:var(--primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
+/* KPI Cards */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.kpi{background:var(--card);border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.kpi .label{font-size:12px;color:var(--sec);text-transform:uppercase;letter-spacing:.5px}
+.kpi .value{font-size:28px;font-weight:700;margin-top:4px}
+.kpi .sub{font-size:12px;color:var(--sec);margin-top:2px}
+.kpi.green .value{color:var(--accent)}
+.kpi.amber .value{color:var(--amber)}
+.kpi.primary .value{color:var(--primary)}
+/* Card */
+.card{background:var(--card);border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:20px}
+.card h3{font-size:16px;font-weight:600;margin-bottom:14px;color:var(--primary)}
+/* Table */
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--sec);padding:10px 12px;border-bottom:2px solid var(--border)}
+td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:14px}
+tr:hover td{background:#F9FAFB}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.badge-pro{background:#DCFCE7;color:var(--accent)}
+.badge-free{background:#F3F4F6;color:var(--sec)}
+.badge-ok{background:#DCFCE7;color:var(--accent)}
+.badge-error{background:#FEE2E2;color:var(--danger)}
+/* Buttons */
+.btn{padding:6px 14px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-amber{background:var(--amber);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+/* Search */
+.search-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.search-bar input{flex:1;min-width:200px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px}
+.search-bar select{padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:#fff}
+/* Quick actions */
+.actions-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.action-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:all .15s}
+.action-card:hover{border-color:var(--primary);box-shadow:0 2px 8px rgba(26,77,53,.12)}
+.action-card .icon{font-size:24px;margin-bottom:6px}
+.action-card .title{font-size:13px;font-weight:600;color:var(--text)}
+.action-card .desc{font-size:11px;color:var(--sec);margin-top:2px}
+/* Chart */
+.chart-wrap{height:260px;position:relative}
+/* Section */
+.section{display:none}
+.section.active{display:block}
+/* Pagination */
+.pagination{display:flex;gap:8px;justify-content:center;margin-top:16px}
+.pagination button{padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:13px}
+.pagination button.current{background:var(--primary);color:#fff;border-color:var(--primary)}
+/* Hamburger */
+.hamburger{display:none;position:fixed;top:12px;left:12px;z-index:200;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:10px 12px;cursor:pointer;font-size:18px}
+/* Error list */
+.error-item{padding:12px;border-bottom:1px solid var(--border)}
+.error-item .meta{font-size:12px;color:var(--sec)}
+/* Responsive */
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .hamburger{display:block}
+  .main{margin-left:0;padding:16px}
+  .topbar input{width:160px}
+}
+</style>
+</head>
+<body>
+
+<button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">&#9776;</button>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h1>SmartDocket</h1>
+    <span>Admin Panel</span>
+  </div>
+  <nav>
+    <a href="#" data-section="overview" class="active" onclick="showSection('overview',this)">
+      <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      Overview</a>
+    <a href="#" data-section="users" onclick="showSection('users',this)">
+      <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+      Users</a>
+    <a href="#" data-section="scrapers" onclick="showSection('scrapers',this)">
+      <svg viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+      Scrapers</a>
+    <a href="#" data-section="activity" onclick="showSection('activity',this)">
+      <svg viewBox="0 0 24 24"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>
+      Activity</a>
+    <a href="#" data-section="errors" onclick="showSection('errors',this)">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      Errors</a>
+    <a href="#" data-section="actions" onclick="showSection('actions',this)">
+      <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      Quick Actions</a>
+  </nav>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <h2 id="page-title">Overview</h2>
+    <div class="token-input">
+      <input type="password" id="token" placeholder="Supabase auth token" value="">
+      <button onclick="saveToken()">Save</button>
+    </div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="section active" id="sec-overview">
+    <div class="kpi-row" id="kpi-row"></div>
+    <div class="card"><h3>Scans per day (last 14 days)</h3><div class="chart-wrap"><canvas id="scansChart"></canvas></div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="card"><h3>Scraper Status</h3><table><thead><tr><th>Scraper</th><th>Items</th><th>Status</th></tr></thead><tbody id="overview-scrapers"></tbody></table></div>
+      <div class="card"><h3>Recent Errors</h3><div id="overview-errors" style="max-height:250px;overflow-y:auto"></div></div>
+    </div>
+  </div>
+
+  <!-- USERS -->
+  <div class="section" id="sec-users">
+    <div class="search-bar">
+      <input type="text" id="user-search" placeholder="Search by email or name..." onkeyup="if(event.key==='Enter')loadUsers()">
+      <select id="user-plan-filter" onchange="loadUsers()"><option value="">All plans</option><option value="free">Free</option><option value="pro">Pro</option></select>
+      <button class="btn btn-primary" onclick="loadUsers()">Search</button>
+    </div>
+    <div class="card">
+      <table><thead><tr><th>Name</th><th>Email</th><th>Plan</th><th>Scans/mo</th><th>Chat/day</th><th>Points</th><th>Joined</th><th></th></tr></thead><tbody id="users-body"></tbody></table>
+      <div class="pagination" id="users-pagination"></div>
+    </div>
+  </div>
+
+  <!-- SCRAPERS -->
+  <div class="section" id="sec-scrapers">
+    <div class="card">
+      <table><thead><tr><th>Scraper</th><th>Schedule</th><th>Items in DB</th><th>Status</th><th></th></tr></thead><tbody id="scrapers-body"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ACTIVITY -->
+  <div class="section" id="sec-activity">
+    <div class="card"><h3>Scans per day</h3><div class="chart-wrap"><canvas id="activityChart"></canvas></div></div>
+  </div>
+
+  <!-- ERRORS -->
+  <div class="section" id="sec-errors">
+    <div class="card"><h3>Recent Failed Receipts</h3><div id="errors-list"></div></div>
+  </div>
+
+  <!-- QUICK ACTIONS -->
+  <div class="section" id="sec-actions">
+    <div class="actions-grid">
+      <div class="action-card" onclick="runAction('scrapers/dunnes/run','POST')"><div class="icon">🟢</div><div class="title">Run Dunnes</div><div class="desc">Start scraper now</div></div>
+      <div class="action-card" onclick="runAction('scrapers/supervalu/run','POST')"><div class="icon">🔵</div><div class="title">Run SuperValu</div><div class="desc">Start scraper now</div></div>
+      <div class="action-card" onclick="runAction('scrapers/tesco/run','POST')"><div class="icon">🔴</div><div class="title">Run Tesco</div><div class="desc">Start scraper now</div></div>
+      <div class="action-card" onclick="runAction('scrapers/lidl/run','POST')"><div class="icon">🟡</div><div class="title">Run Lidl</div><div class="desc">Start scraper now</div></div>
+      <div class="action-card" onclick="runAction('scrapers/aldi/run','POST')"><div class="icon">🟠</div><div class="title">Run Aldi</div><div class="desc">Start PDF pipeline</div></div>
+      <div class="action-card" onclick="runAction('email/test','POST')"><div class="icon">📧</div><div class="title">Test Email</div><div class="desc">Send to your inbox</div></div>
+      <div class="action-card" onclick="runAction('cache/clear','POST')"><div class="icon">🗑️</div><div class="title">Clear Cache</div><div class="desc">Flush Redis</div></div>
+      <div class="action-card" onclick="exportCSV()"><div class="icon">📊</div><div class="title">Export Users</div><div class="desc">Download CSV</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = '/api/v1/admin';
+let scansChart = null, activityChart = null;
+let usersPage = 1;
+let allUsersCache = [];
+
+function getToken() { return localStorage.getItem('admin_token') || document.getElementById('token').value; }
+function saveToken() { localStorage.setItem('admin_token', document.getElementById('token').value); location.reload(); }
+
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('admin_token');
+  if (saved) document.getElementById('token').value = saved;
+  loadOverview();
+});
+
+async function api(path, method='GET', body=null) {
+  const opts = { method, headers: { 'Authorization': 'Bearer ' + getToken(), 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(BASE + '/' + path, opts);
+  if (!r.ok) { const e = await r.text(); throw new Error(e); }
+  return r.json();
+}
+
+function showSection(id, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-' + id).classList.add('active');
+  document.querySelectorAll('.sidebar nav a').forEach(a => a.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('page-title').textContent = el ? el.textContent.trim() : id;
+  document.querySelector('.sidebar').classList.remove('open');
+  if (id === 'users') loadUsers();
+  if (id === 'scrapers') loadScrapers();
+  if (id === 'activity') loadActivity();
+  if (id === 'errors') loadErrors();
+  if (id === 'overview') loadOverview();
+}
+
+async function loadOverview() {
+  try {
+    const [stats, scrapers, errors, activity] = await Promise.all([
+      api('stats'), api('scrapers'), api('errors'), api('activity')
+    ]);
+    // KPIs
+    document.getElementById('kpi-row').innerHTML = `
+      <div class="kpi primary"><div class="label">Total Users</div><div class="value">${stats.total_users}</div><div class="sub">${stats.pro_users} pro / ${stats.free_users} free</div></div>
+      <div class="kpi green"><div class="label">MRR</div><div class="value">&euro;${stats.mrr.toFixed(2)}</div><div class="sub">${stats.pro_users} x &euro;4.99</div></div>
+      <div class="kpi amber"><div class="label">Scans Today</div><div class="value">${stats.scans_today}</div><div class="sub">${stats.scans_week} this week</div></div>
+      <div class="kpi"><div class="label">Prices in DB</div><div class="value">${stats.total_prices_in_db.toLocaleString()}</div><div class="sub">${stats.active_scrapers} scrapers</div></div>
+    `;
+    // Chart
+    const ctx = document.getElementById('scansChart').getContext('2d');
+    if (scansChart) scansChart.destroy();
+    scansChart = new Chart(ctx, { type:'bar', data:{ labels: activity.days.map(d=>d.date), datasets:[{ label:'Scans', data: activity.days.map(d=>d.scans), backgroundColor:'#2E7D52', borderRadius:6 }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{stepSize:1}}} } });
+    // Scrapers
+    document.getElementById('overview-scrapers').innerHTML = scrapers.scrapers.map(s => `<tr><td>${s.name}</td><td>${s.items_count.toLocaleString()}</td><td><span class="badge badge-${s.status}">${s.status}</span></td></tr>`).join('');
+    // Errors
+    const errs = errors.errors.slice(0, 5);
+    document.getElementById('overview-errors').innerHTML = errs.length ? errs.map(e => `<div class="error-item"><strong>${e.store_name || 'Unknown'}</strong> &mdash; ${e.id.slice(0,8)}<div class="meta">${new Date(e.created_at).toLocaleString()}</div></div>`).join('') : '<p style="color:var(--sec);padding:12px">No errors</p>';
+  } catch(e) { console.error(e); }
+}
+
+async function loadUsers() {
+  const search = document.getElementById('user-search').value;
+  const plan = document.getElementById('user-plan-filter').value;
+  try {
+    const data = await api(`users?page=${usersPage}&per_page=15&search=${encodeURIComponent(search)}&plan=${plan}`);
+    allUsersCache = data.users;
+    const tbody = document.getElementById('users-body');
+    tbody.innerHTML = data.users.map(u => `<tr>
+      <td>${u.full_name || '<em>—</em>'}</td><td>${u.email || ''}</td>
+      <td><span class="badge badge-${u.plan}">${u.plan}</span></td>
+      <td>${u.scans_this_month}</td><td>${u.chat_queries_today}</td><td>${u.points}</td>
+      <td style="font-size:12px;color:var(--sec)">${u.created_at ? new Date(u.created_at).toLocaleDateString() : ''}</td>
+      <td>${u.plan !== 'pro' ? `<button class="btn btn-accent" onclick="upgradeUser('${u.id}')">Upgrade</button>` : ''}</td>
+    </tr>`).join('');
+    // Pagination
+    const totalPages = Math.ceil(data.total / data.per_page);
+    let pag = '';
+    for (let i = 1; i <= totalPages && i <= 10; i++) {
+      pag += `<button class="${i===usersPage?'current':''}" onclick="usersPage=${i};loadUsers()">${i}</button>`;
+    }
+    document.getElementById('users-pagination').innerHTML = pag;
+  } catch(e) { console.error(e); }
+}
+
+async function loadScrapers() {
+  try {
+    const data = await api('scrapers');
+    document.getElementById('scrapers-body').innerHTML = data.scrapers.map(s => `<tr>
+      <td><strong>${s.name}</strong></td><td>${s.schedule}</td><td>${s.items_count.toLocaleString()}</td>
+      <td><span class="badge badge-${s.status}">${s.status}</span></td>
+      <td><button class="btn btn-primary" onclick="runAction('scrapers/${s.name}/run','POST')">Run Now</button></td>
+    </tr>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function loadActivity() {
+  try {
+    const data = await api('activity');
+    const ctx = document.getElementById('activityChart').getContext('2d');
+    if (activityChart) activityChart.destroy();
+    activityChart = new Chart(ctx, { type:'bar', data:{ labels: data.days.map(d=>d.date), datasets:[{ label:'Scans', data: data.days.map(d=>d.scans), backgroundColor:'#1A4D35', borderRadius:6 }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{stepSize:1}}} } });
+  } catch(e) { console.error(e); }
+}
+
+async function loadErrors() {
+  try {
+    const data = await api('errors');
+    document.getElementById('errors-list').innerHTML = data.errors.length ? data.errors.map(e => `<div class="error-item"><strong>${e.store_name || 'Unknown'}</strong> &mdash; Receipt ${e.id.slice(0,8)}<div class="meta">User: ${e.user_id?.slice(0,8) || '?'} &middot; ${new Date(e.created_at).toLocaleString()}</div></div>`).join('') : '<p style="color:var(--sec);padding:20px;text-align:center">No errors found</p>';
+  } catch(e) { console.error(e); }
+}
+
+async function upgradeUser(id) {
+  if (!confirm('Upgrade this user to Pro for 12 months?')) return;
+  try { await api(`users/${id}/upgrade`, 'POST', { months: 12 }); alert('User upgraded!'); loadUsers(); } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function runAction(path, method) {
+  try { const r = await api(path, method); alert(JSON.stringify(r)); } catch(e) { alert('Error: ' + e.message); }
+}
+
+function exportCSV() {
+  if (!allUsersCache.length) { alert('Load users first'); return; }
+  const headers = ['name','email','plan','scans','chat','points','joined'];
+  const rows = allUsersCache.map(u => [u.full_name||'',u.email||'',u.plan,u.scans_this_month,u.chat_queries_today,u.points,u.created_at||''].join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'smartdocket-users.csv'; a.click();
+}
+</script>
+</body>
+</html>
