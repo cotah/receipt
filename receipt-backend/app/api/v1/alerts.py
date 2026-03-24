@@ -1,0 +1,69 @@
+import math
+from fastapi import APIRouter, Depends, HTTPException, Query
+from app.utils.auth_utils import get_current_user
+from app.database import get_service_client
+from app.models.alert import AlertListResponse, AlertResponse
+
+router = APIRouter(prefix="/alerts", tags=["alerts"])
+
+
+@router.get("", response_model=AlertListResponse)
+async def list_alerts(
+    unread_only: bool = False,
+    page: int = 1,
+    per_page: int = 20,
+    user_id: str = Depends(get_current_user),
+):
+    db = get_service_client()
+
+    # Unread count
+    unread_resp = (
+        db.table("alerts")
+        .select("id", count="exact")
+        .eq("user_id", user_id)
+        .eq("is_read", False)
+        .execute()
+    )
+    unread_count = unread_resp.count or 0
+
+    # Query alerts
+    query = (
+        db.table("alerts")
+        .select("*", count="exact")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+    )
+    if unread_only:
+        query = query.eq("is_read", False)
+
+    offset = (page - 1) * per_page
+    query = query.range(offset, offset + per_page - 1)
+    result = query.execute()
+
+    alerts = [AlertResponse(**a) for a in (result.data or [])]
+    return AlertListResponse(unread_count=unread_count, data=alerts)
+
+
+@router.patch("/{alert_id}/read", status_code=200)
+async def mark_as_read(
+    alert_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    db = get_service_client()
+    result = (
+        db.table("alerts")
+        .update({"is_read": True})
+        .eq("id", alert_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return {"status": "ok"}
+
+
+@router.patch("/read-all", status_code=200)
+async def mark_all_as_read(user_id: str = Depends(get_current_user)):
+    db = get_service_client()
+    db.table("alerts").update({"is_read": True}).eq("user_id", user_id).eq("is_read", False).execute()
+    return {"status": "ok"}

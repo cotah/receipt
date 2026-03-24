@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "Receipt",
+    "slug": "receipt",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "receipt",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "ie.receipt.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Receipt needs camera access to scan your grocery receipts",
+        "NSPhotoLibraryUsageDescription": "Receipt needs photo library access to import receipt images"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0D2B1D"
+      },
+      "package": "ie.receipt.app",
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://receipt.ie"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#F7F5F0"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Receipt needs camera access to scan your grocery receipts"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Receipt needs photo library access to import receipt images"
+        }
+      ],
+      "expo-secure-store",
+      "expo-asset"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id"
+      }
+    }
+  }
+}
