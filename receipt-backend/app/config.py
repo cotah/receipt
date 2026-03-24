@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     REPORT_CRON_DAY: int = 1
     REPORT_CRON_HOUR: int = 9
 
+    # Sentry
+    SENTRY_DSN: str = ""
+
     # Email (Resend)
     RESEND_API_KEY: str = ""
     FROM_EMAIL: str = "SmartDocket <reports@smartdocket.app>"

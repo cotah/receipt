@@ -1,9 +1,19 @@
 import logging
 from contextlib import asynccontextmanager
+
+import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.config import settings
+
+if settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        traces_sample_rate=0.1,
+        environment=settings.ENVIRONMENT,
+        send_default_pii=False,
+    )
 from app.api.v1 import receipts, products, prices, chat, alerts, reports, leaflets, users
 
 logging.basicConfig(level=logging.INFO)
