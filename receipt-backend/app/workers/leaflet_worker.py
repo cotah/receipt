@@ -282,6 +282,174 @@ async def scrape_mi9_store(store: Mi9Store) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Lidl Ireland (Schwarz API) scraper
+# ---------------------------------------------------------------------------
+
+LIDL_FLYER_API = (
+    "https://endpoints.leaflets.schwarz/v4/flyer"
+)
+
+_MONTH_NAMES = [
+    "", "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december",
+]
+
+
+def _lidl_flyer_slug(today: datetime | None = None) -> str:
+    """Build the Lidl flyer slug for the current week.
+
+    Format: ``from-thu-DD-MM-to-wed-DD-MM-{month(s)}``
+    The Thursday is the *next* Thursday from ``today`` (inclusive).
+    Wednesday is 6 days after that Thursday.
+    If the two dates span different months the suffix is
+    ``{month1}-to-{month2}``, otherwise just ``{month}``.
+    """
+    if today is None:
+        today = datetime.now(timezone.utc)
+
+    # Next Thursday (weekday 3). If today is Thursday, use today.
+    days_ahead = (3 - today.weekday()) % 7
+    if days_ahead == 0 and today.hour >= 12:
+        # If it's already Thursday afternoon, still use this Thursday
+        pass
+    thu = today + timedelta(days=days_ahead)
+    wed = thu + timedelta(days=6)
+
+    thu_dd = f"{thu.day:02d}"
+    thu_mm = f"{thu.month:02d}"
+    wed_dd = f"{wed.day:02d}"
+    wed_mm = f"{wed.month:02d}"
+
+    if thu.month == wed.month:
+        suffix = _MONTH_NAMES[thu.month]
+    else:
+        suffix = f"{_MONTH_NAMES[thu.month]}-to-{_MONTH_NAMES[wed.month]}"
+
+    return f"from-thu-{thu_dd}-{thu_mm}-to-wed-{wed_dd}-{wed_mm}-{suffix}"
+
+
+async def scrape_lidl_leaflet() -> None:
+    """Fetch the current Lidl Ireland weekly flyer and save products."""
+    db = get_service_client()
+    now = datetime.now(timezone.utc)
+    default_expires = now + timedelta(days=7)
+    total_saved = 0
+    errors = 0
+
+    slug = _lidl_flyer_slug(now)
+    log.info("Lidl scraper: slug=%s", slug)
+
+    # Clean expired Lidl entries
+    db.table("collective_prices").delete().eq(
+        "store_name", "Lidl",
+    ).eq("source", "leaflet").lt(
+        "expires_at", now.isoformat(),
+    ).execute()
+    log.info("Lidl scraper: expired entries removed")
+
+    async with httpx.AsyncClient(
+        timeout=30,
+        follow_redirects=True,
+        headers=BROWSER_HEADERS,
+    ) as client:
+        params = {
+            "flyer_identifier": slug,
+            "region_id": "0",
+            "region_code": "0",
+        }
+        try:
+            resp = await client.get(LIDL_FLYER_API, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            log.error("Lidl scraper: API request failed: %s", e)
+            return
+
+        # Flyer-level endDate for default expiry
+        flyer_end = default_expires
+        flyer_info = data if isinstance(data, dict) else {}
+        end_str = flyer_info.get("endDate") or flyer_info.get("end_date")
+        if end_str:
+            try:
+                dt = dateutil_parser.isoparse(end_str)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                flyer_end = dt
+            except (ValueError, TypeError):
+                pass
+
+        # Products can be nested in various structures
+        products: list[dict] = []
+        if isinstance(data, list):
+            products = data
+        elif isinstance(data, dict):
+            # Try common keys
+            for key in ("products", "items", "pages"):
+                items = data.get(key)
+                if items and isinstance(items, list):
+                    # "pages" may contain nested product lists
+                    if key == "pages":
+                        for page in items:
+                            if isinstance(page, dict):
+                                page_items = page.get("products") or page.get("items") or []
+                                products.extend(page_items)
+                            elif isinstance(page, list):
+                                products.extend(page)
+                    else:
+                        products = items
+                    break
+
+        log.info("Lidl scraper: found %d products", len(products))
+
+        for item in products:
+            try:
+                name = item.get("title") or item.get("name")
+                price = item.get("price") or item.get("priceNumeric")
+                if not name or price is None:
+                    continue
+
+                price = float(price)
+                category = item.get("categoryPrimary") or "Other"
+
+                # Item-level or flyer-level expiry
+                item_expires = flyer_end
+                item_flyer = item.get("flyer") or {}
+                item_end = item_flyer.get("endDate") or item_flyer.get("end_date")
+                if item_end:
+                    try:
+                        dt = dateutil_parser.isoparse(item_end)
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        item_expires = dt
+                    except (ValueError, TypeError):
+                        pass
+
+                product_key = generate_product_key(name)
+
+                db.table("collective_prices").insert({
+                    "product_key": product_key,
+                    "product_name": name,
+                    "category": category,
+                    "store_name": "Lidl",
+                    "unit_price": price,
+                    "is_on_offer": True,
+                    "source": "leaflet",
+                    "observed_at": now.isoformat(),
+                    "expires_at": item_expires.isoformat(),
+                }).execute()
+                total_saved += 1
+            except Exception as e:
+                errors += 1
+                log.warning("Lidl scraper: item error: %s", e)
+
+    log.info(
+        "Lidl scraper: finished — %d items saved, %d errors",
+        total_saved,
+        errors,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Leaflet jobs
 # ---------------------------------------------------------------------------
 
@@ -315,6 +483,15 @@ async def run_supervalu_scraper():
         await scrape_mi9_store(SUPERVALU)
     except Exception as e:
         log.error(f"SuperValu scraper failed: {e}")
+
+
+async def run_lidl_scraper():
+    """Run Lidl leaflet scraper standalone."""
+    log.info("Starting Lidl leaflet scraper...")
+    try:
+        await scrape_lidl_leaflet()
+    except Exception as e:
+        log.error(f"Lidl scraper failed: {e}")
 
 
 def setup_leaflet_scheduler(scheduler: AsyncIOScheduler):
@@ -358,3 +535,15 @@ def setup_leaflet_scheduler(scheduler: AsyncIOScheduler):
         replace_existing=True,
     )
     log.info("SuperValu scraper scheduled: even days at 06:00")
+
+    # Lidl — every Thursday at 07:00
+    scheduler.add_job(
+        run_lidl_scraper,
+        "cron",
+        day_of_week="thu",
+        hour=7,
+        minute=0,
+        id="lidl_scraper",
+        replace_existing=True,
+    )
+    log.info("Lidl scraper scheduled: Thu at 07:00")
