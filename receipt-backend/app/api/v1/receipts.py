@@ -111,7 +111,7 @@ async def process_receipt_async(
         )
 
         # 3. Update receipt
-        purchased_at = data.get("purchased_at", datetime.now(timezone.utc).isoformat())
+        purchased_at = data.get("purchased_at") or datetime.now(timezone.utc).isoformat()
         db.table("receipts").update({
             "store_name": data.get("store_name", "Unknown"),
             "store_branch": data.get("store_branch"),
