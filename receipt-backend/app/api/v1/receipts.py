@@ -166,6 +166,23 @@ async def process_receipt_async(
             except Exception:
                 pass  # Non-critical
 
+        # 7. Award points for successful scan
+        try:
+            profile_pts = (
+                db.table("profiles")
+                .select("points")
+                .eq("id", user_id)
+                .single()
+                .execute()
+            )
+            current_pts = (profile_pts.data or {}).get("points") or 0
+            db.table("profiles").update(
+                {"points": current_pts + 10}
+            ).eq("id", user_id).execute()
+            log.info(f"[{receipt_id}] Awarded 10 points (total: {current_pts + 10})")
+        except Exception as pts_err:
+            log.warning(f"[{receipt_id}] Failed to award points: {pts_err}")
+
         log.info(f"[{receipt_id}] Processing complete — {len(items)} items saved")
 
     except Exception as e:

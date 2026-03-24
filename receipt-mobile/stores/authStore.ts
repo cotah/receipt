@@ -13,6 +13,8 @@ export interface UserProfile {
   home_area: string | null;
   notify_alerts: boolean;
   notify_reports: boolean;
+  points: number;
+  referral_code: string | null;
 }
 
 interface AuthState {

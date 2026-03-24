@@ -19,6 +19,12 @@ function getInitials(name: string | null | undefined): string {
   return parts[0][0]?.toUpperCase() ?? '?';
 }
 
+function getLevel(points: number): { label: string; emoji: string } {
+  if (points >= 500) return { label: 'Smart Shopper', emoji: '⭐' };
+  if (points >= 100) return { label: 'Saver', emoji: '💚' };
+  return { label: 'Starter', emoji: '🌱' };
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
   const profile = useAuthStore((s) => s.profile);
@@ -101,9 +107,10 @@ export default function ProfileScreen() {
   };
 
   const handleReferFriend = async () => {
+    const code = profile?.referral_code || 'SMART';
     try {
       await Share.share({
-        message: 'Track your grocery spending with SmartDocket! Download now: https://smartdocket.app/invite',
+        message: `I'm saving money on groceries with SmartDocket! Use my code ${code} to join: https://smartdocket.ie`,
       });
     } catch {
       // User cancelled
@@ -125,6 +132,8 @@ export default function ProfileScreen() {
   };
 
   const initials = getInitials(profile?.full_name);
+  const points = profile?.points ?? 0;
+  const level = getLevel(points);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -286,7 +295,7 @@ export default function ProfileScreen() {
                 </View>
                 <Text style={styles.rowLabel}>Points</Text>
               </View>
-              <Text style={styles.rowValueBold}>0</Text>
+              <Text style={styles.rowValueBold}>{points}</Text>
             </View>
 
             <View style={styles.divider} />
@@ -299,7 +308,7 @@ export default function ProfileScreen() {
                 <Text style={styles.rowLabel}>Level</Text>
               </View>
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>Starter</Text>
+                <Text style={styles.badgeText}>{level.label} {level.emoji}</Text>
               </View>
             </View>
 
@@ -310,7 +319,7 @@ export default function ProfileScreen() {
                 <View style={styles.iconCircle}>
                   <Feather name="gift" size={16} color={Colors.primary.default} />
                 </View>
-                <Text style={styles.rowLabel}>Refer a Friend</Text>
+                <Text style={styles.rowLabel}>Refer a Friend 🎁</Text>
               </View>
               <View style={styles.rowRight}>
                 <Text style={styles.rowValueAccent}>Share link</Text>

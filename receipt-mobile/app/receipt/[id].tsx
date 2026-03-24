@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, ScrollView, Image, Pressable, StyleSheet, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, ScrollView, Image, Pressable, StyleSheet, Alert, Modal, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -18,6 +18,7 @@ export default function ReceiptDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { currentReceipt, isLoading, fetchReceiptDetail, deleteReceipt, clearCurrent } = useReceipts();
+  const [imageModalVisible, setImageModalVisible] = useState(false);
 
   useEffect(() => {
     if (id) fetchReceiptDetail(id);
@@ -96,8 +97,30 @@ export default function ReceiptDetailScreen() {
         {r.image_url && (
           <View style={styles.imageSection}>
             <Text style={styles.sectionTitle}>Receipt Image</Text>
-            <Image source={{ uri: r.image_url }} style={styles.receiptImage} resizeMode="contain" />
+            <Pressable onPress={() => setImageModalVisible(true)}>
+              <Image source={{ uri: r.image_url }} style={styles.receiptImage} resizeMode="contain" />
+              <View style={styles.expandHint}>
+                <Feather name="maximize-2" size={14} color="#FFF" />
+                <Text style={styles.expandHintText}>Tap to expand</Text>
+              </View>
+            </Pressable>
           </View>
+        )}
+
+        {/* Fullscreen image modal */}
+        {r.image_url && (
+          <Modal visible={imageModalVisible} transparent animationType="fade" onRequestClose={() => setImageModalVisible(false)}>
+            <View style={styles.imageModal}>
+              <Pressable style={styles.imageModalClose} onPress={() => setImageModalVisible(false)}>
+                <Feather name="x" size={28} color="#FFF" />
+              </Pressable>
+              <Image
+                source={{ uri: r.image_url }}
+                style={styles.imageModalImg}
+                resizeMode="contain"
+              />
+            </View>
+          </Modal>
         )}
 
         {/* Delete */}
@@ -128,5 +151,24 @@ const styles = StyleSheet.create({
   sectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm, marginTop: Spacing.md },
   imageSection: { marginTop: Spacing.lg },
   receiptImage: { width: '100%', height: 400, borderRadius: 12, backgroundColor: Colors.surface.alt },
+  expandHint: {
+    position: 'absolute', bottom: 12, right: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
+  },
+  expandHintText: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: '#FFF' },
+  imageModal: {
+    flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center',
+  },
+  imageModalClose: {
+    position: 'absolute', top: 60, right: 20, zIndex: 10,
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  imageModalImg: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height * 0.85,
+  },
   deleteSection: { marginTop: Spacing.xl, alignItems: 'center' },
 });
