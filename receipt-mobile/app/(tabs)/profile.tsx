@@ -134,6 +134,7 @@ export default function ProfileScreen() {
   const initials = getInitials(profile?.full_name);
   const points = profile?.points ?? 0;
   const level = getLevel(points);
+  const isPro = profile?.plan === 'pro';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -284,10 +285,37 @@ export default function ProfileScreen() {
           </Card>
         </View>
 
-        {/* Rewards section */}
+        {/* Plan + Rewards section */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>REWARDS</Text>
+          <Text style={styles.sectionLabel}>PLAN & REWARDS</Text>
           <Card variant="elevated" style={styles.sectionCard}>
+            {/* Plan */}
+            <View style={styles.row}>
+              <View style={styles.rowLeft}>
+                <View style={styles.iconCircle}>
+                  <Feather name="zap" size={16} color={isPro ? Colors.accent.amber : Colors.text.secondary} />
+                </View>
+                <View>
+                  <Text style={styles.rowLabel}>{isPro ? 'Pro Plan' : 'Free Plan'}</Text>
+                  <Text style={styles.rowHint}>
+                    {isPro ? 'Unlimited scans & AI' : '10 scans/month, 5 AI queries/day'}
+                  </Text>
+                </View>
+              </View>
+              {isPro ? (
+                <View style={styles.proBadge}>
+                  <Text style={styles.proBadgeText}>Pro ⭐</Text>
+                </View>
+              ) : (
+                <Pressable style={styles.upgradeBtn}>
+                  <Text style={styles.upgradeBtnText}>Upgrade to Pro →</Text>
+                </Pressable>
+              )}
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Points */}
             <View style={styles.row}>
               <View style={styles.rowLeft}>
                 <View style={styles.iconCircle}>
@@ -300,6 +328,7 @@ export default function ProfileScreen() {
 
             <View style={styles.divider} />
 
+            {/* Level */}
             <View style={styles.row}>
               <View style={styles.rowLeft}>
                 <View style={styles.iconCircle}>
@@ -314,6 +343,7 @@ export default function ProfileScreen() {
 
             <View style={styles.divider} />
 
+            {/* Refer */}
             <Pressable style={styles.row} onPress={handleReferFriend}>
               <View style={styles.rowLeft}>
                 <View style={styles.iconCircle}>
@@ -422,6 +452,24 @@ const styles = StyleSheet.create({
     color: Colors.primary.default,
   },
   divider: { height: 1, backgroundColor: Colors.surface.alt, marginHorizontal: Spacing.md },
+  rowHint: {
+    fontFamily: 'DMSans_400Regular', fontSize: 11,
+    color: Colors.text.tertiary, marginTop: 1,
+  },
+  proBadge: {
+    backgroundColor: Colors.accent.amber + '20',
+    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14,
+  },
+  proBadgeText: {
+    fontFamily: 'DMSans_700Bold', fontSize: 13, color: Colors.accent.amber,
+  },
+  upgradeBtn: {
+    backgroundColor: Colors.primary.default,
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
+  },
+  upgradeBtnText: {
+    fontFamily: 'DMSans_600SemiBold', fontSize: 12, color: '#FFF',
+  },
 
   // Inline editing
   inlineEdit: { flexDirection: 'row', alignItems: 'center', gap: 8 },

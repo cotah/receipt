@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 from app.utils.auth_utils import get_current_user
 from app.database import get_service_client
 from app.services.chat_service import chat_stream
+from app.utils.plan_utils import check_chat_limit, increment_chat_count
 from app.models.chat import ChatMessageRequest, ChatSessionsResponse, ChatSession
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -16,6 +17,17 @@ async def send_message(
     user_id: str = Depends(get_current_user),
 ):
     db = get_service_client()
+
+    # Check plan chat limit
+    profile_row = (
+        db.table("profiles")
+        .select("plan, plan_expires_at, chat_queries_today, chat_queries_reset")
+        .eq("id", user_id)
+        .single()
+        .execute()
+    )
+    check_chat_limit(db, user_id, profile_row.data or {})
+
     session_id = str(body.session_id) if body.session_id else str(uuid.uuid4())
 
     # Load history
@@ -53,6 +65,9 @@ async def send_message(
             "role": "assistant",
             "content": full_response,
         }).execute()
+
+        # Increment chat query counter
+        increment_chat_count(db, user_id)
 
         yield f'data: {json.dumps({"type": "done", "context": {}})}\n\n'
 

@@ -2,13 +2,15 @@ import uuid
 import math
 import logging
 import traceback
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi.responses import JSONResponse
 from app.utils.auth_utils import get_current_user
 from app.utils.image_utils import compress_image, validate_image
 from app.utils.text_utils import generate_product_key
 from app.database import get_service_client
 from app.config import settings
+from app.utils.plan_utils import check_scan_limit, increment_scan_count, is_pro
 from app.models.receipt import (
     ReceiptUploadResponse,
     ReceiptListResponse,
@@ -36,11 +38,21 @@ async def upload_receipt(
     if error:
         raise HTTPException(status_code=400, detail=error)
 
+    # Check plan scan limit
+    db = get_service_client()
+    profile_row = (
+        db.table("profiles")
+        .select("plan, plan_expires_at, scans_this_month, scans_month_reset")
+        .eq("id", user_id)
+        .single()
+        .execute()
+    )
+    check_scan_limit(db, user_id, profile_row.data or {})
+
     # Compress if needed
     if file.content_type and file.content_type.startswith("image/") and len(content) > 2 * 1024 * 1024:
         content = compress_image(content)
 
-    db = get_service_client()
     receipt_id = str(uuid.uuid4())
     ext = "pdf" if source == "pdf" else "jpg"
     storage_path = f"{user_id}/{receipt_id}.{ext}"
@@ -166,20 +178,23 @@ async def process_receipt_async(
             except Exception:
                 pass  # Non-critical
 
-        # 7. Award points for successful scan
+        # 7. Increment scan counter and award points
         try:
+            increment_scan_count(db, user_id)
             profile_pts = (
                 db.table("profiles")
-                .select("points")
+                .select("points, plan, plan_expires_at")
                 .eq("id", user_id)
                 .single()
                 .execute()
             )
-            current_pts = (profile_pts.data or {}).get("points") or 0
+            pts_data = profile_pts.data or {}
+            current_pts = pts_data.get("points") or 0
+            award = 25 if is_pro(pts_data) else 10
             db.table("profiles").update(
-                {"points": current_pts + 10}
+                {"points": current_pts + award}
             ).eq("id", user_id).execute()
-            log.info(f"[{receipt_id}] Awarded 10 points (total: {current_pts + 10})")
+            log.info(f"[{receipt_id}] Awarded {award} points (total: {current_pts + award})")
         except Exception as pts_err:
             log.warning(f"[{receipt_id}] Failed to award points: {pts_err}")
 
@@ -202,12 +217,30 @@ async def list_receipts(
     user_id: str = Depends(get_current_user),
 ):
     db = get_service_client()
+
+    # Check plan for history limit
+    profile_row = (
+        db.table("profiles")
+        .select("plan, plan_expires_at")
+        .eq("id", user_id)
+        .single()
+        .execute()
+    )
+    user_is_pro = is_pro(profile_row.data or {})
+    plan_limit_header = None
+
     query = (
         db.table("receipts")
         .select("*, receipt_items(count)", count="exact")
         .eq("user_id", user_id)
         .order("purchased_at", desc=True)
     )
+
+    # Free users: last 30 days only
+    if not user_is_pro:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        query = query.gte("purchased_at", cutoff)
+        plan_limit_header = "history-30-days"
 
     if store:
         query = query.eq("store_name", store)
@@ -243,7 +276,7 @@ async def list_receipts(
             created_at=r["created_at"],
         ))
 
-    return ReceiptListResponse(
+    response_data = ReceiptListResponse(
         data=receipts,
         pagination=PaginationMeta(
             page=page,
@@ -252,6 +285,13 @@ async def list_receipts(
             total_pages=math.ceil(total / per_page) if per_page > 0 else 0,
         ),
     )
+
+    if plan_limit_header:
+        return JSONResponse(
+            content=response_data.model_dump(mode="json"),
+            headers={"X-Plan-Limit": plan_limit_header},
+        )
+    return response_data
 
 
 @router.get("/{receipt_id}", response_model=ReceiptDetailResponse)

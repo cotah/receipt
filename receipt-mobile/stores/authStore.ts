@@ -15,6 +15,10 @@ export interface UserProfile {
   notify_reports: boolean;
   points: number;
   referral_code: string | null;
+  plan: 'free' | 'pro';
+  plan_expires_at: string | null;
+  scans_this_month: number;
+  chat_queries_today: number;
 }
 
 interface AuthState {

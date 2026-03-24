@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { Alert } from 'react-native';
 import api from '../services/api';
 import { supabase } from '../services/supabase';
 import { useChatStore, ChatMessage } from '../stores/chatStore';
@@ -52,6 +53,22 @@ export function useChat() {
       if (!response.ok) {
         const errorBody = await response.text().catch(() => '');
         console.error(`[Chat] Error ${response.status}:`, errorBody);
+
+        if (response.status === 402) {
+          const detail = (() => { try { return JSON.parse(errorBody)?.detail; } catch { return errorBody; } })();
+          Alert.alert('Upgrade to Pro', detail || 'You have reached your free plan limit.', [
+            { text: 'Later', style: 'cancel' },
+            { text: 'Learn More', style: 'default' },
+          ]);
+          addMessage({
+            id: `error-${Date.now()}`,
+            role: 'assistant',
+            content: detail || 'Free plan limit reached. Upgrade to Pro for unlimited AI chat.',
+            created_at: new Date().toISOString(),
+          });
+          return;
+        }
+
         addMessage({
           id: `error-${Date.now()}`,
           role: 'assistant',
