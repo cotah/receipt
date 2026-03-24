@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Query
 from app.utils.auth_utils import get_current_user
 from app.utils.text_utils import generate_product_key
 from app.database import get_service_client
+from app.services.cache_service import get_cache, set_cache
 from app.models.price import (
     PriceCompareResponse,
     StorePrice,
@@ -157,6 +158,12 @@ async def get_leaflet_offers(
     category: str | None = None,
     user_id: str = Depends(get_current_user),
 ):
+    # Try cache first (1 hour TTL)
+    cache_key = f"leaflet_offers:{store or 'all'}:{category or 'all'}"
+    cached = get_cache(cache_key)
+    if cached is not None:
+        return LeafletOffersResponse(**cached)
+
     db = get_service_client()
     now = datetime.now(timezone.utc)
 
@@ -191,4 +198,6 @@ async def get_leaflet_offers(
             valid_until=valid_until,
         ))
 
-    return LeafletOffersResponse(valid_until=max_valid, offers=offers)
+    response = LeafletOffersResponse(valid_until=max_valid, offers=offers)
+    set_cache(cache_key, response.model_dump(mode="json"), ttl_seconds=3600)
+    return response

@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     # Sentry
     SENTRY_DSN: str = ""
 
+    # Upstash Redis
+    UPSTASH_REDIS_URL: str = ""
+    UPSTASH_REDIS_TOKEN: str = ""
+
     # Email (Resend)
     RESEND_API_KEY: str = ""
     FROM_EMAIL: str = "SmartDocket <reports@smartdocket.app>"
