@@ -3,10 +3,15 @@ import { View, Text, StyleSheet } from 'react-native';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import { Colors } from '../../constants/colors';
-import { STORE_COLORS, StoreName } from '../../constants/stores';
-import { Spacing, BorderRadius } from '../../constants/typography';
+import { Spacing } from '../../constants/typography';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { formatRelativeDate } from '../../utils/formatDate';
+
+const STATUS_COLORS: Record<string, string> = {
+  done: Colors.accent.green,
+  failed: Colors.accent.red,
+  processing: Colors.accent.amber,
+};
 
 interface ReceiptCardProps {
   id: string;
@@ -24,13 +29,13 @@ export default function ReceiptCard({
   store_name, store_branch, purchased_at,
   total_amount, discount_total, items_count, status, onPress,
 }: ReceiptCardProps) {
-  const storeColor = STORE_COLORS[store_name as StoreName]?.primary ?? Colors.text.secondary;
+  const dotColor = STATUS_COLORS[status] ?? Colors.text.tertiary;
 
   return (
     <Card onPress={onPress} style={styles.card}>
       <View style={styles.row}>
         <View style={styles.left}>
-          <View style={[styles.dot, { backgroundColor: storeColor }]} />
+          <View style={[styles.dot, { backgroundColor: dotColor }]} />
           <View>
             <Text style={styles.storeName}>{store_name}</Text>
             {store_branch && <Text style={styles.branch}>{store_branch}</Text>}

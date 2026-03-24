@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, FlatList, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { useTabSwipe } from '../../hooks/useTabSwipe';
 import ChatBubble from '../../components/chat/ChatBubble';
 import ChatInput from '../../components/chat/ChatInput';
 import TypingIndicator from '../../components/chat/TypingIndicator';
@@ -18,7 +20,10 @@ const SUGGESTIONS = [
 export default function ChatScreen() {
   const { messages, isStreaming, sendMessage } = useChat();
 
+  const swipe = useTabSwipe(3);
+
   return (
+    <GestureDetector gesture={swipe}>
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>SmartDocket AI</Text>
@@ -53,6 +58,7 @@ export default function ChatScreen() {
         />
       </KeyboardAvoidingView>
     </SafeAreaView>
+    </GestureDetector>
   );
 }
 

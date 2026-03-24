@@ -1,13 +1,14 @@
 import React, { useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GestureDetector } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import Card from '../../components/ui/Card';
-import Badge from '../../components/ui/Badge';
 import ReceiptCard from '../../components/receipts/ReceiptCard';
 import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/typography';
+import { useTabSwipe } from '../../hooks/useTabSwipe';
 import { formatCurrency, formatCurrencyChange } from '../../utils/formatCurrency';
 import { useAuthStore } from '../../stores/authStore';
 import { useReceipts } from '../../hooks/useReceipts';
@@ -35,8 +36,12 @@ export default function HomeScreen() {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
   const monthTotal = monthReceipts.reduce((s, r) => s + r.total_amount, 0);
+  const monthDiscounts = monthReceipts.reduce((s, r) => s + (r.discount_total ?? 0), 0);
+
+  const swipe = useTabSwipe(0);
 
   return (
+    <GestureDetector gesture={swipe}>
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* Header */}
@@ -61,13 +66,13 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Shops</Text>
           </Card>
           <Card style={styles.statCard}>
-            <Text style={styles.statValue}>{receipts.length}</Text>
-            <Text style={styles.statLabel}>Receipts</Text>
+            <Text style={styles.statValue}>{formatCurrency(monthDiscounts)}</Text>
+            <Text style={styles.statLabel}>Discounts</Text>
           </Card>
           <Card style={styles.statCard}>
-            <Text style={[styles.statValue, { color: Colors.text.tertiary }]}>—</Text>
-            <Text style={styles.statLabel}>Saved</Text>
-            <Text style={styles.comingSoon}>Coming soon</Text>
+            <Text style={[styles.statValue, { color: Colors.text.tertiary }]}>{formatCurrency(0)}</Text>
+            <Text style={styles.statLabel}>Saved with SD</Text>
+            <Text style={styles.comingSoon}>Track your savings</Text>
           </Card>
         </View>
 
@@ -103,6 +108,7 @@ export default function HomeScreen() {
       </ScrollView>
 
     </SafeAreaView>
+    </GestureDetector>
   );
 }
 

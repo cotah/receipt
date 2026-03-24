@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as Linking from 'expo-linking';
 import * as SplashScreen from 'expo-splash-screen';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '../stores/authStore';
 
 SplashScreen.preventAutoHideAsync();
@@ -67,9 +68,9 @@ export default function RootLayout() {
   if (!fontsLoaded || isLoading) return null;
 
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="dark" />
       <Slot />
-    </>
+    </GestureHandlerRootView>
   );
 }

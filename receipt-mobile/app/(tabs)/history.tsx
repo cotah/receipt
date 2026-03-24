@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GestureDetector } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
 import ReceiptCard from '../../components/receipts/ReceiptCard';
 import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/typography';
 import { STORE_NAMES } from '../../constants/stores';
-import StoreTag from '../../components/prices/StoreTag';
 import { useReceipts } from '../../hooks/useReceipts';
+import { useTabSwipe } from '../../hooks/useTabSwipe';
 
 export default function HistoryScreen() {
   const router = useRouter();
@@ -32,12 +33,15 @@ export default function HistoryScreen() {
     }
   };
 
+  const swipe = useTabSwipe(1);
+
   return (
+    <GestureDetector gesture={swipe}>
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>History</Text>
 
-      {/* Store filter */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filters} contentContainerStyle={{ gap: Spacing.sm, paddingHorizontal: Spacing.md }}>
+      {/* Store filter — pill grid (max 2 lines) */}
+      <View style={styles.filters}>
         <Pressable onPress={() => setSelectedStore(null)} style={[styles.filterChip, !selectedStore && styles.filterActive]}>
           <Text style={[styles.filterText, !selectedStore && styles.filterTextActive]}>All</Text>
         </Pressable>
@@ -46,7 +50,7 @@ export default function HistoryScreen() {
             <Text style={[styles.filterText, store === selectedStore && styles.filterTextActive]}>{store}</Text>
           </Pressable>
         ))}
-      </ScrollView>
+      </View>
 
       {receipts.length === 0 && !isLoading ? (
         <View style={styles.empty}>
@@ -69,13 +73,22 @@ export default function HistoryScreen() {
         />
       )}
     </SafeAreaView>
+    </GestureDetector>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface.background },
   title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: Colors.primary.dark, paddingHorizontal: Spacing.md, paddingTop: Spacing.md },
-  filters: { marginVertical: Spacing.md, maxHeight: 44 },
+  filters: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginVertical: Spacing.md,
+    maxHeight: 88,
+    overflow: 'hidden',
+  },
   filterChip: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { useTabSwipe } from '../../hooks/useTabSwipe';
 import Input from '../../components/ui/Input';
 import PriceCompare from '../../components/prices/PriceCompare';
 import Card from '../../components/ui/Card';
@@ -24,7 +26,10 @@ export default function PricesScreen() {
     if (search.trim()) compareProduct(search.trim());
   };
 
+  const swipe = useTabSwipe(2);
+
   return (
+    <GestureDetector gesture={swipe}>
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Prices</Text>
 
@@ -88,6 +93,7 @@ export default function PricesScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
+    </GestureDetector>
   );
 }
 
