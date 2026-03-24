@@ -69,7 +69,7 @@ async def chat_stream(
         model="gpt-5.4-mini",
         messages=messages,
         stream=True,
-        max_tokens=800,
+        max_completion_tokens=800,
         temperature=0.7,
     )
 

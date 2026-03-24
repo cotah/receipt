@@ -14,7 +14,7 @@ try:
     import google.generativeai as genai
 
     genai.configure(api_key=settings.GOOGLE_API_KEY)
-    _gemini_model = genai.GenerativeModel("gemini-2.0-flash")
+    _gemini_model = genai.GenerativeModel("gemini-2.5-flash")
     log.info("OCR: Gemini Vision available")
 except Exception as e:
     log.warning(f"OCR: Gemini Vision unavailable ({type(e).__name__}: {e}), will use OpenAI Vision only")

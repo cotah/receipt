@@ -75,7 +75,7 @@ async def extract_receipt_data(raw_text: str) -> dict:
         ],
         response_format={"type": "json_object"},
         temperature=0,
-        max_tokens=4000,
+        max_completion_tokens=4000,
     )
     return json.loads(response.choices[0].message.content)
 
@@ -94,7 +94,7 @@ async def extract_leaflet_products(raw_text: str, store_name: str) -> list[dict]
         ],
         response_format={"type": "json_object"},
         temperature=0,
-        max_tokens=4000,
+        max_completion_tokens=4000,
     )
     data = json.loads(response.choices[0].message.content)
     # Handle both {"items": [...]} and [...] formats
