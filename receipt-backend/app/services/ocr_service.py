@@ -33,8 +33,11 @@ Output plain text, no markdown.
 """
 
 LEAFLET_OCR_PROMPT = """
-Extract all products and prices from this supermarket leaflet page.
-For each item found, output one line in this format:
+Extract ONLY food and drink products from this supermarket leaflet page.
+Use your judgment — jacket potato is food, denim jacket is not;
+plant-based burger is food, plant pot is not.
+
+For each food/drink product found, output one line in this format:
 NAME | PRICE | UNIT | ON_OFFER(yes/no)
 
 Where:
@@ -43,6 +46,7 @@ Where:
 - UNIT is kg, L, unit, pack, etc.
 - ON_OFFER is "yes" if it's a special offer, "no" otherwise
 
+If no food products exist on this page, output nothing.
 Output only the extracted lines, no headers or explanations.
 """
 
@@ -65,12 +69,12 @@ async def _gemini_ocr(prompt: str, image_bytes: bytes, mime_type: str = "image/j
 
 
 async def _openai_ocr(prompt: str, image_bytes: bytes, mime_type: str = "image/jpeg") -> str:
-    """OCR using OpenAI gpt-4o Vision."""
+    """OCR using OpenAI gpt-5.4 Vision."""
     b64 = base64.b64encode(image_bytes).decode("utf-8")
     data_url = f"data:{mime_type};base64,{b64}"
     response = await asyncio.wait_for(
         openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-5.4",
             messages=[
                 {
                     "role": "user",
@@ -80,7 +84,7 @@ async def _openai_ocr(prompt: str, image_bytes: bytes, mime_type: str = "image/j
                     ],
                 }
             ],
-            max_tokens=4000,
+            max_completion_tokens=4000,
             temperature=0,
         ),
         timeout=OCR_TIMEOUT,
@@ -103,7 +107,7 @@ async def extract_text_from_image(image_bytes: bytes) -> str:
             log.warning(f"OCR: Gemini failed ({type(e).__name__}: {e}), falling back to OpenAI Vision")
 
     # Fallback / primary: OpenAI Vision
-    log.info("OCR: calling OpenAI Vision (gpt-4o)...")
+    log.info("OCR: calling OpenAI Vision (gpt-5.4)...")
     text = await _openai_ocr(OCR_PROMPT, image_bytes)
     log.info(f"OCR: OpenAI Vision succeeded ({len(text)} chars)")
     return text

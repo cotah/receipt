@@ -1,8 +1,11 @@
 import logging
 import re
 from datetime import datetime, timedelta, timezone
+
 import httpx
 import fitz  # PyMuPDF
+from bs4 import BeautifulSoup
+
 from app.services.ocr_service import extract_text_from_pdf_page
 from app.services.extraction_service import extract_leaflet_products
 from app.utils.text_utils import generate_product_key
@@ -12,18 +15,21 @@ from supabase import Client
 log = logging.getLogger(__name__)
 
 LEAFLET_SOURCES = {
-    "Lidl": {
-        "url": "https://www.lidl.ie/c/weekly-offers/s10024218",
-        "pdf_pattern": r"lidl\.ie.*\.pdf",
-    },
     "Aldi": {
-        "url": "https://www.aldi.ie/offers",
-        "pdf_pattern": r"aldi\.ie.*\.pdf",
+        "url": "https://www.aldi.ie/leaflet",
+        "pdf_pattern": r"leaflet\.aldi\.ie",
+        "parser": "aldi",
     },
-    "SuperValu": {
-        "url": "https://supervalu.ie/real-food/offers",
-        "pdf_pattern": None,
-    },
+}
+
+BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/125.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,*/*",
+    "Accept-Language": "en-IE,en;q=0.9",
 }
 
 
@@ -35,20 +41,69 @@ async def fetch_and_process_leaflets(db: Client) -> None:
             pdf_url = await find_latest_pdf(source)
             if pdf_url:
                 await process_pdf_leaflet(db, store_name, pdf_url)
-                log.info(f"✓ {store_name} leaflet processed")
+                log.info(f"{store_name} leaflet processed")
             else:
                 log.warning(f"No PDF found for {store_name}")
         except Exception as e:
             log.error(f"Failed to process {store_name} leaflet: {e}")
 
 
+async def _find_aldi_pdf(source: dict) -> str | None:
+    """Find the Aldi leaflet PDF via BeautifulSoup.
+
+    The Aldi leaflet page has 'View Now' links pointing to
+    leaflet.aldi.ie/{slug}. The PDF is at that URL + /pdf.
+    """
+    try:
+        async with httpx.AsyncClient(
+            follow_redirects=True, timeout=30, headers=BROWSER_HEADERS,
+        ) as client:
+            response = await client.get(source["url"])
+            response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # Find links to leaflet.aldi.ie
+        for a_tag in soup.find_all("a", href=True):
+            href = a_tag["href"]
+            if "leaflet.aldi.ie" in href:
+                # Normalise: strip trailing slash, append /pdf
+                slug_url = href.rstrip("/")
+                pdf_url = f"{slug_url}/pdf"
+                log.info("Aldi: found leaflet PDF at %s", pdf_url)
+                return pdf_url
+
+        # Fallback: look for any link with the slug pattern
+        for a_tag in soup.find_all("a", href=True):
+            href = a_tag["href"]
+            if re.search(r"aldi-ie-thur-\d{2}-\w+-\w+-\d{2}-\w+", href):
+                slug_url = href.rstrip("/")
+                if not slug_url.startswith("http"):
+                    slug_url = f"https://leaflet.aldi.ie/{slug_url}"
+                pdf_url = f"{slug_url}/pdf"
+                log.info("Aldi: found leaflet PDF (fallback) at %s", pdf_url)
+                return pdf_url
+
+    except Exception as e:
+        log.error("Aldi: error finding PDF: %s", e)
+
+    return None
+
+
 async def find_latest_pdf(source: dict) -> str | None:
     """Find the latest PDF URL from a store's offers page."""
+    parser = source.get("parser")
+
+    if parser == "aldi":
+        return await _find_aldi_pdf(source)
+
     if not source.get("pdf_pattern"):
         return None
 
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
+        async with httpx.AsyncClient(
+            follow_redirects=True, timeout=30, headers=BROWSER_HEADERS,
+        ) as client:
             response = await client.get(source["url"])
             response.raise_for_status()
 

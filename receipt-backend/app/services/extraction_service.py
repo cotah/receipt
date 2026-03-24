@@ -46,6 +46,10 @@ LEAFLET_EXTRACTION_PROMPT = """
 You are a leaflet product extractor for Irish supermarkets.
 Given raw text extracted from a {store_name} weekly leaflet page, return a JSON array of products.
 
+IMPORTANT: Extract ONLY food and drink products.
+Ignore clothing, garden, tools, household appliances, or any non-food items.
+Use common sense — jacket potato is food, plant-based milk is food.
+
 Return ONLY valid JSON array:
 [
   {{
@@ -58,8 +62,10 @@ Return ONLY valid JSON array:
   }}
 ]
 
-Categories: Fruit & Veg, Dairy, Meat & Fish, Bakery, Frozen, Drinks,
-Snacks & Confectionery, Household, Personal Care, Baby & Kids, Other.
+Categories (food only): Fruit & Veg, Dairy, Meat & Fish, Bakery, Frozen,
+Drinks, Snacks & Confectionery, Other.
+
+If no food products exist in the text, return an empty array: []
 
 RAW TEXT:
 {raw_text}
