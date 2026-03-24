@@ -1,27 +1,21 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import api from '../services/api';
 import { supabase } from '../services/supabase';
-
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  created_at: string;
-}
-
-interface ChatSession {
-  session_id: string;
-  last_message: string;
-  messages_count: number;
-  created_at: string;
-  updated_at: string;
-}
+import { useChatStore, ChatMessage } from '../stores/chatStore';
 
 export function useChat() {
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const messages = useChatStore((s) => s.messages);
+  const isStreaming = useChatStore((s) => s.isStreaming);
+  const currentSessionId = useChatStore((s) => s.currentSessionId);
+  const sessions = useChatStore((s) => s.sessions);
+
+  const addMessage = useChatStore((s) => s.addMessage);
+  const updateLastAssistant = useChatStore((s) => s.updateLastAssistant);
+  const setIsStreaming = useChatStore((s) => s.setIsStreaming);
+  const setCurrentSessionId = useChatStore((s) => s.setCurrentSessionId);
+  const setSessions = useChatStore((s) => s.setSessions);
+  const removeSession = useChatStore((s) => s.removeSession);
+  const clearMessages = useChatStore((s) => s.clearMessages);
 
   const sendMessage = useCallback(async (text: string) => {
     // Add user message immediately
@@ -31,7 +25,7 @@ export function useChat() {
       content: text,
       created_at: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, userMsg]);
+    addMessage(userMsg);
     setIsStreaming(true);
 
     try {
@@ -58,13 +52,11 @@ export function useChat() {
       if (!response.ok) {
         const errorBody = await response.text().catch(() => '');
         console.error(`[Chat] Error ${response.status}:`, errorBody);
-        setMessages((prev) => {
-          const updated = [...prev];
-          updated[updated.length - 1] = {
-            ...updated[updated.length - 1],
-            content: `Error: Server returned ${response.status}. Please try again.`,
-          };
-          return updated;
+        addMessage({
+          id: `error-${Date.now()}`,
+          role: 'assistant',
+          content: `Error: Server returned ${response.status}. Please try again.`,
+          created_at: new Date().toISOString(),
         });
         return;
       }
@@ -76,21 +68,10 @@ export function useChat() {
         content: '',
         created_at: new Date().toISOString(),
       };
-      setMessages((prev) => [...prev, assistantMsg]);
+      addMessage(assistantMsg);
 
-      const updateAssistant = (content: string) => {
-        setMessages((prev) => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last.role === 'assistant') {
-            updated[updated.length - 1] = { ...last, content };
-          }
-          return updated;
-        });
-      };
-
-      const parseSseLines = (text: string) => {
-        const lines = text.split('\n');
+      const parseSseLines = (sseText: string) => {
+        const lines = sseText.split('\n');
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           try {
@@ -99,7 +80,7 @@ export function useChat() {
               setCurrentSessionId(data.value);
             } else if (data.type === 'token') {
               assistantContent += data.value;
-              updateAssistant(assistantContent);
+              updateLastAssistant(assistantContent);
             }
           } catch {
             // Skip malformed lines
@@ -119,39 +100,35 @@ export function useChat() {
         }
       } else {
         // React Native: ReadableStream not available — read full text
-        const text = await response.text();
-        parseSseLines(text);
+        const fullText = await response.text();
+        parseSseLines(fullText);
       }
     } finally {
       setIsStreaming(false);
     }
-  }, [currentSessionId]);
+  }, [currentSessionId, addMessage, updateLastAssistant, setIsStreaming, setCurrentSessionId]);
 
   const fetchSessions = useCallback(async () => {
     const { data } = await api.get('/chat/sessions');
     setSessions(data.sessions);
-  }, []);
+  }, [setSessions]);
 
   const loadSession = useCallback(async (sessionId: string) => {
     setCurrentSessionId(sessionId);
     // Reload messages for this session from the backend
     // For now, sessions are server-managed
-    setMessages([]);
-  }, []);
+    clearMessages();
+    setCurrentSessionId(sessionId);
+  }, [setCurrentSessionId, clearMessages]);
 
   const deleteSession = useCallback(async (sessionId: string) => {
     await api.delete(`/chat/sessions/${sessionId}`);
-    setSessions((prev) => prev.filter((s) => s.session_id !== sessionId));
-    if (currentSessionId === sessionId) {
-      setCurrentSessionId(null);
-      setMessages([]);
-    }
-  }, [currentSessionId]);
+    removeSession(sessionId);
+  }, [removeSession]);
 
   const startNewSession = useCallback(() => {
-    setCurrentSessionId(null);
-    setMessages([]);
-  }, []);
+    clearMessages();
+  }, [clearMessages]);
 
   return {
     sessions,

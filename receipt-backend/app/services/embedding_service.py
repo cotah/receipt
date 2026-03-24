@@ -67,48 +67,79 @@ async def get_relevant_context(user_id: str, query: str) -> dict:
     )
     unique_products = len(set(p["normalized_name"] for p in (products.data or [])))
 
-    # Recent items summary (last 30 days)
+    # Recent items summary (last 30 days) — includes quantity
     recent_items = (
         db.table("receipt_items")
-        .select("normalized_name, category, total_price, unit_price")
+        .select("normalized_name, category, total_price, unit_price, quantity")
         .eq("user_id", user_id)
         .gte("created_at", (now - timedelta(days=30)).isoformat())
-        .limit(50)
+        .limit(100)
         .execute()
     )
     items_summary = ""
     if recent_items.data:
-        by_cat: dict[str, float] = {}
+        by_cat: dict[str, dict] = {}
         for item in recent_items.data:
             cat = item["category"]
-            by_cat[cat] = by_cat.get(cat, 0) + item["total_price"]
+            if cat not in by_cat:
+                by_cat[cat] = {"total": 0.0, "qty": 0.0}
+            by_cat[cat]["total"] += item["total_price"]
+            by_cat[cat]["qty"] += item.get("quantity") or 1
         items_summary = "\n".join(
-            f"- {cat}: €{total:.2f}" for cat, total in sorted(by_cat.items(), key=lambda x: -x[1])
+            f"- {cat}: €{v['total']:.2f} ({v['qty']:.0f} items)"
+            for cat, v in sorted(by_cat.items(), key=lambda x: -x[1]["total"])
         )
 
-    # Price insights
-    price_insights = "No price insights available yet."
+    # Top 10 most purchased products (from user_product_patterns)
+    top_products_text = ""
+    favourite_categories_text = ""
     try:
         patterns = (
             db.table("user_product_patterns")
-            .select("*")
+            .select("normalized_name, category, purchase_count, avg_price, total_quantity")
             .eq("user_id", user_id)
             .order("purchase_count", desc=True)
-            .limit(5)
+            .limit(10)
             .execute()
         )
         if patterns.data:
             lines = []
+            cat_counts: dict[str, int] = {}
             for p in patterns.data:
+                qty = p.get("total_quantity") or p["purchase_count"]
                 lines.append(
-                    f"- {p['normalized_name']}: bought {p['purchase_count']} times, "
-                    f"avg €{p['avg_price']:.2f}"
+                    f"- {p['normalized_name']}: bought {p['purchase_count']} times "
+                    f"({qty:.0f} units), avg €{p['avg_price']:.2f}"
                 )
-            price_insights = "\n".join(lines)
+                cat = p.get("category", "Other")
+                cat_counts[cat] = cat_counts.get(cat, 0) + p["purchase_count"]
+            top_products_text = "\n".join(lines)
+            favourite_categories_text = ", ".join(
+                sorted(cat_counts, key=cat_counts.get, reverse=True)[:5]
+            )
+    except Exception:
+        pass
+
+    # Price insights (reuse patterns data)
+    price_insights = top_products_text or "No price insights available yet."
+
+    # User profile name
+    user_name = ""
+    try:
+        profile = (
+            db.table("profiles")
+            .select("full_name")
+            .eq("id", user_id)
+            .single()
+            .execute()
+        )
+        if profile.data and profile.data.get("full_name"):
+            user_name = profile.data["full_name"]
     except Exception:
         pass
 
     return {
+        "user_name": user_name,
         "month_total": month_total,
         "month_receipts": month_count,
         "prev_month_total": prev_total,
@@ -116,4 +147,6 @@ async def get_relevant_context(user_id: str, query: str) -> dict:
         "product_count": unique_products,
         "recent_items_summary": items_summary or "No recent purchases.",
         "price_insights": price_insights,
+        "top_products": top_products_text or "No purchase history yet.",
+        "favourite_categories": favourite_categories_text or "N/A",
     }
