@@ -299,14 +299,22 @@ async def run_leaflet_job():
         log.error(f"Leaflet job failed: {e}")
 
 
-async def run_mi9_scrapers():
-    """Run all Mi9-based store scrapers sequentially."""
-    for store in (DUNNES, SUPERVALU):
-        log.info("Starting %s promotions scraper...", store.store_name)
-        try:
-            await scrape_mi9_store(store)
-        except Exception as e:
-            log.error(f"{store.store_name} scraper failed: {e}")
+async def run_dunnes_scraper():
+    """Run Dunnes scraper standalone."""
+    log.info("Starting Dunnes promotions scraper...")
+    try:
+        await scrape_mi9_store(DUNNES)
+    except Exception as e:
+        log.error(f"Dunnes scraper failed: {e}")
+
+
+async def run_supervalu_scraper():
+    """Run SuperValu scraper standalone."""
+    log.info("Starting SuperValu promotions scraper...")
+    try:
+        await scrape_mi9_store(SUPERVALU)
+    except Exception as e:
+        log.error(f"SuperValu scraper failed: {e}")
 
 
 def setup_leaflet_scheduler(scheduler: AsyncIOScheduler):
@@ -327,14 +335,26 @@ def setup_leaflet_scheduler(scheduler: AsyncIOScheduler):
         settings.LEAFLET_CRON_HOUR,
     )
 
-    # Mi9 scrapers (Dunnes + SuperValu) — Wednesday and Saturday at 06:00
+    # Dunnes — odd days at 05:00 (day 1,3,5,...,31)
     scheduler.add_job(
-        run_mi9_scrapers,
+        run_dunnes_scraper,
         "cron",
-        day_of_week="wed,sat",
-        hour=6,
+        day="1-31/2",
+        hour=5,
         minute=0,
-        id="mi9_scrapers",
+        id="dunnes_scraper",
         replace_existing=True,
     )
-    log.info("Mi9 scrapers scheduled (Dunnes + SuperValu): Wed+Sat at 06:00")
+    log.info("Dunnes scraper scheduled: odd days at 05:00")
+
+    # SuperValu — even days at 06:00 (day 2,4,6,...,30)
+    scheduler.add_job(
+        run_supervalu_scraper,
+        "cron",
+        day="2-30/2",
+        hour=6,
+        minute=0,
+        id="supervalu_scraper",
+        replace_existing=True,
+    )
+    log.info("SuperValu scraper scheduled: even days at 06:00")
