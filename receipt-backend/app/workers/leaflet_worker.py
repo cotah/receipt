@@ -6,6 +6,7 @@ from typing import NamedTuple
 
 import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from bs4 import BeautifulSoup
 from dateutil import parser as dateutil_parser
 
 from app.config import settings
@@ -450,6 +451,207 @@ async def scrape_lidl_leaflet() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Tesco Ireland (SSR HTML) scraper
+# ---------------------------------------------------------------------------
+
+TESCO_BASE_URL = (
+    "https://www.tesco.ie/groceries/en-IE/promotions/all"
+)
+TESCO_SESSION_URL = "https://www.tesco.ie/groceries/en-IE/"
+TESCO_PAGE_SIZE = 24
+TESCO_REQUEST_DELAY = 2  # seconds between pages
+
+_TESCO_TOTAL_RE = re.compile(r"of\s+([\d,]+)\s+results?", re.IGNORECASE)
+_TESCO_PRICE_RE = re.compile(r"[\d]+[.,]\d{2}")
+
+
+def _parse_tesco_price(text: str) -> float | None:
+    """Extract the first decimal price from a text string."""
+    m = _TESCO_PRICE_RE.search(text.replace(",", "."))
+    if m:
+        try:
+            return float(m.group())
+        except ValueError:
+            pass
+    return None
+
+
+async def scrape_tesco_promotions() -> None:
+    """Scrape Tesco Ireland promotions from SSR HTML pages."""
+    db = get_service_client()
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(days=7)
+    total_saved = 0
+    errors = 0
+
+    log.info("Tesco scraper: starting...")
+
+    # 1. Clean expired entries
+    db.table("collective_prices").delete().eq(
+        "store_name", "Tesco",
+    ).eq("source", "leaflet").lt(
+        "expires_at", now.isoformat(),
+    ).execute()
+    log.info("Tesco scraper: expired entries removed")
+
+    # 2. Session with cookies
+    tesco_headers = {
+        **BROWSER_HEADERS,
+        "Accept": "text/html,application/xhtml+xml,*/*",
+        "Referer": "https://www.tesco.ie/",
+        "Origin": "https://www.tesco.ie",
+    }
+    async with httpx.AsyncClient(
+        timeout=30,
+        follow_redirects=True,
+        headers=tesco_headers,
+    ) as client:
+        try:
+            session_resp = await client.get(TESCO_SESSION_URL)
+            session_resp.raise_for_status()
+            log.info(
+                "Tesco scraper: session established (%d cookies)",
+                len(client.cookies),
+            )
+        except Exception as e:
+            log.error("Tesco scraper: session failed: %s", e)
+            return
+
+        # 3. Discover total pages from first page
+        total_pages = 1
+        page = 1
+
+        while page <= total_pages:
+            params = {
+                "sortBy": "relevance",
+                "page": page,
+                "count": TESCO_PAGE_SIZE,
+            }
+            try:
+                resp = await client.get(TESCO_BASE_URL, params=params)
+                resp.raise_for_status()
+                html = resp.text
+            except Exception as e:
+                errors += 1
+                log.warning("Tesco scraper: page %d failed (%s)", page, e)
+                await asyncio.sleep(TESCO_REQUEST_DELAY)
+                page += 1
+                continue
+
+            soup = BeautifulSoup(html, "html.parser")
+
+            # Discover total on first page
+            if page == 1:
+                results_text = soup.get_text()
+                m = _TESCO_TOTAL_RE.search(results_text)
+                if m:
+                    total_items_count = int(m.group(1).replace(",", ""))
+                    total_pages = (
+                        total_items_count + TESCO_PAGE_SIZE - 1
+                    ) // TESCO_PAGE_SIZE
+                    log.info(
+                        "Tesco scraper: %d products across %d pages",
+                        total_items_count,
+                        total_pages,
+                    )
+
+            # 4. Extract products
+            product_links = soup.select(
+                "a[href*='/groceries/en-IE/products/']"
+            )
+            for link in product_links:
+                try:
+                    name = link.get_text(strip=True)
+                    if not name:
+                        continue
+
+                    # Walk up to the product tile container
+                    container = link
+                    for _ in range(8):
+                        if container.parent is None:
+                            break
+                        container = container.parent
+                        # Check if we've found a reasonable container
+                        price_el = container.select_one(
+                            "[class*='product-tile-price__text'],"
+                            "[class*='price-text'],"
+                            "[class*='value']"
+                        )
+                        if price_el:
+                            break
+
+                    # Price
+                    price = None
+                    price_el = container.select_one(
+                        "[class*='product-tile-price__text'],"
+                        "[class*='price-text'],"
+                        "[class*='price-per-sellable-unit']"
+                    )
+                    if price_el:
+                        price = _parse_tesco_price(price_el.get_text())
+
+                    if price is None:
+                        # Try any text with € in the container
+                        for el in container.find_all(
+                            string=re.compile(r"€")
+                        ):
+                            price = _parse_tesco_price(str(el))
+                            if price is not None:
+                                break
+
+                    if price is None:
+                        continue
+
+                    # Promotion text
+                    promo_el = container.select_one(
+                        "[class*='value-bar__content-text'],"
+                        "[class*='promo'],"
+                        "[class*='offer']"
+                    )
+                    is_on_offer = promo_el is not None
+
+                    product_key = generate_product_key(name)
+
+                    db.table("collective_prices").insert({
+                        "product_key": product_key,
+                        "product_name": name,
+                        "category": "Other",
+                        "store_name": "Tesco",
+                        "unit_price": price,
+                        "is_on_offer": is_on_offer,
+                        "source": "leaflet",
+                        "observed_at": now.isoformat(),
+                        "expires_at": expires_at.isoformat(),
+                    }).execute()
+                    total_saved += 1
+
+                except Exception as e:
+                    errors += 1
+                    log.warning(
+                        "Tesco scraper: item error on page %d: %s",
+                        page,
+                        e,
+                    )
+
+            if page % 10 == 0:
+                log.info(
+                    "Tesco scraper: %d/%d pages (%d items saved)",
+                    page,
+                    total_pages,
+                    total_saved,
+                )
+
+            await asyncio.sleep(TESCO_REQUEST_DELAY)
+            page += 1
+
+    log.info(
+        "Tesco scraper: finished — %d items saved, %d errors",
+        total_saved,
+        errors,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Leaflet jobs
 # ---------------------------------------------------------------------------
 
@@ -494,9 +696,18 @@ async def run_lidl_scraper():
         log.error(f"Lidl scraper failed: {e}")
 
 
+async def run_tesco_scraper():
+    """Run Tesco promotions scraper standalone."""
+    log.info("Starting Tesco promotions scraper...")
+    try:
+        await scrape_tesco_promotions()
+    except Exception as e:
+        log.error(f"Tesco scraper failed: {e}")
+
+
 def setup_leaflet_scheduler(scheduler: AsyncIOScheduler):
-    """Schedule leaflet and Mi9 scraper jobs."""
-    # PDF leaflets — weekly on configured day
+    """Schedule leaflet and store scraper jobs."""
+    # PDF leaflets (Aldi) — weekly on configured day
     scheduler.add_job(
         run_leaflet_job,
         "cron",
@@ -524,17 +735,29 @@ def setup_leaflet_scheduler(scheduler: AsyncIOScheduler):
     )
     log.info("Dunnes scraper scheduled: odd days at 05:00")
 
-    # SuperValu — even days at 06:00 (day 2,4,6,...,30)
+    # SuperValu — odd days at 06:00 (day 1,3,5,...,31)
     scheduler.add_job(
         run_supervalu_scraper,
         "cron",
-        day="2-30/2",
+        day="1-31/2",
         hour=6,
         minute=0,
         id="supervalu_scraper",
         replace_existing=True,
     )
-    log.info("SuperValu scraper scheduled: even days at 06:00")
+    log.info("SuperValu scraper scheduled: odd days at 06:00")
+
+    # Tesco — even days at 07:00 (day 2,4,6,...,30)
+    scheduler.add_job(
+        run_tesco_scraper,
+        "cron",
+        day="2-30/2",
+        hour=7,
+        minute=0,
+        id="tesco_scraper",
+        replace_existing=True,
+    )
+    log.info("Tesco scraper scheduled: even days at 07:00")
 
     # Lidl — every Thursday at 07:00
     scheduler.add_job(
