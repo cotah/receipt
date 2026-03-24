@@ -6,7 +6,7 @@ import { Feather } from '@expo/vector-icons';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import ReceiptCard from '../../components/receipts/ReceiptCard';
-import { Colors, Shadows } from '../../constants/colors';
+import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/typography';
 import { formatCurrency, formatCurrencyChange } from '../../utils/formatCurrency';
 import { useAuthStore } from '../../stores/authStore';
@@ -102,10 +102,6 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-      {/* FAB */}
-      <Pressable style={[styles.fab, Shadows.float]} onPress={() => router.push('/(tabs)/scan')}>
-        <Feather name="camera" size={24} color="#FFF" />
-      </Pressable>
     </SafeAreaView>
   );
 }
@@ -129,15 +125,4 @@ const styles = StyleSheet.create({
   lowCard: { width: 140, padding: Spacing.sm, gap: 4 },
   lowName: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.primary },
   lowPrice: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 11, color: Colors.accent.green },
-  fab: {
-    position: 'absolute',
-    bottom: 100,
-    right: Spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.primary.default,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 });
