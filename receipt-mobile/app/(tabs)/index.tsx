@@ -47,8 +47,8 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.headerRow}>
           <Text style={styles.greeting}>{greeting}, {name}</Text>
-          <Pressable onPress={() => router.push('/(tabs)/settings')} hitSlop={12}>
-            <Feather name="settings" size={22} color={Colors.text.secondary} />
+          <Pressable onPress={() => router.push('/(tabs)/profile')} hitSlop={12}>
+            <Feather name="user" size={22} color={Colors.text.secondary} />
           </Pressable>
         </View>
 
