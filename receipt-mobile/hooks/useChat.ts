@@ -63,10 +63,6 @@ export function useChat() {
         return;
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) return;
-
-      const decoder = new TextDecoder();
       let assistantContent = '';
       const assistantMsg: ChatMessage = {
         id: `temp-assistant-${Date.now()}`,
@@ -76,13 +72,19 @@ export function useChat() {
       };
       setMessages((prev) => [...prev, assistantMsg]);
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      const updateAssistant = (content: string) => {
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last.role === 'assistant') {
+            updated[updated.length - 1] = { ...last, content };
+          }
+          return updated;
+        });
+      };
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-
+      const parseSseLines = (text: string) => {
+        const lines = text.split('\n');
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           try {
@@ -91,19 +93,28 @@ export function useChat() {
               setCurrentSessionId(data.value);
             } else if (data.type === 'token') {
               assistantContent += data.value;
-              setMessages((prev) => {
-                const updated = [...prev];
-                const last = updated[updated.length - 1];
-                if (last.role === 'assistant') {
-                  updated[updated.length - 1] = { ...last, content: assistantContent };
-                }
-                return updated;
-              });
+              updateAssistant(assistantContent);
             }
           } catch {
             // Skip malformed lines
           }
         }
+      };
+
+      // Try streaming via ReadableStream (works on web), fall back to
+      // reading the full response text (React Native / Hermes)
+      const reader = response.body?.getReader?.();
+      if (reader) {
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parseSseLines(decoder.decode(value, { stream: true }));
+        }
+      } else {
+        // React Native: ReadableStream not available — read full text
+        const text = await response.text();
+        parseSseLines(text);
       }
     } finally {
       setIsStreaming(false);
