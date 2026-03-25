@@ -227,6 +227,48 @@ def _finish_run(
         log.warning("_finish_run [%s]: %s", run_id, e)
 
 
+def _get_checkpoint(db, store_name: str) -> dict | None:
+    """Read saved checkpoint. None if not found."""
+    try:
+        r = (
+            db.table("scraper_checkpoints")
+            .select("*")
+            .eq("store_name", store_name)
+            .limit(1)
+            .execute()
+        )
+        return r.data[0] if r.data else None
+    except Exception:
+        return None
+
+
+def _save_checkpoint(
+    db, store_name: str, page: int, items: int
+) -> None:
+    """Save/update checkpoint every N pages. Never crashes."""
+    try:
+        db.table("scraper_checkpoints").upsert(
+            {
+                "store_name": store_name,
+                "last_page": page,
+                "items_saved": items,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
+    except Exception:
+        pass
+
+
+def _clear_checkpoint(db, store_name: str) -> None:
+    """Delete checkpoint when scraper finishes successfully. Never crashes."""
+    try:
+        db.table("scraper_checkpoints").delete().eq(
+            "store_name", store_name
+        ).execute()
+    except Exception:
+        pass
+
+
 async def _autofix_scraper_ai(
     store_name: str,
     error_context: str,
@@ -1122,8 +1164,19 @@ async def _scrape_dunnes_attempt(
     Returns {"success": bool, "items_saved": int, "error": str|None}."""
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(days=7)
-    total_saved = 0
     errors = 0
+
+    # Checkpoint resume
+    checkpoint = _get_checkpoint(db, "Dunnes")
+    start_page = checkpoint["last_page"] if checkpoint else 1
+    total_saved = checkpoint["items_saved"] if checkpoint else 0
+    if checkpoint:
+        log.info(
+            "Dunnes HTML scraper: resuming from page %d "
+            "(%d items already saved)",
+            start_page,
+            total_saved,
+        )
 
     try:
         db.table("collective_prices").delete().eq(
@@ -1149,7 +1202,7 @@ async def _scrape_dunnes_attempt(
                 if session_resp.status_code == 403:
                     return {
                         "success": False,
-                        "items_saved": 0,
+                        "items_saved": total_saved,
                         "error": "Session blocked (403)",
                     }
                 session_resp.raise_for_status()
@@ -1160,7 +1213,7 @@ async def _scrape_dunnes_attempt(
             except Exception as e:
                 return {
                     "success": False,
-                    "items_saved": 0,
+                    "items_saved": total_saved,
                     "error": f"Session failed: {e}",
                 }
 
@@ -1201,12 +1254,14 @@ async def _scrape_dunnes_attempt(
                     session_resp.text, "html.parser"
                 )
 
-            saved_p1 = _parse_dunnes_page(
-                soup_p1, db, now, expires_at
-            )
-            total_saved += saved_p1
+            # Process page 1 only if not resuming past it
+            if start_page <= 1:
+                saved_p1 = _parse_dunnes_page(
+                    soup_p1, db, now, expires_at
+                )
+                total_saved += saved_p1
 
-            for page in range(2, total_pages + 1):
+            for page in range(max(start_page, 2), total_pages + 1):
                 try:
                     resp = await client.get(
                         DUNNES_HTML_BASE_URL, params={"page": page}
@@ -1235,6 +1290,11 @@ async def _scrape_dunnes_attempt(
                         e,
                     )
 
+                if page % 5 == 0:
+                    _save_checkpoint(
+                        db, "Dunnes", page + 1, total_saved
+                    )
+
                 if page % 50 == 0:
                     log.info(
                         "Dunnes HTML scraper: %d/%d pages "
@@ -1247,6 +1307,7 @@ async def _scrape_dunnes_attempt(
                 await _page_delay()
 
         if total_saved > 0:
+            _clear_checkpoint(db, "Dunnes")
             return {
                 "success": True,
                 "items_saved": total_saved,
@@ -1262,7 +1323,7 @@ async def _scrape_dunnes_attempt(
         }
 
     except Exception as e:
-        return {"success": False, "items_saved": 0, "error": str(e)}
+        return {"success": False, "items_saved": total_saved, "error": str(e)}
 
 
 async def scrape_dunnes_promotions() -> None:
@@ -1507,8 +1568,19 @@ async def _scrape_supervalu_attempt(
     Returns {"success": bool, "items_saved": int, "error": str|None}."""
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(days=7)
-    total_saved = 0
     errors = 0
+
+    # Checkpoint resume
+    checkpoint = _get_checkpoint(db, "SuperValu")
+    start_page = checkpoint["last_page"] if checkpoint else 1
+    total_saved = checkpoint["items_saved"] if checkpoint else 0
+    if checkpoint:
+        log.info(
+            "SuperValu HTML scraper: resuming from page %d "
+            "(%d items already saved)",
+            start_page,
+            total_saved,
+        )
 
     # Clean expired entries
     try:
@@ -1589,14 +1661,15 @@ async def _scrape_supervalu_attempt(
                     session_resp.text, "html.parser"
                 )
 
-            # 3. Process page 1 (already loaded)
-            saved_p1 = _parse_supervalu_page(
-                soup_p1, db, now, expires_at
-            )
-            total_saved += saved_p1
+            # 3. Process page 1 only if not resuming past it
+            if start_page <= 1:
+                saved_p1 = _parse_supervalu_page(
+                    soup_p1, db, now, expires_at
+                )
+                total_saved += saved_p1
 
-            # 4. Iterate pages 2..N
-            for page in range(2, total_pages + 1):
+            # 4. Iterate pages
+            for page in range(max(start_page, 2), total_pages + 1):
                 try:
                     resp = await client.get(
                         SUPERVALU_BASE_URL, params={"page": page}
@@ -1625,6 +1698,11 @@ async def _scrape_supervalu_attempt(
                         e,
                     )
 
+                if page % 5 == 0:
+                    _save_checkpoint(
+                        db, "SuperValu", page + 1, total_saved
+                    )
+
                 if page % 20 == 0:
                     log.info(
                         "SuperValu HTML scraper: %d/%d pages "
@@ -1637,6 +1715,7 @@ async def _scrape_supervalu_attempt(
                 await _page_delay()
 
         if total_saved > 0:
+            _clear_checkpoint(db, "SuperValu")
             return {
                 "success": True,
                 "items_saved": total_saved,
@@ -1652,7 +1731,7 @@ async def _scrape_supervalu_attempt(
         }
 
     except Exception as e:
-        return {"success": False, "items_saved": 0, "error": str(e)}
+        return {"success": False, "items_saved": total_saved, "error": str(e)}
 
 
 async def scrape_supervalu_promotions() -> None:
@@ -1748,9 +1827,20 @@ async def _scrape_tesco_attempt(
     """One Tesco scrape attempt. Returns success/items_saved/error dict."""
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(days=7)
-    total_saved = 0
     mode = "proxy" if use_proxy else "direct"
     label = f"Tesco({mode})"
+
+    # Checkpoint resume
+    checkpoint = _get_checkpoint(db, "Tesco")
+    start_page = checkpoint["last_page"] if checkpoint else 1
+    total_saved = checkpoint["items_saved"] if checkpoint else 0
+    if checkpoint:
+        log.info(
+            "%s: resuming from page %d (%d items already saved)",
+            label,
+            start_page,
+            total_saved,
+        )
 
     # Clean expired
     try:
@@ -1788,7 +1878,7 @@ async def _scrape_tesco_attempt(
                 }
 
             total_pages = 1
-            page = 1
+            page = start_page
 
             while page <= total_pages:
                 params = {
@@ -1900,6 +1990,11 @@ async def _scrape_tesco_attempt(
                             label, page, e,
                         )
 
+                if page % 5 == 0:
+                    _save_checkpoint(
+                        db, "Tesco", page + 1, total_saved
+                    )
+
                 if page % 10 == 0:
                     log.info(
                         "%s: %d/%d pages (%d items)",
@@ -1910,6 +2005,7 @@ async def _scrape_tesco_attempt(
                 page += 1
 
         if total_saved > 0:
+            _clear_checkpoint(db, "Tesco")
             return {
                 "success": True, "items_saved": total_saved, "error": None
             }
@@ -1920,7 +2016,7 @@ async def _scrape_tesco_attempt(
         }
 
     except Exception as e:
-        return {"success": False, "items_saved": 0, "error": str(e)}
+        return {"success": False, "items_saved": total_saved, "error": str(e)}
 
 
 def _save_tesco_apify_items(db, items: list) -> int:
