@@ -47,6 +47,7 @@ interface AuthState {
  *  - Production     → receipt://auth/callback
  */
 const redirectUrl = Linking.createURL('auth/callback');
+const oauthRedirectUrl = 'receipt://auth/callback';
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
@@ -115,7 +116,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signInWithOAuth: async (provider: 'apple' | 'google') => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: redirectUrl },
+      options: { redirectTo: oauthRedirectUrl },
     });
     return { error: error ? new Error(error.message) : null };
   },
