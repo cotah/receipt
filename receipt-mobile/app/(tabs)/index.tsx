@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, Button, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
@@ -92,6 +92,15 @@ export default function HomeScreen() {
               ))}
             </ScrollView>
           </View>
+        )}
+
+        {/* Sentry Test — TEMPORARY */}
+        {__DEV__ && (
+          <Button
+            title="Test Sentry"
+            color="#DC3545"
+            onPress={() => { throw new Error('Sentry React Native test!'); }}
+          />
         )}
 
         {/* Recent Receipts */}

@@ -10,9 +10,10 @@ from app.config import settings
 if settings.SENTRY_DSN:
     sentry_sdk.init(
         dsn=settings.SENTRY_DSN,
-        traces_sample_rate=0.1,
+        traces_sample_rate=1.0,
         environment=settings.ENVIRONMENT,
         send_default_pii=False,
+        enable_tracing=True,
     )
 from fastapi.staticfiles import StaticFiles
 from app.api.v1 import receipts, products, prices, chat, alerts, reports, leaflets, users, admin
@@ -97,3 +98,8 @@ app.mount("/admin", StaticFiles(directory="admin", html=True), name="admin")
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "version": "1.0.0"}
+
+
+@app.get("/sentry-debug")
+async def trigger_error():
+    _ = 1 / 0

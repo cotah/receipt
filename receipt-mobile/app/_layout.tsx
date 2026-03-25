@@ -8,10 +8,13 @@ import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '../stores/authStore';
 
+const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN ?? '';
+
 Sentry.init({
-  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || '',
-  environment: process.env.NODE_ENV || 'development',
-  enabled: !!process.env.EXPO_PUBLIC_SENTRY_DSN,
+  dsn: SENTRY_DSN,
+  tracesSampleRate: 1.0,
+  environment: __DEV__ ? 'development' : 'production',
+  enabled: SENTRY_DSN.length > 0,
 });
 
 SplashScreen.preventAutoHideAsync();
