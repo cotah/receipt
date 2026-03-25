@@ -1017,6 +1017,356 @@ _TESCO_TOTAL_RE = re.compile(
 _TESCO_PRICE_RE = re.compile(r"[\d]+[.,]\d{2}")
 
 
+# ---------------------------------------------------------------------------
+# SuperValu Ireland (SSR HTML) scraper
+# ---------------------------------------------------------------------------
+
+SUPERVALU_BASE_URL = (
+    "https://shop.supervalu.ie/sm/delivery/rsid/5550/promotions"
+)
+SUPERVALU_SESSION_URL = (
+    "https://shop.supervalu.ie/sm/delivery/rsid/5550/promotions"
+)
+SUPERVALU_PAGE_SIZE = 30
+SUPERVALU_TOTAL_PAGES = 122  # ceil(3617/30) + safety margin
+
+_SUPERVALU_PRICE_RE = re.compile(r"[\d]+[.,]\d{2}")
+
+
+def _parse_supervalu_price(text: str) -> float | None:
+    """Extract first decimal price from text, e.g. '€1.40' -> 1.40"""
+    m = _SUPERVALU_PRICE_RE.search(text.replace(",", "."))
+    if m:
+        try:
+            return float(m.group())
+        except ValueError:
+            pass
+    return None
+
+
+def _parse_supervalu_page(
+    soup: BeautifulSoup,
+    db,
+    now: datetime,
+    expires_at: datetime,
+) -> int:
+    """Parse one SuperValu promotions HTML page.
+
+    Selectors confirmed live on 25/03/2026:
+    - Card container:  [class*="ProductCard--"]
+    - Name:            img[alt] inside the card
+    - Price:           [class*="ProductPrice--"]
+    - Promo label:     [class*="PromotionLabelBadge--"]
+    """
+    count = 0
+
+    cards = soup.find_all(
+        lambda tag: tag.name
+        and tag.get("class")
+        and any("ProductCard--" in c for c in tag.get("class", []))
+    )
+
+    for card in cards:
+        try:
+            # Name — use img alt (cleaner than aria text)
+            img = card.find("img")
+            name = img.get("alt", "").strip() if img else ""
+            if not name:
+                # Fallback: AriaProductTitle
+                aria = card.find(
+                    lambda t: t.get("class")
+                    and any(
+                        "AriaProductTitle--" in c
+                        for c in t.get("class", [])
+                    )
+                )
+                if aria:
+                    raw = aria.get_text(strip=True)
+                    name = (
+                        raw.split(",")[0].strip()
+                        if "," in raw
+                        else raw[:60]
+                    )
+
+            if not name:
+                continue
+
+            # Price
+            price_el = card.find(
+                lambda t: t.get("class")
+                and any(
+                    "ProductPrice--" in c for c in t.get("class", [])
+                )
+            )
+            price_text = price_el.get_text(strip=True) if price_el else ""
+            price = _parse_supervalu_price(price_text)
+            if price is None:
+                continue
+
+            # Promotion — present only if product is on offer
+            promo_el = card.find(
+                lambda t: t.get("class")
+                and any(
+                    "PromotionLabelBadge--" in c
+                    for c in t.get("class", [])
+                )
+            )
+            is_on_offer = promo_el is not None
+
+            product_key = generate_product_key(name)
+
+            db.table("collective_prices").insert(
+                {
+                    "product_key": product_key,
+                    "product_name": name,
+                    "category": "Other",
+                    "store_name": "SuperValu",
+                    "unit_price": price,
+                    "is_on_offer": is_on_offer,
+                    "source": "leaflet",
+                    "observed_at": now.isoformat(),
+                    "expires_at": expires_at.isoformat(),
+                }
+            ).execute()
+            count += 1
+
+        except Exception as e:
+            log.warning("SuperValu HTML scraper: item error: %s", e)
+
+    return count
+
+
+async def _scrape_supervalu_attempt(
+    db, use_proxy: bool = False
+) -> dict:
+    """Scrape SuperValu promotions page (SSR HTML).
+    Returns {"success": bool, "items_saved": int, "error": str|None}."""
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(days=7)
+    total_saved = 0
+    errors = 0
+
+    # Clean expired entries
+    try:
+        db.table("collective_prices").delete().eq(
+            "store_name",
+            "SuperValu",
+        ).eq("source", "leaflet").lt(
+            "expires_at", now.isoformat()
+        ).execute()
+    except Exception:
+        pass
+
+    headers = _random_headers(
+        referer="https://shop.supervalu.ie/",
+        origin="https://shop.supervalu.ie",
+    )
+    client_kwargs = _make_client_kwargs(use_proxy=use_proxy)
+    client_kwargs["headers"] = headers
+
+    try:
+        async with httpx.AsyncClient(**client_kwargs) as client:
+            # 1. Establish session (get cookies)
+            try:
+                session_resp = await client.get(SUPERVALU_SESSION_URL)
+                if session_resp.status_code == 403:
+                    return {
+                        "success": False,
+                        "items_saved": 0,
+                        "error": "Session blocked (403)",
+                    }
+                session_resp.raise_for_status()
+                log.info(
+                    "SuperValu HTML scraper: session OK (%d cookies)",
+                    len(client.cookies),
+                )
+            except Exception as e:
+                return {
+                    "success": False,
+                    "items_saved": 0,
+                    "error": f"Session failed: {e}",
+                }
+
+            # 2. Discover total pages from first page
+            total_pages = SUPERVALU_TOTAL_PAGES
+            try:
+                soup_p1 = BeautifulSoup(
+                    session_resp.text, "html.parser"
+                )
+                state_match = re.search(
+                    r"window\.__PRELOADED_STATE__\s*=\s*(\{.*?\})\s*;?"
+                    r"\s*</script>",
+                    session_resp.text,
+                    re.DOTALL,
+                )
+                if state_match:
+                    try:
+                        state = _json.loads(state_match.group(1))
+                        total_items = (
+                            state.get("search", {})
+                            .get("pagination", {})
+                            .get("promotions", {})
+                            .get("totalItems", 0)
+                        )
+                        if total_items > 0:
+                            total_pages = (
+                                total_items + SUPERVALU_PAGE_SIZE - 1
+                            ) // SUPERVALU_PAGE_SIZE
+                            log.info(
+                                "SuperValu HTML scraper: %d products "
+                                "across %d pages",
+                                total_items,
+                                total_pages,
+                            )
+                    except Exception:
+                        pass
+            except Exception:
+                soup_p1 = BeautifulSoup(
+                    session_resp.text, "html.parser"
+                )
+
+            # 3. Process page 1 (already loaded)
+            saved_p1 = _parse_supervalu_page(
+                soup_p1, db, now, expires_at
+            )
+            total_saved += saved_p1
+
+            # 4. Iterate pages 2..N
+            for page in range(2, total_pages + 1):
+                try:
+                    resp = await client.get(
+                        SUPERVALU_BASE_URL, params={"page": page}
+                    )
+                    if resp.status_code == 403:
+                        errors += 1
+                        log.warning(
+                            "SuperValu HTML scraper: 403 on page %d",
+                            page,
+                        )
+                        if errors >= 3:
+                            break
+                        await _page_delay()
+                        continue
+                    resp.raise_for_status()
+                    soup = BeautifulSoup(resp.text, "html.parser")
+                    saved = _parse_supervalu_page(
+                        soup, db, now, expires_at
+                    )
+                    total_saved += saved
+                except Exception as e:
+                    errors += 1
+                    log.warning(
+                        "SuperValu HTML scraper: page %d error: %s",
+                        page,
+                        e,
+                    )
+
+                if page % 20 == 0:
+                    log.info(
+                        "SuperValu HTML scraper: %d/%d pages "
+                        "(%d items saved)",
+                        page,
+                        total_pages,
+                        total_saved,
+                    )
+
+                await _page_delay()
+
+        if total_saved > 0:
+            return {
+                "success": True,
+                "items_saved": total_saved,
+                "error": None,
+            }
+        return {
+            "success": False,
+            "items_saved": 0,
+            "error": (
+                "Zero items saved — possible block or "
+                "HTML structure change"
+            ),
+        }
+
+    except Exception as e:
+        return {"success": False, "items_saved": 0, "error": str(e)}
+
+
+async def scrape_supervalu_promotions() -> None:
+    """Scrape SuperValu Ireland promotions via HTML pages (SSR).
+    Fallback chain: 0->direct, 1->Webshare proxy, 3->Auto-Fix AI."""
+    db = get_service_client()
+    run_id = _start_run(db, "SuperValu")
+
+    log.info("SuperValu HTML scraper: starting with fallback chain...")
+    await asyncio.sleep(random.uniform(5, 10))
+
+    # Fallback 0: direct
+    result = await _scrape_supervalu_attempt(db, use_proxy=False)
+    if result["success"]:
+        _finish_run(
+            db, run_id, status="success", fallback_level=0,
+            items_saved=result["items_saved"],
+        )
+        log.info(
+            "SuperValu HTML scraper: direct success (%d items)",
+            result["items_saved"],
+        )
+        return
+    log.warning(
+        "SuperValu HTML scraper: fallback 0 failed — %s",
+        result.get("error"),
+    )
+
+    # Fallback 1: Webshare proxy
+    if not settings.WEBSHARE_PROXY_URL:
+        log.info(
+            "SuperValu HTML scraper: no proxy configured — "
+            "skipping fallback 1"
+        )
+    else:
+        log.info("SuperValu HTML scraper: trying via Webshare proxy...")
+        result = await _scrape_supervalu_attempt(db, use_proxy=True)
+        if result["success"]:
+            _finish_run(
+                db, run_id, status="success", fallback_level=1,
+                items_saved=result["items_saved"],
+            )
+            log.info(
+                "SuperValu HTML scraper: proxy success (%d items)",
+                result["items_saved"],
+            )
+            return
+        log.warning(
+            "SuperValu HTML scraper: fallback 1 failed — %s",
+            result.get("error"),
+        )
+
+    # Fallback 3: Auto-Fix AI (no Apify actor for SuperValu)
+    log.error(
+        "SuperValu HTML scraper: all fallbacks failed — "
+        "activating Auto-Fix AI"
+    )
+    confidence, fix = await _autofix_scraper_ai(
+        "SuperValu",
+        f"HTML scraper at {SUPERVALU_BASE_URL} failed. "
+        f"Selectors: [class*='ProductCard--'], img[alt], "
+        f"[class*='ProductPrice--'], [class*='PromotionLabelBadge--']. "
+        f"Last error: {result.get('error', 'unknown')}",
+    )
+    _finish_run(
+        db, run_id,
+        status="failed",
+        fallback_level=3,
+        items_saved=0,
+        error_detail=(
+            f"All fallbacks failed. AutoFix: {confidence:.0%}"
+        ),
+        autofix_confidence=confidence,
+        autofix_applied=fix is not None,
+    )
+    log.error("SuperValu HTML scraper: failed at all levels")
+
+
 def _parse_tesco_price(text: str) -> float | None:
     """Extract the first decimal price from a text string."""
     m = _TESCO_PRICE_RE.search(text.replace(",", "."))
@@ -1385,10 +1735,10 @@ async def run_dunnes_scraper():
 
 
 async def run_supervalu_scraper():
-    """Run SuperValu scraper standalone."""
-    log.info("Starting SuperValu promotions scraper...")
+    """Run SuperValu HTML scraper standalone."""
+    log.info("Starting SuperValu HTML promotions scraper...")
     try:
-        await scrape_mi9_store(SUPERVALU)
+        await scrape_supervalu_promotions()
     except Exception as e:
         log.error(f"SuperValu scraper failed: {e}")
 
