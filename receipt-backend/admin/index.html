@@ -46,8 +46,11 @@ tr:hover td{background:#F9FAFB}
 .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
 .badge-pro{background:#DCFCE7;color:var(--accent)}
 .badge-free{background:#F3F4F6;color:var(--sec)}
-.badge-ok{background:#DCFCE7;color:var(--accent)}
+.badge-ok{background:#DCFCE7;color:#2E7D52}
+.badge-fallback{background:#FEF3C7;color:#92400E}
 .badge-error{background:#FEE2E2;color:var(--danger)}
+.badge-failed{background:#FEE2E2;color:var(--danger)}
+.badge-unknown{background:#F3F4F6;color:var(--sec)}
 /* Buttons */
 .btn{padding:6px 14px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s}
 .btn:hover{opacity:.85}
@@ -157,7 +160,7 @@ tr:hover td{background:#F9FAFB}
   <!-- SCRAPERS -->
   <div class="section" id="sec-scrapers">
     <div class="card">
-      <table><thead><tr><th>Scraper</th><th>Schedule</th><th>Items in DB</th><th>Status</th><th></th></tr></thead><tbody id="scrapers-body"></tbody></table>
+      <table><thead><tr><th>Store</th><th>Schedule</th><th>Items in DB</th><th>Status</th><th>Fallback</th><th>Last Run</th><th></th></tr></thead><tbody id="scrapers-body"></tbody></table>
     </div>
   </div>
 
@@ -241,7 +244,7 @@ async function loadOverview() {
     if (scansChart) scansChart.destroy();
     scansChart = new Chart(ctx, { type:'bar', data:{ labels: activity.days.map(d=>d.date), datasets:[{ label:'Scans', data: activity.days.map(d=>d.scans), backgroundColor:'#2E7D52', borderRadius:6 }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{stepSize:1}}} } });
     // Scrapers
-    document.getElementById('overview-scrapers').innerHTML = scrapers.scrapers.map(s => `<tr><td>${s.name}</td><td>${s.items_count.toLocaleString()}</td><td><span class="badge badge-${s.status}">${s.status}</span></td></tr>`).join('');
+    document.getElementById('overview-scrapers').innerHTML = scrapers.scrapers.map(s => {const e={ok:'🟢',fallback:'🟡',failed:'🔴',unknown:'⚪'}[s.status]||'⚪';return `<tr><td>${e} ${s.name}</td><td>${s.items_count.toLocaleString()}</td><td><span class="badge badge-${s.status}">${s.status}</span></td></tr>`;}).join('');
     // Errors
     const errs = errors.errors.slice(0, 5);
     document.getElementById('overview-errors').innerHTML = errs.length ? errs.map(e => `<div class="error-item"><strong>${e.store_name || 'Unknown'}</strong> &mdash; ${e.id.slice(0,8)}<div class="meta">${new Date(e.created_at).toLocaleString()}</div></div>`).join('') : '<p style="color:var(--sec);padding:12px">No errors</p>';
@@ -275,11 +278,23 @@ async function loadUsers() {
 async function loadScrapers() {
   try {
     const data = await api('scrapers');
-    document.getElementById('scrapers-body').innerHTML = data.scrapers.map(s => `<tr>
-      <td><strong>${s.name}</strong></td><td>${s.schedule}</td><td>${s.items_count.toLocaleString()}</td>
-      <td><span class="badge badge-${s.status}">${s.status}</span></td>
-      <td><button class="btn btn-primary" onclick="runAction('scrapers/${s.name}/run','POST')">Run Now</button></td>
-    </tr>`).join('');
+    const FALLBACK_LABELS = ['Direct', 'Webshare', 'Apify', 'Auto-Fix AI'];
+    const STATUS_EMOJI = {ok:'🟢',fallback:'🟡',failed:'🔴',unknown:'⚪'};
+    document.getElementById('scrapers-body').innerHTML = data.scrapers.map(s => {
+      const emoji = STATUS_EMOJI[s.status]||'⚪';
+      const fbLabel = FALLBACK_LABELS[s.fallback_level]||'Direct';
+      const lastRun = s.last_run ? new Date(s.last_run).toLocaleString('en-IE') : 'Never';
+      const errHtml = s.last_error ? `<br><small style="color:#DC3545" title="${s.last_error}">${s.last_error.substring(0,55)}...</small>` : '';
+      const aiHtml = s.autofix_confidence!=null ? `<br><small style="color:var(--sec)">GPT: ${(s.autofix_confidence*100).toFixed(0)}% conf.</small>` : '';
+      return `<tr>
+        <td><strong>${s.name.charAt(0).toUpperCase()+s.name.slice(1)}</strong></td>
+        <td>${s.schedule}</td><td>${s.items_count.toLocaleString()}</td>
+        <td>${emoji} <span class="badge badge-${s.status}">${s.status}</span>${errHtml}${aiHtml}</td>
+        <td>${s.fallback_level>0?`<span class="badge badge-fallback">${fbLabel}</span>`:fbLabel}</td>
+        <td style="font-size:12px;color:var(--sec)">${lastRun}</td>
+        <td><button class="btn btn-primary" onclick="runAction('scrapers/${s.name}/run','POST')">Run</button></td>
+      </tr>`;
+    }).join('');
   } catch(e) { console.error(e); }
 }
 

@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     UPSTASH_REDIS_URL: str = ""
     UPSTASH_REDIS_TOKEN: str = ""
 
+    # Scraper fallbacks
+    WEBSHARE_PROXY_URL: str = ""
+    APIFY_API_TOKEN: str = ""
+    APIFY_ACTOR_TESCO: str = "radeance/tesco-scraper"
+    APIFY_ACTOR_DUNNES: str = ""
+    APIFY_ACTOR_SUPERVALU: str = ""
+
     # Email (Resend)
     RESEND_API_KEY: str = ""
     FROM_EMAIL: str = "SmartDocket <reports@smartdocket.app>"

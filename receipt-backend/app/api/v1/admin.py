@@ -66,7 +66,11 @@ class ScraperInfo(BaseModel):
     last_run: str | None = None
     next_run: str | None = None
     items_count: int = 0
-    status: str = "ok"
+    status: str = "unknown"
+    fallback_level: int = 0
+    last_items_saved: int = 0
+    last_error: str | None = None
+    autofix_confidence: float | None = None
 
 
 class UpgradeRequest(BaseModel):
@@ -192,6 +196,7 @@ SCRAPER_INFO = [
 async def admin_scrapers(_admin: str = Depends(require_admin)):
     db = get_service_client()
     scrapers = []
+
     for s in SCRAPER_INFO:
         count_q = (
             db.table("collective_prices")
@@ -200,12 +205,47 @@ async def admin_scrapers(_admin: str = Depends(require_admin)):
             .eq("source", "leaflet")
             .execute()
         )
+        items_count = count_q.count or 0
+
+        # Last run from scraper_runs table
+        run_q = (
+            db.table("scraper_runs")
+            .select("*")
+            .eq("store_name", s["store"])
+            .order("started_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        last = run_q.data[0] if run_q.data else None
+
+        if last is None:
+            status, fl, last_error, autofix_conf, last_saved = (
+                "unknown", 0, None, None, 0
+            )
+        elif last["status"] == "success":
+            fl = last.get("fallback_level", 0)
+            status = "ok" if fl == 0 else "fallback"
+            last_error, autofix_conf = None, None
+            last_saved = last.get("items_saved", 0)
+        else:
+            status = "failed"
+            fl = last.get("fallback_level", 0)
+            last_error = last.get("error_detail")
+            autofix_conf = last.get("autofix_confidence")
+            last_saved = 0
+
         scrapers.append(ScraperInfo(
             name=s["name"],
             schedule=s["schedule"],
-            items_count=count_q.count or 0,
-            status="ok",
+            last_run=last["finished_at"] if last else None,
+            items_count=items_count,
+            status=status,
+            fallback_level=fl,
+            last_items_saved=last_saved,
+            last_error=last_error,
+            autofix_confidence=autofix_conf,
         ))
+
     return {"scrapers": scrapers}
 
 

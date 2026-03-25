@@ -1,4 +1,5 @@
 import asyncio
+import json as _json
 import logging
 import random
 import re
@@ -103,6 +104,221 @@ async def _startup_delay() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Proxy / Apify / Run tracking / Auto-Fix AI helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_client_kwargs(*, use_proxy: bool = False) -> dict:
+    """Return kwargs for httpx.AsyncClient, optionally with Webshare proxy."""
+    kwargs: dict = {
+        "timeout": 45,
+        "follow_redirects": True,
+    }
+    if use_proxy and settings.WEBSHARE_PROXY_URL:
+        kwargs["proxies"] = {
+            "http://": settings.WEBSHARE_PROXY_URL,
+            "https://": settings.WEBSHARE_PROXY_URL,
+        }
+    return kwargs
+
+
+async def _run_apify_actor(
+    actor_id: str,
+    run_input: dict,
+    timeout_secs: int = 300,
+) -> list[dict]:
+    """Run an Apify actor and return dataset items. Empty list on failure."""
+    token = settings.APIFY_API_TOKEN
+    if not token or not actor_id:
+        log.info("Apify: token or actor_id not configured — skipping")
+        return []
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout_secs + 30) as client:
+            run_resp = await client.post(
+                f"https://api.apify.com/v2/acts/{actor_id}/runs",
+                params={"token": token, "waitForFinish": timeout_secs},
+                json=run_input,
+            )
+            if run_resp.status_code not in (200, 201):
+                log.warning(
+                    "Apify: actor %s returned %d",
+                    actor_id,
+                    run_resp.status_code,
+                )
+                return []
+
+            run_data = run_resp.json().get("data", {})
+            dataset_id = run_data.get("defaultDatasetId")
+            if not dataset_id:
+                log.warning("Apify: no defaultDatasetId in response")
+                return []
+
+            items_resp = await client.get(
+                f"https://api.apify.com/v2/datasets/{dataset_id}/items",
+                params={"token": token, "format": "json"},
+            )
+            if items_resp.status_code != 200:
+                log.warning(
+                    "Apify: dataset %s returned %d",
+                    dataset_id,
+                    items_resp.status_code,
+                )
+                return []
+
+            items = items_resp.json() or []
+            log.info(
+                "Apify: actor %s returned %d items", actor_id, len(items)
+            )
+            return items
+
+    except Exception as e:
+        log.error("Apify: error running actor %s: %s", actor_id, e)
+        return []
+
+
+def _start_run(db, store_name: str) -> str | None:
+    """Insert a scraper_runs record. Returns the id or None."""
+    try:
+        result = (
+            db.table("scraper_runs")
+            .insert(
+                {
+                    "store_name": store_name,
+                    "status": "running",
+                    "fallback_level": 0,
+                }
+            )
+            .execute()
+        )
+        return result.data[0]["id"] if result.data else None
+    except Exception as e:
+        log.warning("_start_run [%s]: %s", store_name, e)
+        return None
+
+
+def _finish_run(
+    db,
+    run_id: str | None,
+    *,
+    status: str,
+    fallback_level: int,
+    items_saved: int,
+    error_detail: str | None = None,
+    autofix_confidence: float | None = None,
+    autofix_applied: bool = False,
+) -> None:
+    """Update the scraper_runs record. Never crashes."""
+    if not run_id:
+        return
+    try:
+        db.table("scraper_runs").update(
+            {
+                "finished_at": datetime.now(timezone.utc).isoformat(),
+                "status": status,
+                "fallback_level": fallback_level,
+                "items_saved": items_saved,
+                "error_detail": error_detail,
+                "autofix_confidence": autofix_confidence,
+                "autofix_applied": autofix_applied,
+            }
+        ).eq("id", run_id).execute()
+    except Exception as e:
+        log.warning("_finish_run [%s]: %s", run_id, e)
+
+
+async def _autofix_scraper_ai(
+    store_name: str,
+    error_context: str,
+    sample_html: str = "",
+) -> tuple[float, str | None]:
+    """GPT analyses the error and proposes a fix. Only acts at >= 80%."""
+    if not settings.OPENAI_API_KEY:
+        return 0.0, None
+
+    from openai import AsyncOpenAI
+
+    ai = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+
+    prompt = f"""You are a senior Python developer debugging a web scraper \
+for {store_name} Ireland.
+
+Error context:
+{error_context}
+
+Sample HTML (first 2000 chars):
+{sample_html[:2000] if sample_html else "Not available"}
+
+Analyse the error and respond ONLY with valid JSON:
+{{
+  "confidence": 0.85,
+  "diagnosis": "Short description of what broke",
+  "fix_type": "endpoint_change | location_id | headers | auth | other",
+  "proposed_fix": "What should change in the code",
+  "risk": "low | medium | high",
+  "can_auto_apply": true
+}}
+
+Rules:
+- confidence: 0.0 to 1.0
+- can_auto_apply=true only if confidence >= 0.8 AND risk == "low"
+- Be conservative — prefer lower confidence over wrong fixes
+"""
+
+    try:
+        response = await ai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.1,
+            max_tokens=400,
+        )
+        data = _json.loads(response.choices[0].message.content or "{}")
+        confidence = float(data.get("confidence", 0.0))
+        diagnosis = data.get("diagnosis", "unknown")
+        can_auto_apply = data.get("can_auto_apply", False)
+        proposed_fix = data.get("proposed_fix", "")
+
+        try:
+            import sentry_sdk
+
+            sentry_sdk.capture_message(
+                f"[AutoFix AI] {store_name}: {confidence:.0%} — {diagnosis}",
+                level="warning" if confidence < 0.8 else "info",
+                tags={
+                    "scraper": store_name.lower(),
+                    "autofix_confidence": str(round(confidence, 2)),
+                    "can_auto_apply": str(can_auto_apply),
+                },
+            )
+        except Exception:
+            pass
+
+        log.info(
+            "AutoFix AI [%s]: confidence=%.0f%%, can_apply=%s — %s",
+            store_name,
+            confidence * 100,
+            can_auto_apply,
+            diagnosis,
+        )
+
+        if confidence >= 0.8 and can_auto_apply:
+            return confidence, proposed_fix
+        else:
+            log.warning(
+                "AutoFix AI [%s]: confidence %.0f%% insufficient "
+                "or high risk — alerting only",
+                store_name,
+                confidence * 100,
+            )
+            return confidence, None
+
+    except Exception as e:
+        log.error("AutoFix AI [%s]: failed — %s", store_name, e)
+        return 0.0, None
+
+
+# ---------------------------------------------------------------------------
 # Mi9 store configurations
 # ---------------------------------------------------------------------------
 
@@ -146,7 +362,7 @@ SUPERVALU = Mi9Store(
         "https://storefrontgateway.supervalu.ie"
         "/api/stores/5550/locations"
     ),
-    location_id="5df95c07-402e-419a-a699-8b895311ac5a",
+    location_id=None,  # discover at runtime via _discover_location_id()
     total_pages=121,
     referer=(
         "https://shop.supervalu.ie"
@@ -239,224 +455,347 @@ async def _discover_location_id(
 
 
 # ---------------------------------------------------------------------------
-# Generic Mi9 scraper (Dunnes, SuperValu)
+# Mi9 item saver (extracted for reuse by Apify fallback)
+# ---------------------------------------------------------------------------
+
+
+async def _save_mi9_items(
+    db,
+    store: Mi9Store,
+    products: list,
+    now: datetime | None = None,
+    default_expires: datetime | None = None,
+) -> int:
+    """Save Mi9 items to collective_prices. Returns count saved."""
+    if now is None:
+        now = datetime.now(timezone.utc)
+    if default_expires is None:
+        default_expires = now + timedelta(days=7)
+
+    count = 0
+    for item in products:
+        try:
+            name = item.get("name")
+            price = item.get("priceNumeric")
+            if not name or price is None:
+                continue
+
+            promo_name = None
+            promotions = item.get("promotions")
+            if promotions:
+                promo_name = promotions[0].get("name")
+
+            categories = item.get("defaultCategory", [])
+            category = (
+                categories[0].get("category", "Other") if categories else "Other"
+            )
+            expires_at = _parse_expires(item, default_expires)
+            product_key = generate_product_key(name)
+
+            db.table("collective_prices").insert(
+                {
+                    "product_key": product_key,
+                    "product_name": name,
+                    "category": category,
+                    "store_name": store.store_name,
+                    "unit_price": float(price),
+                    "is_on_offer": promo_name is not None,
+                    "source": "leaflet",
+                    "observed_at": now.isoformat(),
+                    "expires_at": expires_at.isoformat(),
+                }
+            ).execute()
+            count += 1
+        except Exception as e:
+            log.warning(
+                "_save_mi9_items [%s]: item error: %s", store.store_name, e
+            )
+    return count
+
+
+# ---------------------------------------------------------------------------
+# Mi9 single attempt (direct or proxy)
+# ---------------------------------------------------------------------------
+
+
+async def _scrape_mi9_attempt(
+    store: Mi9Store,
+    db,
+    use_proxy: bool = False,
+) -> dict:
+    """One scrape attempt (direct or via Webshare proxy).
+    Returns {"success": bool, "items_saved": int, "error": str|None}."""
+    now = datetime.now(timezone.utc)
+    default_expires = now + timedelta(days=7)
+    total_saved = 0
+    mode = "proxy" if use_proxy else "direct"
+    label = f"{store.store_name}({mode})"
+
+    # Clean expired entries
+    try:
+        db.table("collective_prices").delete().eq(
+            "store_name",
+            store.store_name,
+        ).eq("source", "leaflet").lt(
+            "expires_at",
+            now.isoformat(),
+        ).execute()
+    except Exception:
+        pass
+
+    headers = _random_headers(referer=store.referer, origin=store.origin)
+    client_kwargs = _make_client_kwargs(use_proxy=use_proxy)
+    client_kwargs["headers"] = headers
+
+    try:
+        async with httpx.AsyncClient(**client_kwargs) as client:
+            # Session with retry
+            session_resp = None
+            for attempt in range(1, 4):
+                try:
+                    resp = await client.get(store.session_url)
+                    if resp.status_code == 403:
+                        log.warning(
+                            "%s: 403 on session (attempt %d/3)",
+                            label,
+                            attempt,
+                        )
+                        await asyncio.sleep(random.uniform(5, 10))
+                        client.headers["User-Agent"] = random.choice(
+                            USER_AGENTS
+                        )
+                        continue
+                    resp.raise_for_status()
+                    session_resp = resp
+                    break
+                except httpx.HTTPStatusError:
+                    if attempt == 3:
+                        return {
+                            "success": False,
+                            "items_saved": 0,
+                            "error": "Session failed after 3 attempts",
+                        }
+                    await asyncio.sleep(random.uniform(5, 10))
+                except Exception as e:
+                    return {
+                        "success": False,
+                        "items_saved": 0,
+                        "error": str(e),
+                    }
+
+            if session_resp is None:
+                return {
+                    "success": False,
+                    "items_saved": 0,
+                    "error": "No session response",
+                }
+
+            log.info(
+                "%s: session OK (%d cookies)", label, len(client.cookies)
+            )
+
+            # Resolve location_id
+            location_id = store.location_id
+            if location_id is None:
+                location_id = await _discover_location_id(
+                    client, session_resp, store
+                )
+                if location_id is None:
+                    return {
+                        "success": False,
+                        "items_saved": 0,
+                        "error": "location_id not discovered",
+                    }
+                log.info("%s: location_id=%s", label, location_id)
+
+            api_url = (
+                f"{store.api_base}/{location_id}/aisle/page_promotion"
+            )
+
+            client.headers["Accept"] = (
+                "application/json, text/plain, */*"
+            )
+            client.headers["Sec-Fetch-Dest"] = "empty"
+            client.headers["Sec-Fetch-Mode"] = "cors"
+            client.headers["Sec-Fetch-Site"] = "same-site"
+
+            consecutive_403 = 0
+            for page in range(1, store.total_pages + 1):
+                skip = (page - 1) * PAGE_SIZE
+                params = {
+                    "page": page,
+                    "skip": skip,
+                    "pageSize": PAGE_SIZE,
+                }
+
+                try:
+                    resp = await client.get(api_url, params=params)
+                    if resp.status_code == 403:
+                        consecutive_403 += 1
+                        log.warning(
+                            "%s: 403 on page %d (%d consecutive)",
+                            label,
+                            page,
+                            consecutive_403,
+                        )
+                        if consecutive_403 >= 3:
+                            log.warning(
+                                "%s: 3 consecutive 403s — stopping",
+                                label,
+                            )
+                            break
+                        await asyncio.sleep(random.uniform(8, 15))
+                        continue
+                    resp.raise_for_status()
+                    data = resp.json()
+                    consecutive_403 = 0
+                except Exception as e:
+                    log.warning(
+                        "%s: page %d failed: %s", label, page, e
+                    )
+                    await _page_delay()
+                    continue
+
+                products = (
+                    data
+                    if isinstance(data, list)
+                    else data.get("products", data.get("items", []))
+                )
+
+                saved = await _save_mi9_items(
+                    db, store, products, now, default_expires
+                )
+                total_saved += saved
+
+                if page % 50 == 0:
+                    log.info(
+                        "%s: %d/%d pages (%d items)",
+                        label,
+                        page,
+                        store.total_pages,
+                        total_saved,
+                    )
+
+                await _page_delay()
+
+        if total_saved > 0:
+            return {
+                "success": True,
+                "items_saved": total_saved,
+                "error": None,
+            }
+        else:
+            return {
+                "success": False,
+                "items_saved": 0,
+                "error": "Zero items saved — possible block",
+            }
+
+    except Exception as e:
+        return {"success": False, "items_saved": 0, "error": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# Generic Mi9 scraper with fallback chain (Dunnes, SuperValu)
 # ---------------------------------------------------------------------------
 
 
 async def scrape_mi9_store(store: Mi9Store) -> None:
-    """Scrape all promotion pages for a Mi9-based store."""
+    """Scrape Mi9 with fallback chain:
+    0 -> direct, 1 -> Webshare proxy, 2 -> Apify, 3 -> Auto-Fix AI."""
     db = get_service_client()
-    now = datetime.now(timezone.utc)
-    default_expires = now + timedelta(days=7)
-    total_saved = 0
-    errors = 0
+    run_id = _start_run(db, store.store_name)
     label = f"{store.store_name} scraper"
 
-    log.info("%s: starting (%d pages)...", label, store.total_pages)
+    log.info("%s: starting with fallback chain...", label)
     await _startup_delay()
 
-    # 1. Clean up expired entries
-    db.table("collective_prices").delete().eq(
-        "store_name", store.store_name,
-    ).eq("source", "leaflet").lt(
-        "expires_at", now.isoformat(),
-    ).execute()
-    log.info("%s: expired entries removed", label)
+    # Fallback 0: direct
+    result = await _scrape_mi9_attempt(store, db, use_proxy=False)
+    if result["success"]:
+        _finish_run(
+            db, run_id, status="success", fallback_level=0,
+            items_saved=result["items_saved"],
+        )
+        log.info(
+            "%s: success direct (%d items)", label, result["items_saved"]
+        )
+        return
+    log.warning("%s: fallback 0 failed — %s", label, result.get("error"))
 
-    # 2. Open session with random UA
-    headers = _random_headers(
-        referer=store.referer,
-        origin=store.origin,
-    )
-    async with httpx.AsyncClient(
-        timeout=30,
-        follow_redirects=True,
-        headers=headers,
-    ) as client:
-        # Session with retry (up to 3 attempts for 403)
-        session_resp = None
-        for attempt in range(1, 4):
-            try:
-                resp = await client.get(store.session_url)
-                if resp.status_code == 403:
-                    log.warning(
-                        "%s: 403 on session (attempt %d/3)",
-                        label,
-                        attempt,
-                    )
-                    await asyncio.sleep(random.uniform(5, 10))
-                    # Rotate UA for next attempt
-                    client.headers["User-Agent"] = random.choice(
-                        USER_AGENTS
-                    )
-                    continue
-                resp.raise_for_status()
-                session_resp = resp
-                break
-            except httpx.HTTPStatusError:
-                if attempt == 3:
-                    log.error(
-                        "%s: session failed after 3 attempts — "
-                        "will retry next scheduled run",
-                        label,
-                    )
-                    return
-                await asyncio.sleep(random.uniform(5, 10))
-            except Exception as e:
-                log.error(
-                    "%s: session request error: %s", label, e
-                )
-                return
-
-        if session_resp is None:
-            log.error(
-                "%s: could not establish session — "
-                "temporarily unavailable",
+    # Fallback 1: Webshare proxy
+    if not settings.WEBSHARE_PROXY_URL:
+        log.info("%s: WEBSHARE_PROXY_URL not set — skipping fallback 1", label)
+    else:
+        log.info("%s: trying via Webshare proxy...", label)
+        result = await _scrape_mi9_attempt(store, db, use_proxy=True)
+        if result["success"]:
+            _finish_run(
+                db, run_id, status="success", fallback_level=1,
+                items_saved=result["items_saved"],
+            )
+            log.info(
+                "%s: success via proxy (%d items)",
                 label,
+                result["items_saved"],
             )
             return
-
-        log.info(
-            "%s: session established (%d cookies)",
-            label,
-            len(client.cookies),
+        log.warning(
+            "%s: fallback 1 failed — %s", label, result.get("error")
         )
 
-        # 3. Resolve location id
-        location_id = store.location_id
-        if location_id is None:
-            location_id = await _discover_location_id(
-                client, session_resp, store
-            )
-            if location_id is None:
-                log.error(
-                    "%s: could not discover location_id — aborting",
-                    label,
-                )
-                return
-            log.info("%s: discovered location_id=%s", label, location_id)
-
-        api_url = (
-            f"{store.api_base}/{location_id}/aisle/page_promotion"
-        )
-
-        # Update headers for API calls
-        client.headers["Accept"] = (
-            "application/json, text/plain, */*"
-        )
-        client.headers["Sec-Fetch-Dest"] = "empty"
-        client.headers["Sec-Fetch-Mode"] = "cors"
-        client.headers["Sec-Fetch-Site"] = "same-site"
-
-        # 4. Iterate pages
-        consecutive_403 = 0
-        for page in range(1, store.total_pages + 1):
-            skip = (page - 1) * PAGE_SIZE
-            params = {
-                "page": page,
-                "skip": skip,
-                "pageSize": PAGE_SIZE,
-            }
-
-            try:
-                resp = await client.get(api_url, params=params)
-                if resp.status_code == 403:
-                    consecutive_403 += 1
-                    log.warning(
-                        "%s: 403 on page %d (%d consecutive)",
-                        label,
-                        page,
-                        consecutive_403,
-                    )
-                    if consecutive_403 >= 3:
-                        log.warning(
-                            "%s: 3 consecutive 403s — stopping",
-                            label,
-                        )
-                        break
-                    await asyncio.sleep(random.uniform(8, 15))
-                    continue
-                resp.raise_for_status()
-                data = resp.json()
-                consecutive_403 = 0
-            except Exception as e:
-                errors += 1
-                log.warning("%s: page %d failed (%s)", label, page, e)
-                await _page_delay()
-                continue
-
-            products = (
-                data
-                if isinstance(data, list)
-                else data.get("products", data.get("items", []))
-            )
-
-            for item in products:
-                try:
-                    name = item.get("name")
-                    price = item.get("priceNumeric")
-                    if not name or price is None:
-                        continue
-
-                    # Promotion info
-                    promo_name = None
-                    promotions = item.get("promotions")
-                    if promotions and len(promotions) > 0:
-                        promo_name = promotions[0].get("name")
-
-                    # Category
-                    categories = item.get("defaultCategory", [])
-                    category = "Other"
-                    if categories and len(categories) > 0:
-                        category = categories[0].get(
-                            "category", "Other"
-                        )
-
-                    # Expiry
-                    expires_at = _parse_expires(
-                        item, default_expires
-                    )
-
-                    product_key = generate_product_key(name)
-
-                    db.table("collective_prices").insert({
-                        "product_key": product_key,
-                        "product_name": name,
-                        "category": category,
-                        "store_name": store.store_name,
-                        "unit_price": float(price),
-                        "is_on_offer": promo_name is not None,
-                        "source": "leaflet",
-                        "observed_at": now.isoformat(),
-                        "expires_at": expires_at.isoformat(),
-                    }).execute()
-                    total_saved += 1
-                except Exception as e:
-                    errors += 1
-                    log.warning(
-                        "%s: item error on page %d: %s",
-                        label,
-                        page,
-                        e,
-                    )
-
-            if page % 50 == 0:
-                log.info(
-                    "%s: %d/%d pages (%d items saved)",
-                    label,
-                    page,
-                    store.total_pages,
-                    total_saved,
-                )
-
-            await _page_delay()
-
-    log.info(
-        "%s: finished — %d items saved, %d errors",
-        label,
-        total_saved,
-        errors,
+    # Fallback 2: Apify
+    actor_id = (
+        settings.APIFY_ACTOR_DUNNES
+        if store.store_name == "Dunnes"
+        else settings.APIFY_ACTOR_SUPERVALU
     )
+    if actor_id and settings.APIFY_API_TOKEN:
+        log.info("%s: trying Apify actor %s...", label, actor_id)
+        items = await _run_apify_actor(
+            actor_id,
+            {"startUrls": [{"url": store.session_url}]},
+        )
+        if items:
+            saved = await _save_mi9_items(db, store, items)
+            _finish_run(
+                db, run_id, status="success", fallback_level=2,
+                items_saved=saved,
+            )
+            log.info("%s: success via Apify (%d items)", label, saved)
+            return
+        log.warning("%s: fallback 2 (Apify) returned 0 items", label)
+    else:
+        log.info(
+            "%s: Apify not configured for this scraper — skipping", label
+        )
+
+    # Fallback 3: Auto-Fix AI
+    log.error(
+        "%s: all fallbacks failed — activating Auto-Fix AI", label
+    )
+    error_ctx = (
+        f"Store: {store.store_name}, "
+        f"session_url: {store.session_url}, "
+        f"api_base: {store.api_base}, "
+        f"last_error: {result.get('error', 'unknown')}"
+    )
+    confidence, fix = await _autofix_scraper_ai(
+        store.store_name, error_ctx
+    )
+
+    _finish_run(
+        db, run_id,
+        status="failed",
+        fallback_level=3,
+        items_saved=0,
+        error_detail=(
+            f"All fallbacks failed. AutoFix: {confidence:.0%} confidence"
+        ),
+        autofix_confidence=confidence,
+        autofix_applied=fix is not None,
+    )
+    log.error("%s: failed at all levels", label)
 
 
 # ---------------------------------------------------------------------------
@@ -523,6 +862,7 @@ def _lidl_flyer_slug(today: datetime | None = None) -> str:
 async def scrape_lidl_leaflet() -> None:
     """Fetch the current Lidl Ireland weekly flyer and save products."""
     db = get_service_client()
+    run_id = _start_run(db, "Lidl")
     now = datetime.now(timezone.utc)
     default_expires = now + timedelta(days=7)
     total_saved = 0
@@ -645,6 +985,15 @@ async def scrape_lidl_leaflet() -> None:
                 errors += 1
                 log.warning("Lidl scraper: item error: %s", e)
 
+    _finish_run(
+        db, run_id,
+        status="success" if total_saved > 0 else "failed",
+        fallback_level=0,
+        items_saved=total_saved,
+        error_detail=(
+            None if total_saved > 0 else "Zero items — slug may have changed"
+        ),
+    )
     log.info(
         "Lidl scraper: finished — %d items saved, %d errors",
         total_saved,
@@ -679,188 +1028,333 @@ def _parse_tesco_price(text: str) -> float | None:
     return None
 
 
-async def scrape_tesco_promotions() -> None:
-    """Scrape Tesco Ireland promotions from SSR HTML pages."""
-    db = get_service_client()
+async def _scrape_tesco_attempt(
+    db, use_proxy: bool = False
+) -> dict:
+    """One Tesco scrape attempt. Returns success/items_saved/error dict."""
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(days=7)
     total_saved = 0
-    errors = 0
+    mode = "proxy" if use_proxy else "direct"
+    label = f"Tesco({mode})"
 
-    log.info("Tesco scraper: starting...")
-    await asyncio.sleep(random.uniform(8, 15))
+    # Clean expired
+    try:
+        db.table("collective_prices").delete().eq(
+            "store_name", "Tesco",
+        ).eq("source", "leaflet").lt(
+            "expires_at", now.isoformat(),
+        ).execute()
+    except Exception:
+        pass
 
-    # 1. Clean expired entries
-    db.table("collective_prices").delete().eq(
-        "store_name",
-        "Tesco",
-    ).eq("source", "leaflet").lt(
-        "expires_at",
-        now.isoformat(),
-    ).execute()
-    log.info("Tesco scraper: expired entries removed")
-
-    # 2. Session with cookies
     tesco_headers = _random_headers(
         referer="https://www.tesco.ie/",
         origin="https://www.tesco.ie",
     )
     tesco_headers["Accept-Encoding"] = "gzip, deflate, br"
     tesco_headers["Cache-Control"] = "no-cache"
-    async with httpx.AsyncClient(
-        timeout=30,
-        follow_redirects=True,
-        headers=tesco_headers,
-    ) as client:
-        try:
-            session_resp = await client.get(TESCO_SESSION_URL)
-            session_resp.raise_for_status()
-            log.info(
-                "Tesco scraper: session established (%d cookies)",
-                len(client.cookies),
-            )
-        except Exception as e:
-            log.error("Tesco scraper: session failed: %s", e)
-            return
 
-        # 3. Discover total pages from first page
-        total_pages = 1
-        page = 1
+    client_kwargs = _make_client_kwargs(use_proxy=use_proxy)
+    client_kwargs["headers"] = tesco_headers
 
-        while page <= total_pages:
-            params = {
-                "sortBy": "relevance",
-                "page": page,
-                "count": TESCO_PAGE_SIZE,
-            }
+    try:
+        async with httpx.AsyncClient(**client_kwargs) as client:
             try:
-                resp = await client.get(
-                    TESCO_BASE_URL, params=params
+                session_resp = await client.get(TESCO_SESSION_URL)
+                session_resp.raise_for_status()
+                log.info(
+                    "%s: session OK (%d cookies)",
+                    label,
+                    len(client.cookies),
                 )
-                resp.raise_for_status()
-                html = resp.text
             except Exception as e:
-                errors += 1
-                log.warning(
-                    "Tesco scraper: page %d failed (%s)", page, e
-                )
-                await _page_delay()
-                page += 1
-                continue
+                return {
+                    "success": False, "items_saved": 0, "error": str(e)
+                }
 
-            soup = BeautifulSoup(html, "html.parser")
+            total_pages = 1
+            page = 1
 
-            # Discover total on first page
-            if page == 1:
-                results_text = soup.get_text()
-                m = _TESCO_TOTAL_RE.search(results_text)
-                if m:
-                    total_items_count = int(
-                        m.group(1).replace(",", "")
-                    )
-                    total_pages = (
-                        total_items_count + TESCO_PAGE_SIZE - 1
-                    ) // TESCO_PAGE_SIZE
-                    log.info(
-                        "Tesco scraper: %d products across %d pages",
-                        total_items_count,
-                        total_pages,
-                    )
-
-            # 4. Extract products
-            product_links = soup.select(
-                "a[href*='/groceries/en-IE/products/']"
-            )
-            for link in product_links:
+            while page <= total_pages:
+                params = {
+                    "sortBy": "relevance",
+                    "page": page,
+                    "count": TESCO_PAGE_SIZE,
+                }
                 try:
-                    name = link.get_text(strip=True)
-                    if not name:
-                        continue
+                    resp = await client.get(
+                        TESCO_BASE_URL, params=params
+                    )
+                    resp.raise_for_status()
+                    html = resp.text
+                except Exception as e:
+                    log.warning(
+                        "%s: page %d failed (%s)", label, page, e
+                    )
+                    await _page_delay()
+                    page += 1
+                    continue
 
-                    # Walk up to the product tile container
-                    container = link
-                    for _ in range(8):
-                        if container.parent is None:
-                            break
-                        container = container.parent
+                soup = BeautifulSoup(html, "html.parser")
+
+                if page == 1:
+                    results_text = soup.get_text()
+                    m = _TESCO_TOTAL_RE.search(results_text)
+                    if m:
+                        total_items_count = int(
+                            m.group(1).replace(",", "")
+                        )
+                        total_pages = (
+                            total_items_count + TESCO_PAGE_SIZE - 1
+                        ) // TESCO_PAGE_SIZE
+                        log.info(
+                            "%s: %d products across %d pages",
+                            label,
+                            total_items_count,
+                            total_pages,
+                        )
+
+                product_links = soup.select(
+                    "a[href*='/groceries/en-IE/products/']"
+                )
+                for link in product_links:
+                    try:
+                        name = link.get_text(strip=True)
+                        if not name:
+                            continue
+
+                        container = link
+                        for _ in range(8):
+                            if container.parent is None:
+                                break
+                            container = container.parent
+                            price_el = container.select_one(
+                                "[class*='product-tile-price__text'],"
+                                "[class*='price-text'],"
+                                "[class*='value']"
+                            )
+                            if price_el:
+                                break
+
+                        price = None
                         price_el = container.select_one(
                             "[class*='product-tile-price__text'],"
                             "[class*='price-text'],"
-                            "[class*='value']"
+                            "[class*='price-per-sellable-unit']"
                         )
                         if price_el:
-                            break
+                            price = _parse_tesco_price(
+                                price_el.get_text()
+                            )
 
-                    # Price
-                    price = None
-                    price_el = container.select_one(
-                        "[class*='product-tile-price__text'],"
-                        "[class*='price-text'],"
-                        "[class*='price-per-sellable-unit']"
-                    )
-                    if price_el:
-                        price = _parse_tesco_price(
-                            price_el.get_text()
+                        if price is None:
+                            for el in container.find_all(
+                                string=re.compile(r"€")
+                            ):
+                                price = _parse_tesco_price(str(el))
+                                if price is not None:
+                                    break
+
+                        if price is None:
+                            continue
+
+                        promo_el = container.select_one(
+                            "[class*='value-bar__content-text'],"
+                            "[class*='promo'],"
+                            "[class*='offer']"
+                        )
+                        is_on_offer = promo_el is not None
+                        product_key = generate_product_key(name)
+
+                        db.table("collective_prices").insert({
+                            "product_key": product_key,
+                            "product_name": name,
+                            "category": "Other",
+                            "store_name": "Tesco",
+                            "unit_price": price,
+                            "is_on_offer": is_on_offer,
+                            "source": "leaflet",
+                            "observed_at": now.isoformat(),
+                            "expires_at": expires_at.isoformat(),
+                        }).execute()
+                        total_saved += 1
+
+                    except Exception as e:
+                        log.warning(
+                            "%s: item error on page %d: %s",
+                            label, page, e,
                         )
 
-                    if price is None:
-                        for el in container.find_all(
-                            string=re.compile(r"€")
-                        ):
-                            price = _parse_tesco_price(str(el))
-                            if price is not None:
-                                break
-
-                    if price is None:
-                        continue
-
-                    # Promotion text
-                    promo_el = container.select_one(
-                        "[class*='value-bar__content-text'],"
-                        "[class*='promo'],"
-                        "[class*='offer']"
-                    )
-                    is_on_offer = promo_el is not None
-
-                    product_key = generate_product_key(name)
-
-                    db.table("collective_prices").insert({
-                        "product_key": product_key,
-                        "product_name": name,
-                        "category": "Other",
-                        "store_name": "Tesco",
-                        "unit_price": price,
-                        "is_on_offer": is_on_offer,
-                        "source": "leaflet",
-                        "observed_at": now.isoformat(),
-                        "expires_at": expires_at.isoformat(),
-                    }).execute()
-                    total_saved += 1
-
-                except Exception as e:
-                    errors += 1
-                    log.warning(
-                        "Tesco scraper: item error on page %d: %s",
-                        page,
-                        e,
+                if page % 10 == 0:
+                    log.info(
+                        "%s: %d/%d pages (%d items)",
+                        label, page, total_pages, total_saved,
                     )
 
-            if page % 10 == 0:
-                log.info(
-                    "Tesco scraper: %d/%d pages (%d items saved)",
-                    page,
-                    total_pages,
-                    total_saved,
-                )
+                await _page_delay()
+                page += 1
 
-            await _page_delay()
-            page += 1
+        if total_saved > 0:
+            return {
+                "success": True, "items_saved": total_saved, "error": None
+            }
+        return {
+            "success": False,
+            "items_saved": 0,
+            "error": "Zero items saved — possible block",
+        }
 
-    log.info(
-        "Tesco scraper: finished — %d items saved, %d errors",
-        total_saved,
-        errors,
+    except Exception as e:
+        return {"success": False, "items_saved": 0, "error": str(e)}
+
+
+def _save_tesco_apify_items(db, items: list) -> int:
+    """Save items from Apify actor radeance/tesco-scraper."""
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(days=7)
+    count = 0
+    for item in items:
+        try:
+            name = item.get("name")
+            price = item.get("price")
+            if not name or price is None:
+                continue
+
+            promo = item.get("promotion")
+            is_on_offer = promo is not None
+
+            item_expires = expires_at
+            if promo and promo.get("valid_to"):
+                try:
+                    dt = dateutil_parser.isoparse(promo["valid_to"])
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    item_expires = dt
+                except (ValueError, TypeError):
+                    pass
+
+            product_key = generate_product_key(name)
+            category = (
+                item.get("main_category")
+                or item.get("product_category")
+                or "Other"
+            )
+
+            db.table("collective_prices").insert({
+                "product_key": product_key,
+                "product_name": name,
+                "category": category,
+                "store_name": "Tesco",
+                "unit_price": float(price),
+                "is_on_offer": is_on_offer,
+                "source": "leaflet",
+                "observed_at": now.isoformat(),
+                "expires_at": item_expires.isoformat(),
+            }).execute()
+            count += 1
+        except Exception as e:
+            log.warning("_save_tesco_apify_items: item error: %s", e)
+    return count
+
+
+async def scrape_tesco_promotions() -> None:
+    """Scrape Tesco Ireland with full fallback chain."""
+    db = get_service_client()
+    run_id = _start_run(db, "Tesco")
+
+    log.info("Tesco scraper: starting with fallback chain...")
+    await asyncio.sleep(random.uniform(8, 15))
+
+    # Fallback 0: direct
+    result = await _scrape_tesco_attempt(db, use_proxy=False)
+    if result["success"]:
+        _finish_run(
+            db, run_id, status="success", fallback_level=0,
+            items_saved=result["items_saved"],
+        )
+        log.info(
+            "Tesco scraper: success direct (%d items)",
+            result["items_saved"],
+        )
+        return
+    log.warning(
+        "Tesco scraper: fallback 0 failed — %s", result.get("error")
     )
+
+    # Fallback 1: Webshare proxy
+    if not settings.WEBSHARE_PROXY_URL:
+        log.info("Tesco scraper: WEBSHARE_PROXY_URL not set — skipping")
+    else:
+        log.info("Tesco scraper: trying via Webshare proxy...")
+        result = await _scrape_tesco_attempt(db, use_proxy=True)
+        if result["success"]:
+            _finish_run(
+                db, run_id, status="success", fallback_level=1,
+                items_saved=result["items_saved"],
+            )
+            log.info(
+                "Tesco scraper: success via proxy (%d items)",
+                result["items_saved"],
+            )
+            return
+        log.warning(
+            "Tesco scraper: fallback 1 failed — %s", result.get("error")
+        )
+
+    # Fallback 2: Apify
+    if settings.APIFY_API_TOKEN and settings.APIFY_ACTOR_TESCO:
+        log.info(
+            "Tesco scraper: trying Apify actor %s...",
+            settings.APIFY_ACTOR_TESCO,
+        )
+        items = await _run_apify_actor(
+            settings.APIFY_ACTOR_TESCO,
+            {
+                "region": "Ireland",
+                "urls": [
+                    "https://www.tesco.ie/groceries/en-IE/promotions/all"
+                ],
+                "max_items": 2000,
+                "include_product_details": False,
+            },
+        )
+        if items:
+            saved = _save_tesco_apify_items(db, items)
+            _finish_run(
+                db, run_id, status="success", fallback_level=2,
+                items_saved=saved,
+            )
+            log.info(
+                "Tesco scraper: success via Apify (%d items)", saved
+            )
+            return
+        log.warning("Tesco scraper: fallback 2 (Apify) returned 0 items")
+    else:
+        log.info("Tesco scraper: Apify not configured — skipping")
+
+    # Fallback 3: Auto-Fix AI
+    log.error(
+        "Tesco scraper: all fallbacks failed — activating Auto-Fix AI"
+    )
+    confidence, fix = await _autofix_scraper_ai(
+        "Tesco",
+        f"TESCO_BASE_URL ({TESCO_BASE_URL}) returns 403. "
+        f"Session at {TESCO_SESSION_URL} works (200). "
+        f"Last error: {result.get('error', 'unknown')}",
+    )
+    _finish_run(
+        db, run_id,
+        status="failed",
+        fallback_level=3,
+        items_saved=0,
+        error_detail=(
+            f"All fallbacks failed. AutoFix: {confidence:.0%}"
+        ),
+        autofix_confidence=confidence,
+        autofix_applied=fix is not None,
+    )
+    log.error("Tesco scraper: failed at all levels")
 
 
 # ---------------------------------------------------------------------------
