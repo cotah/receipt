@@ -17,6 +17,7 @@ CREATE TABLE public.profiles (
     locale          TEXT DEFAULT 'en-IE',
     currency        TEXT DEFAULT 'EUR',
     home_area       TEXT,
+    phone           TEXT,
     notify_alerts   BOOLEAN DEFAULT TRUE,
     notify_reports  BOOLEAN DEFAULT TRUE,
     push_token      TEXT,

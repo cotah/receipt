@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, Image, StyleSheet, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 
 let wordmarkSource: ReturnType<typeof require> | null = null;
 try {
@@ -9,6 +9,7 @@ try {
 }
 import { Link } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
@@ -17,22 +18,42 @@ import { useAuthStore } from '../../stores/authStore';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [useMagicLink, setUseMagicLink] = useState(false);
   const [error, setError] = useState('');
-  const signIn = useAuthStore((s) => s.signInWithMagicLink);
 
-  const handleSignIn = async () => {
+  const signInMagic = useAuthStore((s) => s.signInWithMagicLink);
+  const signInPassword = useAuthStore((s) => s.signInWithPassword);
+  const signInOAuth = useAuthStore((s) => s.signInWithOAuth);
+
+  const handlePasswordLogin = async () => {
+    if (!email.trim() || !password.trim()) return;
+    setLoading(true);
+    setError('');
+    const result = await signInPassword(email.trim(), password);
+    setLoading(false);
+    if (result.error) setError(result.error.message);
+  };
+
+  const handleMagicLink = async () => {
     if (!email.trim()) return;
     setLoading(true);
     setError('');
-    const result = await signIn(email.trim());
+    const result = await signInMagic(email.trim());
     setLoading(false);
     if (result.error) {
       setError(result.error.message);
     } else {
-      setSent(true);
+      setMagicLinkSent(true);
     }
+  };
+
+  const handleOAuth = async (provider: 'apple' | 'google') => {
+    setError('');
+    const result = await signInOAuth(provider);
+    if (result.error) setError(result.error.message);
   };
 
   return (
@@ -40,41 +61,80 @@ export default function LoginScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.content}>
         <View style={styles.header}>
           {wordmarkSource ? (
-            <Image
-              source={wordmarkSource}
-              style={styles.wordmark}
-              resizeMode="contain"
-            />
+            <Image source={wordmarkSource} style={styles.wordmark} resizeMode="contain" />
           ) : (
             <Text style={styles.logo}>SmartDocket</Text>
           )}
           <Text style={styles.subtitle}>Smart grocery spending</Text>
         </View>
 
-        {sent ? (
+        {magicLinkSent ? (
           <View style={styles.sentBox}>
             <Text style={styles.sentTitle}>Check your email!</Text>
             <Text style={styles.sentText}>We sent you a magic link to {email}. Tap the link to sign in.</Text>
           </View>
         ) : (
           <View style={styles.form}>
-            <Input
-              label="Email"
-              placeholder="you@example.com"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              leftIcon="mail"
-              error={error}
-            />
-            <Button
-              title="Send Magic Link"
-              onPress={handleSignIn}
-              loading={loading}
-              fullWidth
-              icon="send"
-            />
+            {/* OAuth buttons */}
+            <Pressable style={styles.oauthBtnApple} onPress={() => handleOAuth('apple')}>
+              <Feather name="smartphone" size={18} color="#FFF" />
+              <Text style={styles.oauthBtnAppleText}>Continue with Apple</Text>
+            </Pressable>
+            <Pressable style={styles.oauthBtnGoogle} onPress={() => handleOAuth('google')}>
+              <Feather name="globe" size={18} color="#333" />
+              <Text style={styles.oauthBtnGoogleText}>Continue with Google</Text>
+            </Pressable>
+
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {useMagicLink ? (
+              <>
+                <Input
+                  label="Email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  leftIcon="mail"
+                  error={error}
+                />
+                <Button title="Send Magic Link" onPress={handleMagicLink} loading={loading} fullWidth icon="send" />
+                <Pressable onPress={() => { setUseMagicLink(false); setError(''); }}>
+                  <Text style={styles.toggleText}>Use password instead</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Input
+                  label="Email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  leftIcon="mail"
+                  error={error}
+                />
+                <Input
+                  label="Password"
+                  placeholder="Your password"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  leftIcon="lock"
+                />
+                <Button title="Sign In" onPress={handlePasswordLogin} loading={loading} fullWidth icon="log-in" />
+                <Pressable onPress={() => { setUseMagicLink(true); setError(''); }}>
+                  <Text style={styles.toggleText}>Use magic link instead</Text>
+                </Pressable>
+              </>
+            )}
+
             <Link href="/(auth)/register" asChild>
               <Text style={styles.link}>Don't have an account? Sign up</Text>
             </Link>
@@ -92,8 +152,26 @@ const styles = StyleSheet.create({
   wordmark: { width: 260, height: 80 },
   logo: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 48, color: Colors.primary.dark },
   subtitle: { fontFamily: 'DMSans_500Medium', fontSize: 16, color: Colors.text.secondary, marginTop: 4 },
-  form: { gap: Spacing.md },
-  link: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.primary.default, textAlign: 'center', marginTop: Spacing.md },
+  form: { gap: Spacing.sm },
+  oauthBtnApple: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    backgroundColor: '#000', paddingVertical: 14, borderRadius: 12,
+  },
+  oauthBtnAppleText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#FFF' },
+  oauthBtnGoogle: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    backgroundColor: '#FFF', paddingVertical: 14, borderRadius: 12,
+    borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  oauthBtnGoogleText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#333' },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 4 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
+  dividerText: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.tertiary, marginHorizontal: 12 },
+  toggleText: {
+    fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.tertiary,
+    textAlign: 'center', textDecorationLine: 'underline',
+  },
+  link: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.primary.default, textAlign: 'center', marginTop: Spacing.sm },
   sentBox: { alignItems: 'center', padding: Spacing.lg },
   sentTitle: { fontFamily: 'DMSans_700Bold', fontSize: 20, color: Colors.text.primary, marginBottom: Spacing.sm },
   sentText: { fontFamily: 'DMSans_400Regular', fontSize: 15, color: Colors.text.secondary, textAlign: 'center', lineHeight: 22 },

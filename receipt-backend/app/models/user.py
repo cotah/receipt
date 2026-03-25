@@ -12,6 +12,7 @@ class UserProfile(BaseModel):
     locale: str = "en-IE"
     currency: str = "EUR"
     home_area: Optional[str] = None
+    phone: Optional[str] = None
     notify_alerts: bool = True
     notify_reports: bool = True
     plan: str = "free"

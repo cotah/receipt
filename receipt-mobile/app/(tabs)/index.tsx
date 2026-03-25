@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
+import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
@@ -17,13 +18,51 @@ import { useProducts } from '../../hooks/useProducts';
 export default function HomeScreen() {
   const router = useRouter();
   const profile = useAuthStore((s) => s.profile);
+  const setProfile = useAuthStore((s) => s.setProfile);
   const { receipts, fetchReceipts } = useReceipts();
   const { runningLow, fetchRunningLow } = useProducts();
+  const [locationChecked, setLocationChecked] = useState(false);
 
   useEffect(() => {
     fetchReceipts(1);
     fetchRunningLow();
   }, []);
+
+  // Auto-detect location on first login if home_area is empty
+  useEffect(() => {
+    if (!profile || profile.home_area || locationChecked) return;
+    setLocationChecked(true);
+
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
+      try {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const [geo] = await Location.reverseGeocodeAsync(loc.coords);
+        const area = geo?.city || geo?.subregion || geo?.region || '';
+        if (!area) return;
+
+        Alert.alert(
+          'Location detected',
+          `We detected you're in ${area} — is that correct?`,
+          [
+            { text: 'Change', style: 'cancel' },
+            {
+              text: 'Yes',
+              onPress: async () => {
+                const { supabase } = require('../../services/supabase');
+                await supabase.from('profiles').update({ home_area: area }).eq('id', profile.id);
+                setProfile({ ...profile, home_area: area });
+              },
+            },
+          ]
+        );
+      } catch {
+        // Location failed silently — user can set manually
+      }
+    })();
+  }, [profile]);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';

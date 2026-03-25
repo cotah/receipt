@@ -19,6 +19,7 @@ export interface UserProfile {
   plan_expires_at: string | null;
   scans_this_month: number;
   chat_queries_today: number;
+  phone: string | null;
 }
 
 interface AuthState {
@@ -29,6 +30,9 @@ interface AuthState {
   isAuthenticated: boolean;
   initialize: () => Promise<void>;
   signInWithMagicLink: (email: string) => Promise<{ error: Error | null }>;
+  signInWithPassword: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUpWithPassword: (email: string, password: string, fullName: string, phone?: string) => Promise<{ error: Error | null }>;
+  signInWithOAuth: (provider: 'apple' | 'google') => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   setProfile: (profile: UserProfile) => void;
   fetchProfile: () => Promise<void>;
@@ -80,6 +84,38 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: redirectUrl },
+    });
+    return { error: error ? new Error(error.message) : null };
+  },
+
+  signInWithPassword: async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error: error ? new Error(error.message) : null };
+  },
+
+  signUpWithPassword: async (email: string, password: string, fullName: string, phone?: string) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: redirectUrl,
+        data: { full_name: fullName, phone: phone || undefined },
+      },
+    });
+    if (!error) {
+      // Update profile with phone if provided
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && phone) {
+        await supabase.from('profiles').update({ phone, full_name: fullName }).eq('id', user.id);
+      }
+    }
+    return { error: error ? new Error(error.message) : null };
+  },
+
+  signInWithOAuth: async (provider: 'apple' | 'google') => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: redirectUrl },
     });
     return { error: error ? new Error(error.message) : null };
   },
