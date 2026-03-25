@@ -31,11 +31,6 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .btn:hover{opacity:.9}
 .btn-primary{background:var(--primary);color:#fff}
 .btn-ghost{background:transparent;border:2px solid var(--border);color:var(--sec)}
-/* Token input */
-.token-section{background:var(--card);border-radius:12px;padding:20px;margin-bottom:24px;border:1px solid var(--border)}
-.token-section label{font-size:13px;color:var(--sec);display:block;margin-bottom:8px}
-.token-section input{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:monospace}
-.token-section small{display:block;margin-top:6px;color:var(--sec);font-size:11px}
 .status{text-align:center;padding:12px;border-radius:8px;margin-top:16px;font-size:14px;display:none}
 .status.error{display:block;background:#FEE2E2;color:#DC3545}
 .status.success{display:block;background:#DCFCE7;color:var(--accent)}
@@ -93,13 +88,6 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     </div>
   </div>
 
-  <!-- Token -->
-  <div class="token-section">
-    <label>Your authentication token</label>
-    <input type="password" id="token" placeholder="Paste your JWT token here" value="">
-    <small>Copy your token from the SmartDocket app Settings screen, or from your Supabase session.</small>
-  </div>
-
   <div class="status" id="status"></div>
 </div>
 
@@ -110,10 +98,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 
 <script>
 const API = '/api/v1/payments/create-checkout';
-
-function getToken() {
-  return document.getElementById('token').value.trim();
-}
+const params = new URLSearchParams(window.location.search);
+const savedToken = params.get('token') || '';
 
 function showStatus(msg, type) {
   const el = document.getElementById('status');
@@ -122,9 +108,8 @@ function showStatus(msg, type) {
 }
 
 async function startCheckout() {
-  const token = getToken();
-  if (!token) {
-    showStatus('Please enter your authentication token first.', 'error');
+  if (!savedToken) {
+    showStatus('Please open this page from the SmartDocket app.', 'error');
     return;
   }
 
@@ -136,7 +121,7 @@ async function startCheckout() {
     const resp = await fetch(API, {
       method: 'POST',
       headers: {
-        'Authorization': 'Bearer ' + token,
+        'Authorization': 'Bearer ' + savedToken,
         'Content-Type': 'application/json',
       },
     });
@@ -157,12 +142,6 @@ async function startCheckout() {
     btn.textContent = 'Upgrade to Pro — €4.99/month';
     btn.disabled = false;
   }
-}
-
-// Auto-fill token from URL param
-const params = new URLSearchParams(window.location.search);
-if (params.get('token')) {
-  document.getElementById('token').value = params.get('token');
 }
 </script>
 </body>

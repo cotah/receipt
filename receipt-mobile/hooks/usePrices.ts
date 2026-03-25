@@ -44,7 +44,11 @@ export function usePrices() {
     setIsLoading(true);
     try {
       const { data } = await api.get('/prices/compare', { params: { product, area } });
+      console.log('[Prices] compare result:', JSON.stringify(data));
       setComparison(data);
+    } catch (err) {
+      console.error('[Prices] compare error:', err);
+      setComparison(null);
     } finally {
       setIsLoading(false);
     }

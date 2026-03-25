@@ -119,12 +119,15 @@ export default function PricesScreen() {
               onSubmitEditing={handleSearch}
               returnKeyType="search"
             />
-            {comparison && (
+            {comparison && comparison.stores && comparison.stores.length > 0 && (
               <PriceCompare
                 product_name={comparison.product_name}
                 unit={comparison.unit}
                 stores={comparison.stores}
               />
+            )}
+            {comparison && (!comparison.stores || comparison.stores.length === 0) && (
+              <Text style={styles.hint}>No price data yet for "{search}". Scan more receipts to build the price database!</Text>
             )}
             {!comparison && !isLoading && (
               <Text style={styles.hint}>Search for a product to compare prices across stores</Text>

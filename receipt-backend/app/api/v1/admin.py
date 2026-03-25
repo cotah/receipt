@@ -270,6 +270,31 @@ async def run_scraper(
     return {"status": "started", "scraper": name}
 
 
+@router.post("/scrapers/run-all")
+async def run_all_scrapers(
+    _admin: str = Depends(require_admin),
+):
+    import asyncio
+    from app.workers.leaflet_worker import (
+        run_dunnes_scraper,
+        run_supervalu_scraper,
+        run_tesco_scraper,
+        run_lidl_scraper,
+        run_leaflet_job,
+    )
+
+    all_runners = {
+        "dunnes": run_dunnes_scraper,
+        "supervalu": run_supervalu_scraper,
+        "tesco": run_tesco_scraper,
+        "lidl": run_lidl_scraper,
+        "aldi": run_leaflet_job,
+    }
+    for name, runner in all_runners.items():
+        asyncio.create_task(runner())
+    return {"status": "started", "scrapers": list(all_runners.keys())}
+
+
 @router.post("/cache/clear")
 async def clear_cache(_admin: str = Depends(require_admin)):
     from app.services.cache_service import _get_redis

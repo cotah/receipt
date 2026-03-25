@@ -93,7 +93,7 @@ export default function ProfileScreen() {
       setUploading(true);
       const asset = result.assets[0];
       const ext = asset.uri.split('.').pop() ?? 'jpg';
-      const path = `${profile.id}/avatar.${ext}`;
+      const path = `avatar_${profile.id}.${ext}`;
 
       const base64 = await FileSystem.readAsStringAsync(asset.uri, {
         encoding: FileSystem.EncodingType.Base64,
