@@ -139,6 +139,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   handleDeepLink: async (url: string) => {
+    // Only process URLs from known schemes
+    if (
+      !url.startsWith('exp://') &&
+      !url.startsWith('smartdocket://') &&
+      !url.startsWith('receipt://')
+    ) {
+      return;
+    }
+
     // Supabase appends tokens as a URL fragment:
     //   ...callback#access_token=X&refresh_token=Y&token_type=bearer&...
     const fragment = url.split('#')[1];
@@ -150,23 +159,41 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     if (!access_token || !refresh_token) return;
 
-    const { data, error } = await supabase.auth.setSession({
-      access_token,
-      refresh_token,
-    });
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 2000;
 
-    if (error) {
-      console.error('Failed to set session from deep link:', error.message);
-      return;
-    }
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const { data, error } = await supabase.auth.setSession({
+          access_token,
+          refresh_token,
+        });
 
-    if (data.session) {
-      set({
-        session: data.session,
-        user: data.session.user,
-        isAuthenticated: true,
-      });
-      await get().fetchProfile();
+        if (error) {
+          console.error(`Deep link setSession error (attempt ${attempt}):`, error.message);
+          if (attempt < MAX_RETRIES) {
+            await new Promise((r) => setTimeout(r, RETRY_DELAY));
+            continue;
+          }
+          return;
+        }
+
+        if (data.session) {
+          set({
+            session: data.session,
+            user: data.session.user,
+            isAuthenticated: true,
+          });
+          await get().fetchProfile();
+        }
+        return; // Success — exit retry loop
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error(`Deep link network error (attempt ${attempt}):`, msg);
+        if (attempt < MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, RETRY_DELAY));
+        }
+      }
     }
   },
 }));
