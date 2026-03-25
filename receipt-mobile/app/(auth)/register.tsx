@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView } from 'react-native';
+import { View, Text, Image, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView } from 'react-native';
 import { Link } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Input from '../../components/ui/Input';
@@ -9,6 +10,8 @@ import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/typography';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../services/supabase';
+
+const googleIcon = require('../../assets/images/google-g.png');
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
@@ -21,7 +24,6 @@ export default function RegisterScreen() {
   const [error, setError] = useState('');
 
   const signUp = useAuthStore((s) => s.signUpWithPassword);
-  const signInOAuth = useAuthStore((s) => s.signInWithOAuth);
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
@@ -66,10 +68,32 @@ export default function RegisterScreen() {
     setSuccess(true);
   };
 
-  const handleOAuth = async (provider: 'apple' | 'google') => {
+  const handleGoogleOAuth = async () => {
     setError('');
-    const result = await signInOAuth(provider);
-    if (result.error) setError(result.error.message);
+    try {
+      const redirectTo = 'receipt://auth/callback';
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (oauthError) {
+        setError(oauthError.message);
+        return;
+      }
+      if (data?.url) {
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+        if (result.type === 'success' && result.url) {
+          const { handleDeepLink } = useAuthStore.getState();
+          await handleDeepLink(result.url);
+        }
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'OAuth failed';
+      setError(msg);
+    }
   };
 
   return (
@@ -91,12 +115,12 @@ export default function RegisterScreen() {
           ) : (
             <View style={styles.form}>
               {/* OAuth buttons */}
-              <Pressable style={styles.oauthBtnApple} onPress={() => handleOAuth('apple')}>
+              <Pressable style={styles.oauthBtnApple} onPress={() => {}}>
                 <Feather name="smartphone" size={18} color="#FFF" />
                 <Text style={styles.oauthBtnAppleText}>Continue with Apple</Text>
               </Pressable>
-              <Pressable style={styles.oauthBtnGoogle} onPress={() => handleOAuth('google')}>
-                <Text style={styles.googleG}>G</Text>
+              <Pressable style={styles.oauthBtnGoogle} onPress={handleGoogleOAuth}>
+                <Image source={googleIcon} style={styles.googleImg} />
                 <Text style={styles.oauthBtnGoogleText}>Continue with Google</Text>
               </Pressable>
 
@@ -178,7 +202,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF', paddingVertical: 14, borderRadius: 12,
     borderWidth: 1, borderColor: '#E5E7EB',
   },
-  googleG: { fontSize: 20, fontWeight: '700', color: '#4285F4' },
+  googleImg: { width: 20, height: 20 },
   oauthBtnGoogleText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#333' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 4 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Text, StyleSheet, TextInputProps } from 'react-native';
+import { View, TextInput, Text, StyleSheet, TextInputProps, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { BorderRadius, Spacing } from '../../constants/typography';
@@ -11,9 +11,11 @@ interface InputProps extends TextInputProps {
   rightIcon?: keyof typeof Feather.glyphMap;
 }
 
-export default function Input({ label, error, leftIcon, rightIcon, style, ...props }: InputProps) {
+export default function Input({ label, error, leftIcon, rightIcon, style, secureTextEntry, ...props }: InputProps) {
   const [focused, setFocused] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
+  const isPassword = secureTextEntry === true;
   const borderColor = error ? Colors.accent.red : focused ? Colors.primary.default : 'transparent';
 
   return (
@@ -23,12 +25,23 @@ export default function Input({ label, error, leftIcon, rightIcon, style, ...pro
         {leftIcon && <Feather name={leftIcon} size={18} color={Colors.text.tertiary} style={styles.icon} />}
         <TextInput
           {...props}
+          secureTextEntry={isPassword && !passwordVisible}
           style={[styles.input, style]}
           placeholderTextColor={Colors.text.tertiary}
           onFocus={(e) => { setFocused(true); props.onFocus?.(e); }}
           onBlur={(e) => { setFocused(false); props.onBlur?.(e); }}
         />
-        {rightIcon && <Feather name={rightIcon} size={18} color={Colors.text.tertiary} style={styles.icon} />}
+        {isPassword ? (
+          <Pressable onPress={() => setPasswordVisible((v) => !v)} hitSlop={10}>
+            <Feather
+              name={passwordVisible ? 'eye' : 'eye-off'}
+              size={18}
+              color={Colors.text.tertiary}
+            />
+          </Pressable>
+        ) : (
+          rightIcon && <Feather name={rightIcon} size={18} color={Colors.text.tertiary} style={styles.icon} />
+        )}
       </View>
       {error && <Text style={styles.error}>{error}</Text>}
     </View>
