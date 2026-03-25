@@ -8,10 +8,10 @@ SEMI_PERISHABLE_CATEGORIES = {"Dairy", "Deli"}
 def get_ttl_days(category: str) -> int:
     """Return price TTL in days based on product category."""
     if category in PERISHABLE_CATEGORIES:
-        return 3
+        return 14
     if category in SEMI_PERISHABLE_CATEGORIES:
-        return 5
-    return 10
+        return 21
+    return 30
 
 
 def is_price_expired(expires_at: datetime) -> bool:

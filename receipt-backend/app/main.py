@@ -83,6 +83,7 @@ async def run_all_scrapers_startup():
         prices_check = (
             db.table("collective_prices")
             .select("id", count="exact")
+            .eq("source", "leaflet")
             .limit(1)
             .execute()
         )

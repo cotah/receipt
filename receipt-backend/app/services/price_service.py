@@ -69,7 +69,7 @@ async def get_best_price(
     query = (
         db.table("collective_prices")
         .select("*")
-        .eq("product_key", product_key)
+        .ilike("product_key", f"{product_key}%")
         .gte("expires_at", now)
         .order("unit_price")
         .limit(1)
@@ -83,14 +83,18 @@ async def get_best_price(
 async def compare_prices(
     db: Client, product: str, area: str | None = None
 ) -> list[dict]:
-    """Get all store prices for a product, sorted cheapest first."""
+    """Get all store prices for a product, sorted cheapest first.
+
+    Uses ilike prefix match so "banana" finds "banana", "banana_ea",
+    "banana_kg", etc.
+    """
     now = datetime.now(timezone.utc).isoformat()
     product_key = generate_product_key(product)
 
     query = (
         db.table("collective_prices")
         .select("*")
-        .eq("product_key", product_key)
+        .ilike("product_key", f"{product_key}%")
         .gte("expires_at", now)
         .order("unit_price")
     )
