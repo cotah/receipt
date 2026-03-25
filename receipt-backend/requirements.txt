@@ -11,6 +11,7 @@ pdfplumber==0.11.4
 Pillow==12.0.0
 apscheduler==3.10.4
 beautifulsoup4==4.12.3
+curl-cffi==0.7.4
 python-dateutil==2.9.0
 python-multipart==0.0.9
 python-jose[cryptography]==3.3.0

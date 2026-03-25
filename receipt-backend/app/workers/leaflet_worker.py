@@ -17,6 +17,16 @@ from app.utils.text_utils import generate_product_key
 
 log = logging.getLogger(__name__)
 
+try:
+    from curl_cffi.requests import AsyncSession as CurlSession  # noqa: F401
+
+    _CURL_CFFI_AVAILABLE = True
+except ImportError:
+    _CURL_CFFI_AVAILABLE = False
+    log.warning(
+        "curl-cffi not installed — Dunnes TLS impersonation unavailable"
+    )
+
 PAGE_SIZE = 30
 
 # ---------------------------------------------------------------------------
@@ -864,23 +874,20 @@ _MONTH_NAMES = [
 
 
 def _lidl_flyer_slug(today: datetime | None = None) -> str:
-    """Build the Lidl flyer slug for the current week.
+    """Build the Lidl flyer slug for the current active week.
 
     Format: ``from-thu-DD-MM-to-wed-DD-MM-{month(s)}``
-    The Thursday is the *next* Thursday from ``today`` (inclusive).
+    Thursday is the MOST RECENT Thursday (inclusive of today if Thursday).
     Wednesday is 6 days after that Thursday.
-    If the two dates span different months the suffix is
-    ``{month1}-to-{month2}``, otherwise just ``{month}``.
     """
     if today is None:
         today = datetime.now(timezone.utc)
 
-    # Next Thursday (weekday 3). If today is Thursday, use today.
-    days_ahead = (3 - today.weekday()) % 7
-    if days_ahead == 0 and today.hour >= 12:
-        # If it's already Thursday afternoon, still use this Thursday
-        pass
-    thu = today + timedelta(days=days_ahead)
+    # Most recent Thursday (the active flyer started then).
+    # weekday(): Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
+    # days_since_thu=0 when today IS Thursday → use today
+    days_since_thu = (today.weekday() - 3) % 7
+    thu = today - timedelta(days=days_since_thu)
     wed = thu + timedelta(days=6)
 
     thu_dd = f"{thu.day:02d}"
@@ -1161,6 +1168,8 @@ async def _scrape_dunnes_attempt(
     db, use_proxy: bool = False
 ) -> dict:
     """Scrape Dunnes promotions page (SSR HTML).
+    Uses curl-cffi to impersonate Chrome TLS fingerprint (bypasses Akamai).
+    Falls back to httpx if curl-cffi is not available.
     Returns {"success": bool, "items_saved": int, "error": str|None}."""
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(days=7)
@@ -1178,6 +1187,7 @@ async def _scrape_dunnes_attempt(
             total_saved,
         )
 
+    # Clean expired
     try:
         db.table("collective_prices").delete().eq(
             "store_name",
@@ -1188,89 +1198,134 @@ async def _scrape_dunnes_attempt(
     except Exception:
         pass
 
-    headers = _random_headers(
-        referer="https://www.dunnesstoresgrocery.com/",
-        origin="https://www.dunnesstoresgrocery.com",
-    )
-    client_kwargs = _make_client_kwargs(use_proxy=use_proxy)
-    client_kwargs["headers"] = headers
+    # Proxy config
+    proxies = None
+    if use_proxy and settings.WEBSHARE_PROXY_URL:
+        proxies = {
+            "http": settings.WEBSHARE_PROXY_URL,
+            "https": settings.WEBSHARE_PROXY_URL,
+        }
+
+    # Use curl-cffi if available (bypasses Akamai TLS fingerprinting)
+    if _CURL_CFFI_AVAILABLE:
+        return await _scrape_dunnes_curl(
+            db, now, expires_at, start_page, total_saved, errors, proxies
+        )
+    else:
+        # Fallback to httpx (will likely get 403 from Akamai)
+        return await _scrape_dunnes_httpx(
+            db, now, expires_at, start_page, total_saved, errors,
+            use_proxy=use_proxy,
+        )
+
+
+async def _scrape_dunnes_curl(
+    db, now, expires_at, start_page, total_saved, errors, proxies
+) -> dict:
+    """Dunnes scraper using curl-cffi (Chrome TLS impersonation)."""
+    from curl_cffi.requests import AsyncSession as CurlSession
+
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/131.0.0.0 Safari/537.36"
+        ),
+        "Accept": (
+            "text/html,application/xhtml+xml,"
+            "application/xml;q=0.9,*/*;q=0.8"
+        ),
+        "Accept-Language": "en-IE,en-GB;q=0.9,en;q=0.8",
+        "Referer": "https://www.dunnesstoresgrocery.com/",
+    }
 
     try:
-        async with httpx.AsyncClient(**client_kwargs) as client:
+        async with CurlSession(impersonate="chrome131") as session:
+            # Session
             try:
-                session_resp = await client.get(DUNNES_HTML_SESSION_URL)
+                session_resp = await session.get(
+                    DUNNES_HTML_SESSION_URL,
+                    headers=headers,
+                    proxies=proxies,
+                    timeout=45,
+                    allow_redirects=True,
+                )
                 if session_resp.status_code == 403:
                     return {
                         "success": False,
                         "items_saved": total_saved,
-                        "error": "Session blocked (403)",
+                        "error": "Session blocked (403) even with curl-cffi",
                     }
                 session_resp.raise_for_status()
                 log.info(
-                    "Dunnes HTML scraper: session OK (%d cookies)",
-                    len(client.cookies),
+                    "Dunnes curl-cffi scraper: session OK (status %d)",
+                    session_resp.status_code,
                 )
             except Exception as e:
                 return {
                     "success": False,
                     "items_saved": total_saved,
-                    "error": f"Session failed: {e}",
+                    "error": str(e),
                 }
 
+            # Discover total pages from preloaded state
             total_pages = DUNNES_HTML_TOTAL_PAGES
             try:
-                soup_p1 = BeautifulSoup(
-                    session_resp.text, "html.parser"
-                )
                 state_match = re.search(
-                    r"window\.__PRELOADED_STATE__\s*=\s*(\{.*?\})\s*;?"
-                    r"\s*</script>",
+                    r"window\.__PRELOADED_STATE__\s*=\s*(\{.+?\})"
+                    r"\s*;?\s*</script>",
                     session_resp.text,
                     re.DOTALL,
                 )
                 if state_match:
-                    try:
-                        state = _json.loads(state_match.group(1))
-                        total_items = (
-                            state.get("search", {})
-                            .get("pagination", {})
-                            .get("promotions", {})
-                            .get("totalItems", 0)
+                    state = _json.loads(state_match.group(1))
+                    total_items = (
+                        state.get("search", {})
+                        .get("pagination", {})
+                        .get("promotions", {})
+                        .get("totalItems", 0)
+                    )
+                    if total_items > 0:
+                        total_pages = (
+                            total_items + DUNNES_HTML_PAGE_SIZE - 1
+                        ) // DUNNES_HTML_PAGE_SIZE
+                        log.info(
+                            "Dunnes curl-cffi scraper: %d products "
+                            "across %d pages",
+                            total_items,
+                            total_pages,
                         )
-                        if total_items > 0:
-                            total_pages = (
-                                total_items + DUNNES_HTML_PAGE_SIZE - 1
-                            ) // DUNNES_HTML_PAGE_SIZE
-                            log.info(
-                                "Dunnes HTML scraper: %d products "
-                                "across %d pages",
-                                total_items,
-                                total_pages,
-                            )
-                    except Exception:
-                        pass
             except Exception:
+                pass
+
+            # Page 1 (already loaded)
+            if start_page <= 1:
                 soup_p1 = BeautifulSoup(
                     session_resp.text, "html.parser"
                 )
-
-            # Process page 1 only if not resuming past it
-            if start_page <= 1:
                 saved_p1 = _parse_dunnes_page(
                     soup_p1, db, now, expires_at
                 )
                 total_saved += saved_p1
 
-            for page in range(max(start_page, 2), total_pages + 1):
+            # Pages 2..N
+            for page in range(
+                start_page if start_page > 1 else 2,
+                total_pages + 1,
+            ):
                 try:
-                    resp = await client.get(
-                        DUNNES_HTML_BASE_URL, params={"page": page}
+                    resp = await session.get(
+                        DUNNES_HTML_BASE_URL,
+                        params={"page": page},
+                        headers=headers,
+                        proxies=proxies,
+                        timeout=45,
+                        allow_redirects=True,
                     )
                     if resp.status_code == 403:
                         errors += 1
                         log.warning(
-                            "Dunnes HTML scraper: 403 on page %d",
-                            page,
+                            "Dunnes curl-cffi: 403 on page %d", page
                         )
                         if errors >= 3:
                             break
@@ -1285,9 +1340,7 @@ async def _scrape_dunnes_attempt(
                 except Exception as e:
                     errors += 1
                     log.warning(
-                        "Dunnes HTML scraper: page %d error: %s",
-                        page,
-                        e,
+                        "Dunnes curl-cffi: page %d error: %s", page, e
                     )
 
                 if page % 5 == 0:
@@ -1295,10 +1348,9 @@ async def _scrape_dunnes_attempt(
                         db, "Dunnes", page + 1, total_saved
                     )
 
-                if page % 50 == 0:
+                if page % 20 == 0:
                     log.info(
-                        "Dunnes HTML scraper: %d/%d pages "
-                        "(%d items saved)",
+                        "Dunnes curl-cffi: %d/%d pages (%d items saved)",
                         page,
                         total_pages,
                         total_saved,
@@ -1323,7 +1375,109 @@ async def _scrape_dunnes_attempt(
         }
 
     except Exception as e:
-        return {"success": False, "items_saved": total_saved, "error": str(e)}
+        return {
+            "success": False,
+            "items_saved": total_saved,
+            "error": str(e),
+        }
+
+
+async def _scrape_dunnes_httpx(
+    db, now, expires_at, start_page, total_saved, errors, use_proxy
+) -> dict:
+    """Fallback Dunnes scraper using httpx (less effective vs Akamai)."""
+    headers = _random_headers(
+        referer="https://www.dunnesstoresgrocery.com/",
+        origin="https://www.dunnesstoresgrocery.com",
+    )
+    client_kwargs = _make_client_kwargs(use_proxy=use_proxy)
+    client_kwargs["headers"] = headers
+
+    try:
+        async with httpx.AsyncClient(**client_kwargs) as client:
+            try:
+                session_resp = await client.get(DUNNES_HTML_SESSION_URL)
+                if session_resp.status_code == 403:
+                    return {
+                        "success": False,
+                        "items_saved": total_saved,
+                        "error": "Session blocked (403)",
+                    }
+                session_resp.raise_for_status()
+                log.info(
+                    "Dunnes httpx scraper: session OK (%d cookies)",
+                    len(client.cookies),
+                )
+            except Exception as e:
+                return {
+                    "success": False,
+                    "items_saved": total_saved,
+                    "error": str(e),
+                }
+
+            total_pages = DUNNES_HTML_TOTAL_PAGES
+            soup_p1 = BeautifulSoup(
+                session_resp.text, "html.parser"
+            )
+
+            if start_page <= 1:
+                saved_p1 = _parse_dunnes_page(
+                    soup_p1, db, now, expires_at
+                )
+                total_saved += saved_p1
+
+            for page in range(
+                start_page if start_page > 1 else 2,
+                total_pages + 1,
+            ):
+                try:
+                    resp = await client.get(
+                        DUNNES_HTML_BASE_URL, params={"page": page}
+                    )
+                    if resp.status_code == 403:
+                        errors += 1
+                        if errors >= 3:
+                            break
+                        await _page_delay()
+                        continue
+                    resp.raise_for_status()
+                    soup = BeautifulSoup(resp.text, "html.parser")
+                    saved = _parse_dunnes_page(
+                        soup, db, now, expires_at
+                    )
+                    total_saved += saved
+                except Exception as e:
+                    errors += 1
+                    log.warning(
+                        "Dunnes httpx: page %d error: %s", page, e
+                    )
+
+                if page % 5 == 0:
+                    _save_checkpoint(
+                        db, "Dunnes", page + 1, total_saved
+                    )
+
+                await _page_delay()
+
+        if total_saved > 0:
+            _clear_checkpoint(db, "Dunnes")
+            return {
+                "success": True,
+                "items_saved": total_saved,
+                "error": None,
+            }
+        return {
+            "success": False,
+            "items_saved": 0,
+            "error": "Zero items saved",
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "items_saved": total_saved,
+            "error": str(e),
+        }
 
 
 async def scrape_dunnes_promotions() -> None:
@@ -2004,15 +2158,19 @@ async def _scrape_tesco_attempt(
                 await _page_delay()
                 page += 1
 
-        if total_saved > 0:
+        if total_saved >= 50:
+            # Less than 50 items = likely blocked (session page only)
             _clear_checkpoint(db, "Tesco")
             return {
                 "success": True, "items_saved": total_saved, "error": None
             }
         return {
             "success": False,
-            "items_saved": 0,
-            "error": "Zero items saved — possible block",
+            "items_saved": total_saved,
+            "error": (
+                f"Only {total_saved} items saved (threshold=50) — "
+                "likely blocked, falling back to Apify"
+            ),
         }
 
     except Exception as e:
