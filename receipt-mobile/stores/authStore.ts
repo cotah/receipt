@@ -161,13 +161,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2000;
+    const TIMEOUT_MS = 10000;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const { data, error } = await supabase.auth.setSession({
+        const sessionPromise = supabase.auth.setSession({
           access_token,
           refresh_token,
         });
+
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Connection timeout. Please try again.')), TIMEOUT_MS),
+        );
+
+        const { data, error } = await Promise.race([sessionPromise, timeoutPromise]);
 
         if (error) {
           console.error(`Deep link setSession error (attempt ${attempt}):`, error.message);
@@ -186,14 +193,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           });
           await get().fetchProfile();
         }
-        return; // Success — exit retry loop
+        return;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
-        console.error(`Deep link network error (attempt ${attempt}):`, msg);
+        console.error(`Deep link error (attempt ${attempt}/${MAX_RETRIES}):`, msg);
         if (attempt < MAX_RETRIES) {
           await new Promise((r) => setTimeout(r, RETRY_DELAY));
         }
       }
     }
+    console.error('Deep link: all retries exhausted');
   },
 }));

@@ -71,7 +71,13 @@ export default function LoginScreen() {
         {magicLinkSent ? (
           <View style={styles.sentBox}>
             <Text style={styles.sentTitle}>Check your email!</Text>
-            <Text style={styles.sentText}>We sent you a magic link to {email}. Tap the link to sign in.</Text>
+            <Text style={styles.sentText}>
+              We sent a magic link to {email}. Tap the link to sign in.{'\n\n'}
+              If it doesn't work, use email + password instead.
+            </Text>
+            <Pressable style={styles.backBtn} onPress={() => { setMagicLinkSent(false); setUseMagicLink(false); }}>
+              <Text style={styles.backBtnText}>Back to sign in</Text>
+            </Pressable>
           </View>
         ) : (
           <View style={styles.form}>
@@ -175,4 +181,6 @@ const styles = StyleSheet.create({
   sentBox: { alignItems: 'center', padding: Spacing.lg },
   sentTitle: { fontFamily: 'DMSans_700Bold', fontSize: 20, color: Colors.text.primary, marginBottom: Spacing.sm },
   sentText: { fontFamily: 'DMSans_400Regular', fontSize: 15, color: Colors.text.secondary, textAlign: 'center', lineHeight: 22 },
+  backBtn: { marginTop: Spacing.md, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10, backgroundColor: Colors.primary.default },
+  backBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: '#FFF' },
 });
