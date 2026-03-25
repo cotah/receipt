@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 
+const googleLogo = require('../../assets/images/google-logo.png');
+
 let wordmarkSource: ReturnType<typeof require> | null = null;
 try {
   wordmarkSource = require('../../assets/smartdocket-wordmark.png');
@@ -87,7 +89,7 @@ export default function LoginScreen() {
               <Text style={styles.oauthBtnAppleText}>Continue with Apple</Text>
             </Pressable>
             <Pressable style={styles.oauthBtnGoogle} onPress={() => handleOAuth('google')}>
-              <Feather name="globe" size={18} color="#333" />
+              <Image source={googleLogo} style={styles.googleIcon} />
               <Text style={styles.oauthBtnGoogleText}>Continue with Google</Text>
             </Pressable>
 
@@ -169,6 +171,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF', paddingVertical: 14, borderRadius: 12,
     borderWidth: 1, borderColor: '#E5E7EB',
   },
+  googleIcon: { width: 20, height: 20 },
   oauthBtnGoogleText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#333' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 4 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
