@@ -38,17 +38,37 @@ export function useChat() {
       console.log('[Chat] token:', token ? `${token.substring(0, 20)}...` : 'NONE');
       console.log('[Chat] session_id:', currentSessionId ?? 'new');
 
-      const response = await fetch(chatUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          session_id: currentSessionId ?? undefined,
-          message: text,
-        }),
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+
+      let response: Response;
+      try {
+        response = await fetch(chatUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            session_id: currentSessionId ?? undefined,
+            message: text,
+          }),
+          signal: controller.signal,
+        });
+      } catch (fetchErr: unknown) {
+        clearTimeout(timeout);
+        const isAbort = fetchErr instanceof Error && fetchErr.name === 'AbortError';
+        addMessage({
+          id: `error-${Date.now()}`,
+          role: 'assistant',
+          content: isAbort
+            ? 'Request timed out. Please try again.'
+            : 'Network error. Please check your connection.',
+          created_at: new Date().toISOString(),
+        });
+        return;
+      }
+      clearTimeout(timeout);
 
       if (!response.ok) {
         const errorBody = await response.text().catch(() => '');

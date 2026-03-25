@@ -4,8 +4,8 @@ import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
 import Card from '../../components/ui/Card';
+import ProfileAvatar from '../../components/ui/ProfileAvatar';
 import ReceiptCard from '../../components/receipts/ReceiptCard';
 import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/typography';
@@ -29,11 +29,12 @@ export default function HomeScreen() {
   }, []);
 
   // Auto-detect location on first login if home_area is empty
+  // Delay 1s to let profile fully load (especially for new Google accounts)
   useEffect(() => {
-    if (!profile || profile.home_area || locationChecked) return;
+    if (!profile?.id || profile.home_area || locationChecked) return;
     setLocationChecked(true);
 
-    (async () => {
+    const timer = setTimeout(async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
 
@@ -59,10 +60,12 @@ export default function HomeScreen() {
           ]
         );
       } catch {
-        // Location failed silently — user can set manually
+        // Location failed silently
       }
-    })();
-  }, [profile]);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [profile?.id, profile?.home_area]);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -86,9 +89,7 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.headerRow}>
           <Text style={styles.greeting}>{greeting}, {name}</Text>
-          <Pressable onPress={() => router.push('/(tabs)/profile')} hitSlop={12}>
-            <Feather name="user" size={22} color={Colors.text.secondary} />
-          </Pressable>
+          <ProfileAvatar size={32} />
         </View>
 
         {/* Main card */}

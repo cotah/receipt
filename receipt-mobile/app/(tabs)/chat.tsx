@@ -6,6 +6,7 @@ import { useTabSwipe } from '../../hooks/useTabSwipe';
 import ChatBubble from '../../components/chat/ChatBubble';
 import ChatInput from '../../components/chat/ChatInput';
 import TypingIndicator from '../../components/chat/TypingIndicator';
+import ProfileAvatar from '../../components/ui/ProfileAvatar';
 import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/typography';
 import { useChat } from '../../hooks/useChat';
@@ -50,8 +51,11 @@ export default function ChatScreen() {
     >
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>SmartDocket AI</Text>
-          <Text style={styles.subtitle}>Ask about your spending</Text>
+          <View>
+            <Text style={styles.title}>SmartDocket AI</Text>
+            <Text style={styles.subtitle}>Ask about your spending</Text>
+          </View>
+          <ProfileAvatar size={32} />
         </View>
 
         <FlatList
@@ -88,7 +92,7 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1, backgroundColor: Colors.surface.background },
-  header: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.surface.alt },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.surface.alt },
   title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: Colors.primary.dark },
   subtitle: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary },
   messagesList: { paddingVertical: Spacing.md, flexGrow: 1 },

@@ -113,6 +113,15 @@ async def process_receipt_async(
             raw_text = await extract_text_from_image(image_bytes)
             log.info(f"[{receipt_id}] Gemini OCR done ({len(raw_text)} chars)")
 
+        # 1b. Check if it's actually a receipt
+        if raw_text.strip().upper().startswith("NOT_A_RECEIPT"):
+            log.warning(f"[{receipt_id}] Image is not a valid grocery receipt")
+            db.table("receipts").update({
+                "status": "failed",
+                "raw_text": "NOT_A_RECEIPT",
+            }).eq("id", receipt_id).execute()
+            return
+
         # 2. Extract structured data
         log.info(f"[{receipt_id}] Calling OpenAI extraction...")
         data = await extract_receipt_data(raw_text)

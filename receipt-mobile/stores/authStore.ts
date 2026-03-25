@@ -75,6 +75,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       if (session) {
         await get().fetchProfile();
+        // Bug 5: sync Google name to profile if missing
+        const profile = get().profile;
+        const user = session.user;
+        if (profile && !profile.full_name && user?.user_metadata) {
+          const googleName = user.user_metadata.full_name || user.user_metadata.name;
+          if (googleName) {
+            await supabase.from('profiles').update({ full_name: googleName }).eq('id', user.id);
+            set({ profile: { ...profile, full_name: googleName } });
+          }
+        }
       } else {
         set({ profile: null });
       }
@@ -149,60 +159,47 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
 
-    // Supabase appends tokens as a URL fragment:
-    //   ...callback#access_token=X&refresh_token=Y&token_type=bearer&...
-    const fragment = url.split('#')[1];
-    if (!fragment) return;
+    try {
+      // OAuth PKCE flow returns ?code= in query params
+      const urlObj = new URL(url.replace('receipt://', 'https://placeholder/').replace('exp://', 'https://placeholder/'));
+      const code = urlObj.searchParams.get('code');
 
-    const params = new URLSearchParams(fragment);
-    const access_token = params.get('access_token');
-    const refresh_token = params.get('refresh_token');
-
-    if (!access_token || !refresh_token) return;
-
-    const MAX_RETRIES = 3;
-    const RETRY_DELAY = 2000;
-    const TIMEOUT_MS = 10000;
-
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const sessionPromise = supabase.auth.setSession({
-          access_token,
-          refresh_token,
-        });
-
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Connection timeout. Please try again.')), TIMEOUT_MS),
-        );
-
-        const { data, error } = await Promise.race([sessionPromise, timeoutPromise]);
-
+      if (code) {
+        console.log('[DeepLink] Exchanging code for session...');
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
-          console.error(`Deep link setSession error (attempt ${attempt}):`, error.message);
-          if (attempt < MAX_RETRIES) {
-            await new Promise((r) => setTimeout(r, RETRY_DELAY));
-            continue;
-          }
+          console.error('[DeepLink] exchangeCodeForSession failed:', error.message);
           return;
         }
-
         if (data.session) {
-          set({
-            session: data.session,
-            user: data.session.user,
-            isAuthenticated: true,
-          });
+          set({ session: data.session, user: data.session.user, isAuthenticated: true });
           await get().fetchProfile();
         }
         return;
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        console.error(`Deep link error (attempt ${attempt}/${MAX_RETRIES}):`, msg);
-        if (attempt < MAX_RETRIES) {
-          await new Promise((r) => setTimeout(r, RETRY_DELAY));
-        }
       }
+
+      // Magic link flow returns #access_token=X&refresh_token=Y
+      const fragment = url.split('#')[1];
+      if (!fragment) return;
+
+      const params = new URLSearchParams(fragment);
+      const access_token = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
+      if (!access_token || !refresh_token) return;
+
+      console.log('[DeepLink] Setting session from tokens...');
+      const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
+      if (error) {
+        console.error('[DeepLink] setSession failed:', error.message);
+        return;
+      }
+      if (data.session) {
+        set({ session: data.session, user: data.session.user, isAuthenticated: true });
+        await get().fetchProfile();
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[DeepLink] Error:', msg);
     }
-    console.error('Deep link: all retries exhausted');
   },
 }));

@@ -29,6 +29,7 @@ function getLevel(points: number): { label: string; emoji: string } {
 export default function ProfileScreen() {
   const router = useRouter();
   const profile = useAuthStore((s) => s.profile);
+  const user = useAuthStore((s) => s.user);
   const signOut = useAuthStore((s) => s.signOut);
   const setProfile = useAuthStore((s) => s.setProfile);
 
@@ -69,6 +70,7 @@ export default function ProfileScreen() {
   };
 
   const handlePickAvatar = async () => {
+    if (!profile?.id) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
@@ -157,7 +159,7 @@ export default function ProfileScreen() {
           </Pressable>
           {uploading && <Text style={styles.uploadingText}>Uploading...</Text>}
           <Text style={styles.profileName}>{profile?.full_name || 'User'}</Text>
-          <Text style={styles.profileEmail}>{profile?.email || ''}</Text>
+          <Text style={styles.profileEmail}>{user?.email || profile?.email || ''}</Text>
         </View>
 
         {/* Account section */}
@@ -208,7 +210,7 @@ export default function ProfileScreen() {
                 </View>
                 <Text style={styles.rowLabel}>Email</Text>
               </View>
-              <Text style={styles.rowValueMuted}>{profile?.email || ''}</Text>
+              <Text style={styles.rowValueMuted}>{user?.email || profile?.email || ''}</Text>
             </View>
 
             <View style={styles.divider} />
@@ -261,10 +263,10 @@ export default function ProfileScreen() {
                 <Text style={styles.rowLabel}>Notifications</Text>
               </View>
               <Switch
-                value={profile?.notify_alerts ?? false}
+                value={profile?.notify_alerts ?? true}
                 onValueChange={handleToggleNotifications}
-                trackColor={{ false: Colors.surface.alt, true: Colors.primary.light }}
-                thumbColor={profile?.notify_alerts ? Colors.primary.default : '#ccc'}
+                trackColor={{ false: '#E5E7EB', true: Colors.primary.pale }}
+                thumbColor={(profile?.notify_alerts ?? true) ? Colors.primary.default : '#ccc'}
               />
             </View>
 
@@ -278,10 +280,10 @@ export default function ProfileScreen() {
                 <Text style={styles.rowLabel}>Monthly Reports</Text>
               </View>
               <Switch
-                value={profile?.notify_reports ?? false}
+                value={profile?.notify_reports ?? true}
                 onValueChange={handleToggleReports}
-                trackColor={{ false: Colors.surface.alt, true: Colors.primary.light }}
-                thumbColor={profile?.notify_reports ? Colors.primary.default : '#ccc'}
+                trackColor={{ false: '#E5E7EB', true: Colors.primary.pale }}
+                thumbColor={(profile?.notify_reports ?? true) ? Colors.primary.default : '#ccc'}
               />
             </View>
           </Card>
@@ -313,7 +315,7 @@ export default function ProfileScreen() {
                   style={styles.upgradeBtn}
                   onPress={() => setShowUpgrade(true)}
                 >
-                  <Text style={styles.upgradeBtnText}>Upgrade</Text>
+                  <Text style={styles.upgradeBtnText}>Upgrade to Pro</Text>
                 </Pressable>
               )}
             </View>
@@ -404,7 +406,7 @@ export default function ProfileScreen() {
                   style={styles.proBtn}
                   onPress={() => {
                     setShowUpgrade(false);
-                    Linking.openURL('https://smartdocket.ie/pro');
+                    Linking.openURL('https://receipt-production-ebc4.up.railway.app/admin/pro.html');
                   }}
                 >
                   <Text style={styles.proBtnText}>Upgrade — €4.99/mo</Text>

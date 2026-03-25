@@ -108,7 +108,17 @@ export const useReceiptStore = create<ReceiptState>((set, get) => ({
   },
 
   pollProcessingStatus: async (receiptId: string) => {
+    const startedAt = Date.now();
+    const TIMEOUT = 60000;
+
     const poll = async () => {
+      if (Date.now() - startedAt > TIMEOUT) {
+        set({
+          isProcessing: false,
+          processingStatus: { progress: 0, message: 'Processing timed out. Please try again.' },
+        });
+        return;
+      }
       try {
         const { data } = await api.get(`/receipts/${receiptId}/status`);
         set({ processingStatus: { progress: data.progress, message: data.message } });
