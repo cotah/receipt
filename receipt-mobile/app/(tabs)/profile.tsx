@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Linking from 'expo-linking';
 import { decode } from 'base64-arraybuffer';
 import Card from '../../components/ui/Card';
 import { Colors } from '../../constants/colors';
@@ -307,7 +308,10 @@ export default function ProfileScreen() {
                   <Text style={styles.proBadgeText}>Pro ⭐</Text>
                 </View>
               ) : (
-                <Pressable style={styles.upgradeBtn}>
+                <Pressable
+                  style={styles.upgradeBtn}
+                  onPress={() => Linking.openURL('https://smartdocket.ie/pro')}
+                >
                   <Text style={styles.upgradeBtnText}>Upgrade to Pro →</Text>
                 </Pressable>
               )}

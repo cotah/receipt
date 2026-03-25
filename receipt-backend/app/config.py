@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     REPORT_CRON_DAY: int = 1
     REPORT_CRON_HOUR: int = 9
 
+    # Stripe
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_PUBLISHABLE_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+    STRIPE_PRICE_ID: str = "price_1TEgHuJCkMVDczV1sUGEZhNO"
+
     # Sentry
     SENTRY_DSN: str = ""
 
