@@ -100,8 +100,3 @@ if _admin_dir.is_dir():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "version": "1.0.0"}
-
-
-@app.get("/sentry-debug")
-async def trigger_error():
-    _ = 1 / 0
