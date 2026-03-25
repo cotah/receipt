@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import sentry_sdk
 from fastapi import FastAPI
@@ -13,7 +14,6 @@ if settings.SENTRY_DSN:
         traces_sample_rate=1.0,
         environment=settings.ENVIRONMENT,
         send_default_pii=False,
-        enable_tracing=True,
     )
 from fastapi.staticfiles import StaticFiles
 from app.api.v1 import receipts, products, prices, chat, alerts, reports, leaflets, users, admin
@@ -92,7 +92,9 @@ app.include_router(users.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 
 # Admin panel static files
-app.mount("/admin", StaticFiles(directory="admin", html=True), name="admin")
+_admin_dir = Path(__file__).resolve().parent.parent / "admin"
+if _admin_dir.is_dir():
+    app.mount("/admin", StaticFiles(directory=str(_admin_dir), html=True), name="admin")
 
 
 @app.get("/health")
