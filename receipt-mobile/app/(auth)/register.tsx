@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView } from 'react-native';
-
-const googleLogo = require('../../assets/images/google-logo.png');
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView } from 'react-native';
 import { Link } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -98,7 +96,7 @@ export default function RegisterScreen() {
                 <Text style={styles.oauthBtnAppleText}>Continue with Apple</Text>
               </Pressable>
               <Pressable style={styles.oauthBtnGoogle} onPress={() => handleOAuth('google')}>
-                <Image source={googleLogo} style={styles.googleIcon} />
+                <Text style={styles.googleG}>G</Text>
                 <Text style={styles.oauthBtnGoogleText}>Continue with Google</Text>
               </Pressable>
 
@@ -180,7 +178,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF', paddingVertical: 14, borderRadius: 12,
     borderWidth: 1, borderColor: '#E5E7EB',
   },
-  googleIcon: { width: 20, height: 20 },
+  googleG: { fontSize: 20, fontWeight: '700', color: '#4285F4' },
   oauthBtnGoogleText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#333' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 4 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
