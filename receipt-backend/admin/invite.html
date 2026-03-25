@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Join SmartDocket — Save on Groceries in Ireland</title>
+<!-- Open Graph for rich link previews (WhatsApp, Telegram, etc.) -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="SmartDocket — Save Money on Groceries in Ireland">
+<meta property="og:description" content="Your friend invited you to SmartDocket! Track spending, compare prices, and save at Tesco, Lidl, Aldi, Dunnes & SuperValu. Join and get 50 bonus points.">
+<meta property="og:image" content="https://raw.githubusercontent.com/cotah/receipt/main/receipt-mobile/assets/smartdocket-wordmark.png">
+<meta property="og:url" content="https://smartdocket.ie">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SmartDocket — Save Money on Groceries">
+<meta name="twitter:description" content="Track spending, compare prices across Irish supermarkets. Join with a referral code for 50 bonus points!">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/cotah/receipt/main/receipt-mobile/assets/smartdocket-wordmark.png">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--primary:#1A4D35;--light:#2E7D52;--accent:#3CB371;--bg:#F7F5F0;--card:#FFF;--text:#1A1A1A;--sec:#6B7280;--border:#E5E7EB}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center}
+.hero{background:var(--primary);width:100%;padding:48px 20px;text-align:center}
+.hero img{height:60px;margin-bottom:16px}
+.hero h1{color:#fff;font-size:28px;font-weight:800;margin-bottom:8px}
+.hero p{color:rgba(255,255,255,.8);font-size:16px;max-width:400px;margin:0 auto}
+.content{max-width:480px;width:100%;padding:32px 20px;text-align:center}
+.invite-text{font-size:18px;color:var(--sec);margin-bottom:24px;line-height:1.6}
+.code-box{background:var(--card);border:2px dashed var(--accent);border-radius:16px;padding:24px;margin-bottom:32px}
+.code-label{font-size:13px;color:var(--sec);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.code-value{font-size:36px;font-weight:800;color:var(--primary);letter-spacing:3px;font-family:'Courier New',monospace}
+.code-reward{font-size:14px;color:var(--accent);font-weight:600;margin-top:8px}
+.btn{display:inline-block;padding:16px 48px;background:var(--primary);color:#fff;border:none;border-radius:14px;font-size:17px;font-weight:700;cursor:pointer;text-decoration:none;transition:opacity .15s}
+.btn:hover{opacity:.9}
+.stores{display:flex;justify-content:center;gap:16px;margin-top:32px;flex-wrap:wrap}
+.store-tag{background:var(--card);padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;color:var(--primary);border:1px solid var(--border)}
+.footer{padding:24px;color:var(--sec);font-size:12px;text-align:center;margin-top:auto}
+</style>
+</head>
+<body>
+<div class="hero">
+  <img src="https://raw.githubusercontent.com/cotah/receipt/main/receipt-mobile/assets/smartdocket-wordmark.png" alt="SmartDocket" onerror="this.style.display='none'">
+  <h1>Save money on groceries in Ireland</h1>
+  <p>Track spending, compare prices, and get smart alerts across all Irish supermarkets</p>
+</div>
+
+<div class="content">
+  <p class="invite-text">Your friend invited you to SmartDocket!<br>Use their code for <strong>50 bonus points</strong>.</p>
+
+  <div class="code-box">
+    <div class="code-label">Your referral code</div>
+    <div class="code-value" id="ref-code">SMART-XXXX</div>
+    <div class="code-reward">+50 points for you and your friend</div>
+  </div>
+
+  <a href="https://smartdocket.ie" class="btn">Download SmartDocket</a>
+
+  <div class="stores">
+    <span class="store-tag">Tesco</span>
+    <span class="store-tag">Lidl</span>
+    <span class="store-tag">Aldi</span>
+    <span class="store-tag">Dunnes</span>
+    <span class="store-tag">SuperValu</span>
+  </div>
+</div>
+
+<div class="footer">SmartDocket — Smart grocery spending for Ireland</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const code = params.get('ref') || 'SMART-XXXX';
+document.getElementById('ref-code').textContent = code;
+// Update OG URL
+const ogUrl = document.querySelector('meta[property="og:url"]');
+if (ogUrl) ogUrl.setAttribute('content', window.location.href);
+</script>
+</body>
+</html>

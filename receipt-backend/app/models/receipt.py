@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from datetime import datetime
 from uuid import UUID
 from typing import Optional
@@ -55,6 +55,7 @@ class ReceiptResponse(BaseModel):
     status: str = "pending"
     source: str = "photo"
     items_count: Optional[int] = None
+    error_reason: Optional[str] = None
     created_at: datetime
 
 

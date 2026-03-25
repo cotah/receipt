@@ -40,8 +40,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 <body>
 
 <div class="header">
-  <img src="https://raw.githubusercontent.com/cotah/receipt/main/receipt-mobile/assets/smartdocket-wordmark.png" alt="SmartDocket" onerror="this.style.display='none'">
-  <h1>Upgrade to Pro</h1>
+  <img src="https://raw.githubusercontent.com/cotah/receipt/main/receipt-mobile/assets/smartdocket-wordmark.png" alt="SmartDocket" style="height:60px" onerror="this.style.display='none'">
 </div>
 
 <div class="content">
@@ -99,7 +98,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 <script>
 const API = '/api/v1/payments/create-checkout';
 const params = new URLSearchParams(window.location.search);
-const savedToken = params.get('token') || '';
+const savedToken = params.get('token') || localStorage.getItem('pro_token') || '';
+if (params.get('token')) localStorage.setItem('pro_token', params.get('token'));
 
 function showStatus(msg, type) {
   const el = document.getElementById('status');
@@ -108,27 +108,19 @@ function showStatus(msg, type) {
 }
 
 async function startCheckout() {
-  if (!savedToken) {
-    showStatus('Please open this page from the SmartDocket app.', 'error');
-    return;
-  }
-
   const btn = document.getElementById('upgrade-btn');
   btn.textContent = 'Loading...';
   btn.disabled = true;
 
   try {
-    const resp = await fetch(API, {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + savedToken,
-        'Content-Type': 'application/json',
-      },
-    });
+    const headers = { 'Content-Type': 'application/json' };
+    if (savedToken) headers['Authorization'] = 'Bearer ' + savedToken;
+
+    const resp = await fetch(API, { method: 'POST', headers });
 
     if (!resp.ok) {
-      const err = await resp.json();
-      throw new Error(err.detail || 'Failed to create checkout');
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to create checkout. Please try from the app.');
     }
 
     const data = await resp.json();

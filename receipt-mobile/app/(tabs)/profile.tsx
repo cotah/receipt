@@ -6,7 +6,7 @@ import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Linking from 'expo-linking';
-import { decode } from 'base64-arraybuffer';
+
 import Card from '../../components/ui/Card';
 import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/typography';
@@ -85,31 +85,21 @@ export default function ProfileScreen() {
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.7,
+        quality: 0.3,
       });
 
       if (result.canceled || !result.assets[0]) return;
 
       setUploading(true);
       const asset = result.assets[0];
-      const ext = asset.uri.split('.').pop() ?? 'jpg';
-      const path = `avatar_${profile.id}.${ext}`;
 
+      // Resize to 200x200 by re-picking with small dimensions
       const base64 = await FileSystem.readAsStringAsync(asset.uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
 
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(path, decode(base64), {
-          contentType: `image/${ext}`,
-          upsert: true,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-      const avatar_url = `${data.publicUrl}?t=${Date.now()}`;
+      // Store as data URI directly in profiles table
+      const avatar_url = `data:image/jpeg;base64,${base64}`;
       await updateProfile({ avatar_url });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Unknown error';
@@ -122,9 +112,13 @@ export default function ProfileScreen() {
 
   const handleReferFriend = async () => {
     const code = profile?.referral_code || 'SMART';
+    const baseUrl = process.env.EXPO_PUBLIC_API_URL?.replace('/api/v1', '') || '';
     try {
       await Share.share({
-        message: `I'm saving money on groceries with SmartDocket! Use my code ${code} to join: https://smartdocket.ie`,
+        message:
+          `Join me on SmartDocket — the smart way to save on groceries in Ireland! 🛒\n\n` +
+          `Use my code ${code} and we both get 50 bonus points.\n\n` +
+          `Download: ${baseUrl}/admin/invite.html?ref=${code}`,
       });
     } catch {
       // User cancelled

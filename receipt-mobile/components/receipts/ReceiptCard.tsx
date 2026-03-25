@@ -22,12 +22,22 @@ interface ReceiptCardProps {
   discount_total: number;
   items_count: number;
   status: string;
+  error_reason?: string | null;
   onPress: () => void;
+}
+
+function shortErrorReason(reason?: string | null): string {
+  if (!reason) return 'Failed';
+  const lower = reason.toLowerCase();
+  if (lower.includes('duplicate')) return 'Duplicate';
+  if (lower.includes('too old')) return 'Too old';
+  if (lower.includes('not a') || lower.includes('invalid') || lower.includes('supported')) return 'Invalid store';
+  return 'Failed';
 }
 
 export default function ReceiptCard({
   store_name, store_branch, purchased_at,
-  total_amount, discount_total, items_count, status, onPress,
+  total_amount, discount_total, items_count, status, error_reason, onPress,
 }: ReceiptCardProps) {
   const dotColor = STATUS_COLORS[status] ?? Colors.text.tertiary;
 
@@ -50,7 +60,7 @@ export default function ReceiptCard({
         <Text style={styles.date}>{formatRelativeDate(purchased_at)}</Text>
         <View style={styles.badges}>
           {status === 'processing' && <Badge text="Processing..." variant="info" />}
-          {status === 'failed' && <Badge text="Failed" variant="danger" />}
+          {status === 'failed' && <Badge text={shortErrorReason(error_reason)} variant="danger" />}
           {discount_total > 0 && <Badge text={`Saved ${formatCurrency(discount_total)}`} variant="success" />}
         </View>
       </View>

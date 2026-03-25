@@ -110,6 +110,7 @@ async def process_receipt_async(
             db.table("receipts").update({
                 "status": "failed",
                 "image_hash": img_hash,
+                "error_reason": "Duplicate receipt — this photo has already been scanned.",
             }).eq("id", receipt_id).execute()
             return
 
@@ -144,6 +145,10 @@ async def process_receipt_async(
             db.table("receipts").update({
                 "status": "failed",
                 "raw_text": "NOT_A_RECEIPT",
+                "error_reason": (
+                    "Not a supported Irish supermarket receipt. "
+                    "Supported: Tesco, Lidl, Aldi, Dunnes, SuperValu."
+                ),
             }).eq("id", receipt_id).execute()
             return
 
@@ -196,6 +201,7 @@ async def process_receipt_async(
                 "status": "failed",
                 "data_hash": data_hash,
                 "raw_text": raw_text,
+                "error_reason": msg,
             }).eq("id", receipt_id).execute()
             return
 
@@ -235,6 +241,7 @@ async def process_receipt_async(
                     db.table("receipts").update({
                         "status": "failed",
                         "raw_text": raw_text,
+                        "error_reason": msg,
                     }).eq("id", receipt_id).execute()
                     return
             except (ValueError, TypeError):
@@ -405,6 +412,7 @@ async def list_receipts(
             status=r.get("status", "done"),
             source=r.get("source", "photo"),
             items_count=items_count,
+            error_reason=r.get("error_reason"),
             created_at=r["created_at"],
         ))
 
@@ -517,7 +525,7 @@ async def get_receipt_status(
     db = get_service_client()
     result = (
         db.table("receipts")
-        .select("id, status")
+        .select("id, status, error_reason")
         .eq("id", receipt_id)
         .eq("user_id", user_id)
         .single()
@@ -535,11 +543,16 @@ async def get_receipt_status(
         "failed": "Processing failed. Please try again.",
     }
 
+    # Use specific error_reason if available for failed receipts
+    message = message_map.get(status, "")
+    if status == "failed" and result.data.get("error_reason"):
+        message = result.data["error_reason"]
+
     return ReceiptStatusResponse(
         receipt_id=result.data["id"],
         status=status,
         progress=progress_map.get(status, 0),
-        message=message_map.get(status, ""),
+        message=message,
     )
 
 
