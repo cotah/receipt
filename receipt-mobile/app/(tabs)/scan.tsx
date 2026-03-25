@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { View, Text, Image, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -14,16 +14,58 @@ import { useReceipts } from '../../hooks/useReceipts';
 export default function ScanScreen() {
   const router = useRouter();
   const cameraRef = useRef<CameraView>(null);
+  const isMounted = useRef(true);
   const [permission, requestPermission] = useCameraPermissions();
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const { isProcessing, processingStatus, uploadReceipt, pollProcessingStatus } = useReceipts();
 
+  // Track fake progress for smooth animation
+  const [fakeProgress, setFakeProgress] = useState(0);
+  const fakeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+      if (fakeIntervalRef.current) clearInterval(fakeIntervalRef.current);
+    };
+  }, []);
+
+  const startFakeProgress = useCallback(() => {
+    setFakeProgress(0);
+    if (fakeIntervalRef.current) clearInterval(fakeIntervalRef.current);
+    fakeIntervalRef.current = setInterval(() => {
+      setFakeProgress((prev) => {
+        if (prev >= 90) {
+          if (fakeIntervalRef.current) clearInterval(fakeIntervalRef.current);
+          return 90;
+        }
+        return prev + 5;
+      });
+    }, 150);
+  }, []);
+
+  const stopFakeProgress = useCallback((final: number) => {
+    if (fakeIntervalRef.current) clearInterval(fakeIntervalRef.current);
+    setFakeProgress(final);
+  }, []);
+
   const handleCapture = async () => {
     if (!cameraRef.current) return;
-    const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
-    if (photo) {
-      const compressed = await compressImage(photo.uri);
-      setCapturedUri(compressed);
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
+      if (!isMounted.current) return;
+      if (photo) {
+        const compressed = await compressImage(photo.uri);
+        if (!isMounted.current) return;
+        setCapturedUri(compressed);
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '';
+      if (msg.includes('unmounted') || msg.includes('Unmounted')) {
+        // Camera was unmounted during capture — ignore silently
+        return;
+      }
+      console.error('Camera capture error:', msg);
     }
   };
 
@@ -40,11 +82,82 @@ export default function ScanScreen() {
 
   const handleProcess = async () => {
     if (!capturedUri) return;
-    const receiptId = await uploadReceipt(capturedUri, 'photo');
-    await pollProcessingStatus(receiptId);
-    setCapturedUri(null);
-    router.push(`/receipt/${receiptId}`);
+
+    // Start fake progress animation
+    startFakeProgress();
+
+    try {
+      const receiptId = await uploadReceipt(capturedUri, 'photo');
+      if (!isMounted.current) return;
+
+      // Upload done — jump to 50% and start polling
+      stopFakeProgress(50);
+
+      // Poll with progress updates
+      const startedAt = Date.now();
+      const TIMEOUT = 60000;
+
+      const poll = (): Promise<void> => {
+        return new Promise((resolve) => {
+          const check = async () => {
+            if (!isMounted.current) { resolve(); return; }
+            if (Date.now() - startedAt > TIMEOUT) {
+              stopFakeProgress(0);
+              Alert.alert('Timeout', 'Processing timed out. Please try again.');
+              resolve();
+              return;
+            }
+
+            try {
+              const api = (await import('../../services/api')).default;
+              const { data } = await api.get(`/receipts/${receiptId}/status`);
+
+              if (data.status === 'done') {
+                stopFakeProgress(100);
+                setTimeout(() => {
+                  if (!isMounted.current) return;
+                  setCapturedUri(null);
+                  router.push(`/receipt/${receiptId}`);
+                }, 300);
+                resolve();
+                return;
+              }
+
+              if (data.status === 'failed') {
+                stopFakeProgress(0);
+                Alert.alert('Processing failed', data.message || 'Could not process this receipt.');
+                resolve();
+                return;
+              }
+
+              // Still processing — animate between 50-90%
+              const elapsed = (Date.now() - startedAt) / TIMEOUT;
+              setFakeProgress(Math.min(50 + Math.floor(elapsed * 40), 90));
+              setTimeout(check, 2000);
+            } catch {
+              stopFakeProgress(0);
+              resolve();
+            }
+          };
+          check();
+        });
+      };
+
+      await poll();
+    } catch (e: unknown) {
+      stopFakeProgress(0);
+      const msg = e instanceof Error ? e.message : 'Upload failed';
+      Alert.alert('Error', msg);
+    }
   };
+
+  // Merge fake progress with server progress for the modal
+  const displayStatus = isProcessing || fakeProgress > 0
+    ? {
+        progress: fakeProgress,
+        message: fakeProgress < 50 ? 'Uploading...' : fakeProgress >= 100 ? 'Done!' : 'Processing receipt...',
+      }
+    : processingStatus;
 
   if (!permission) return <View style={styles.container} />;
 
@@ -63,13 +176,13 @@ export default function ScanScreen() {
       <View style={styles.container}>
         <Image source={{ uri: capturedUri }} style={styles.preview} />
         <View style={styles.previewActions}>
-          <Button title="Retake" onPress={() => setCapturedUri(null)} variant="secondary" />
+          <Button title="Retake" onPress={() => { setCapturedUri(null); stopFakeProgress(0); }} variant="secondary" />
           <Button title="Process Receipt" onPress={handleProcess} icon="check" />
         </View>
         <ProcessingModal
-          visible={isProcessing}
-          status={processingStatus}
-          onCancel={() => setCapturedUri(null)}
+          visible={fakeProgress > 0}
+          status={displayStatus}
+          onCancel={() => { setCapturedUri(null); stopFakeProgress(0); }}
         />
       </View>
     );
