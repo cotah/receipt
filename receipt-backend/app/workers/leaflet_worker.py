@@ -146,7 +146,7 @@ SUPERVALU = Mi9Store(
         "https://storefrontgateway.supervalu.ie"
         "/api/stores/5550/locations"
     ),
-    location_id=None,  # discovered from session response
+    location_id="5df95c07-402e-419a-a699-8b895311ac5a",
     total_pages=121,
     referer=(
         "https://shop.supervalu.ie"
@@ -217,6 +217,21 @@ async def _discover_location_id(
             loc_id = info.get("locationId") or info.get("location_id")
             if loc_id:
                 return loc_id
+    except Exception:
+        pass
+
+    # Alert via Sentry when discovery fails
+    try:
+        import sentry_sdk
+
+        sentry_sdk.capture_message(
+            f"{store.store_name} scraper: location_id discovery failed",
+            level="error",
+            tags={
+                "scraper": store.store_name.lower(),
+                "error": "location_id_not_found",
+            },
+        )
     except Exception:
         pass
 
@@ -673,7 +688,7 @@ async def scrape_tesco_promotions() -> None:
     errors = 0
 
     log.info("Tesco scraper: starting...")
-    await _startup_delay()
+    await asyncio.sleep(random.uniform(8, 15))
 
     # 1. Clean expired entries
     db.table("collective_prices").delete().eq(
@@ -690,6 +705,8 @@ async def scrape_tesco_promotions() -> None:
         referer="https://www.tesco.ie/",
         origin="https://www.tesco.ie",
     )
+    tesco_headers["Accept-Encoding"] = "gzip, deflate, br"
+    tesco_headers["Cache-Control"] = "no-cache"
     async with httpx.AsyncClient(
         timeout=30,
         follow_redirects=True,
