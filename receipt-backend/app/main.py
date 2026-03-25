@@ -57,6 +57,32 @@ async def lifespan(app: FastAPI):
     scheduler.start()
     log.info("Background workers started")
 
+    # Auto-run scrapers on startup if collective_prices is empty
+    try:
+        from app.database import get_service_client
+
+        db = get_service_client()
+        prices_check = (
+            db.table("collective_prices")
+            .select("id", count="exact")
+            .limit(1)
+            .execute()
+        )
+        if (prices_check.count or 0) == 0:
+            import asyncio
+            from app.workers.leaflet_worker import (
+                run_dunnes_scraper,
+                run_tesco_scraper,
+                run_lidl_scraper,
+            )
+
+            log.info("No prices in DB — triggering initial scrapers...")
+            asyncio.create_task(run_dunnes_scraper())
+            asyncio.create_task(run_tesco_scraper())
+            asyncio.create_task(run_lidl_scraper())
+    except Exception as e:
+        log.warning(f"Startup scraper check failed: {e}")
+
     yield
 
     # Shutdown

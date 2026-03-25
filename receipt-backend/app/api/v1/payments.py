@@ -2,13 +2,14 @@
 
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import stripe
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
 
 from app.config import settings
 from app.database import get_service_client
-from app.utils.auth_utils import get_current_user
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/payments", tags=["payments"])
@@ -16,35 +17,49 @@ router = APIRouter(prefix="/payments", tags=["payments"])
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
+class CheckoutRequest(BaseModel):
+    email: Optional[str] = None
+
+
 @router.post("/create-checkout")
-async def create_checkout(user_id: str = Depends(get_current_user)):
-    """Create a Stripe Checkout Session for Pro subscription."""
+async def create_checkout(body: CheckoutRequest = CheckoutRequest()):
+    """Create a Stripe Checkout Session for Pro subscription.
+
+    Works without authentication — identifies user by email.
+    The webhook will upgrade the profile by email match.
+    """
     if not settings.STRIPE_SECRET_KEY:
         raise HTTPException(status_code=503, detail="Payments not configured")
 
+    email = body.email or ""
+
+    if not email:
+        raise HTTPException(
+            status_code=400,
+            detail="Email is required. Please provide your email address.",
+        )
+
+    # Check if already Pro
     db = get_service_client()
     profile = (
         db.table("profiles")
-        .select("email, plan")
-        .eq("id", user_id)
-        .single()
+        .select("plan")
+        .eq("email", email)
+        .limit(1)
         .execute()
     )
-    if not profile.data:
-        raise HTTPException(status_code=404, detail="Profile not found")
-
-    if profile.data.get("plan") == "pro":
+    if profile.data and profile.data[0].get("plan") == "pro":
         raise HTTPException(status_code=400, detail="Already on Pro plan")
 
-    email = profile.data.get("email", "")
+    base_url = "https://receipt-production-ebc4.up.railway.app"
 
     session = stripe.checkout.Session.create(
         mode="subscription",
         line_items=[{"price": settings.STRIPE_PRICE_ID, "quantity": 1}],
         customer_email=email,
-        success_url="https://smartdocket.ie/success?session_id={CHECKOUT_SESSION_ID}",
-        cancel_url="https://smartdocket.ie/pro",
-        metadata={"user_id": user_id},
+        success_url=f"{base_url}/admin/pro.html?success=true",
+        cancel_url=f"{base_url}/admin/pro.html",
+        metadata={"email": email},
     )
 
     return {"checkout_url": session.url}

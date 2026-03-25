@@ -6,14 +6,13 @@
 <title>SmartDocket Pro</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--primary:#1A4D35;--light:#2E7D52;--accent:#3CB371;--amber:#E8A020;--bg:#F7F5F0;--card:#FFF;--text:#1A1A1A;--sec:#6B7280;--border:#E5E7EB}
+:root{--primary:#1A4D35;--dark:#0D2B1D;--light:#2E7D52;--accent:#3CB371;--amber:#E8A020;--bg:#F7F5F0;--card:#FFF;--text:#1A1A1A;--sec:#6B7280;--border:#E5E7EB}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center}
-.header{background:var(--primary);width:100%;padding:20px;text-align:center}
-.header img{height:40px}
-.header h1{color:#fff;font-size:20px;margin-top:8px;font-weight:700;letter-spacing:.5px}
+.header{background:var(--dark);width:100%;padding:28px 20px;text-align:center}
+.header img{height:70px}
 .content{max-width:800px;width:100%;padding:32px 20px}
 .subtitle{text-align:center;font-size:18px;color:var(--sec);margin-bottom:32px}
-.plans{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:32px}
+.plans{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}
 @media(max-width:600px){.plans{grid-template-columns:1fr}}
 .plan{background:var(--card);border-radius:16px;padding:28px 24px;border:2px solid var(--border);position:relative;transition:border-color .2s}
 .plan.pro{border-color:var(--primary)}
@@ -24,33 +23,41 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .plan .price-note{font-size:13px;color:var(--sec);margin-bottom:16px}
 .features{list-style:none;margin-bottom:24px}
 .features li{padding:8px 0;font-size:14px;color:var(--text);display:flex;align-items:center;gap:8px}
-.features li::before{content:'✓';color:var(--accent);font-weight:700;font-size:16px}
-.features li.disabled::before{content:'✗';color:#ccc}
+.features li::before{content:'\2713';color:var(--accent);font-weight:700;font-size:16px}
+.features li.disabled::before{content:'\2717';color:#ccc}
 .features li.disabled{color:#aaa}
 .btn{display:block;width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;text-align:center;transition:opacity .15s}
 .btn:hover{opacity:.9}
 .btn-primary{background:var(--primary);color:#fff}
 .btn-ghost{background:transparent;border:2px solid var(--border);color:var(--sec)}
+.email-section{max-width:400px;margin:0 auto 24px;text-align:center}
+.email-section input{width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:12px;font-size:15px;margin-bottom:12px;outline:none;transition:border-color .2s}
+.email-section input:focus{border-color:var(--primary)}
+.email-section button{width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer}
+.email-section button:hover{opacity:.9}
 .status{text-align:center;padding:12px;border-radius:8px;margin-top:16px;font-size:14px;display:none}
 .status.error{display:block;background:#FEE2E2;color:#DC3545}
 .status.success{display:block;background:#DCFCE7;color:var(--accent)}
 .footer{text-align:center;padding:20px;color:var(--sec);font-size:12px}
+.success-banner{background:#DCFCE7;color:var(--primary);padding:16px;border-radius:12px;text-align:center;margin-bottom:24px;font-weight:600;font-size:16px;display:none}
 </style>
 </head>
 <body>
 
 <div class="header">
-  <img src="https://raw.githubusercontent.com/cotah/receipt/main/receipt-mobile/assets/smartdocket-wordmark.png" alt="SmartDocket" style="height:60px" onerror="this.style.display='none'">
+  <img src="https://raw.githubusercontent.com/cotah/receipt/main/receipt-mobile/assets/smartdocket-wordmark.png" alt="SmartDocket" onerror="this.style.display='none'">
 </div>
 
 <div class="content">
+  <div class="success-banner" id="success-banner">Payment successful! You're now a Pro member.</div>
+
   <p class="subtitle">Unlock the full power of SmartDocket</p>
 
   <div class="plans">
     <!-- Free -->
     <div class="plan">
       <h2>Free</h2>
-      <div class="price">€0<span>/month</span></div>
+      <div class="price">&euro;0<span>/month</span></div>
       <div class="price-note">Always free</div>
       <ul class="features">
         <li>10 receipt scans / month</li>
@@ -69,7 +76,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     <div class="plan pro">
       <div class="popular">Most Popular</div>
       <h2>Pro</h2>
-      <div class="price">€4.99<span>/month</span></div>
+      <div class="price">&euro;4.99<span>/month</span></div>
       <div class="price-note">Cancel anytime</div>
       <ul class="features">
         <li>Unlimited receipt scans</li>
@@ -81,25 +88,31 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
         <li>+25 reward points per scan</li>
         <li>Early access to features</li>
       </ul>
-      <button class="btn btn-primary" id="upgrade-btn" onclick="startCheckout()">
-        Upgrade to Pro — €4.99/month
-      </button>
     </div>
+  </div>
+
+  <!-- Email checkout -->
+  <div class="email-section">
+    <input type="email" id="email-input" placeholder="Enter your SmartDocket email">
+    <button id="upgrade-btn" onclick="startCheckout()">Upgrade to Pro &mdash; &euro;4.99/month</button>
   </div>
 
   <div class="status" id="status"></div>
 </div>
 
 <div class="footer">
-  SmartDocket — Smart grocery spending for Ireland<br>
+  SmartDocket &mdash; Smart grocery spending for Ireland<br>
   Secure payments powered by Stripe
 </div>
 
 <script>
 const API = '/api/v1/payments/create-checkout';
 const params = new URLSearchParams(window.location.search);
-const savedToken = params.get('token') || localStorage.getItem('pro_token') || '';
-if (params.get('token')) localStorage.setItem('pro_token', params.get('token'));
+
+// Show success banner if returning from Stripe
+if (params.get('success') === 'true') {
+  document.getElementById('success-banner').style.display = 'block';
+}
 
 function showStatus(msg, type) {
   const el = document.getElementById('status');
@@ -108,19 +121,26 @@ function showStatus(msg, type) {
 }
 
 async function startCheckout() {
+  const email = document.getElementById('email-input').value.trim();
+  if (!email || !email.includes('@')) {
+    showStatus('Please enter a valid email address.', 'error');
+    return;
+  }
+
   const btn = document.getElementById('upgrade-btn');
   btn.textContent = 'Loading...';
   btn.disabled = true;
 
   try {
-    const headers = { 'Content-Type': 'application/json' };
-    if (savedToken) headers['Authorization'] = 'Bearer ' + savedToken;
-
-    const resp = await fetch(API, { method: 'POST', headers });
+    const resp = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
 
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
-      throw new Error(err.detail || 'Failed to create checkout. Please try from the app.');
+      throw new Error(err.detail || 'Failed to create checkout.');
     }
 
     const data = await resp.json();
@@ -131,7 +151,7 @@ async function startCheckout() {
     }
   } catch (e) {
     showStatus(e.message, 'error');
-    btn.textContent = 'Upgrade to Pro — €4.99/month';
+    btn.textContent = 'Upgrade to Pro \u2014 \u20AC4.99/month';
     btn.disabled = false;
   }
 }
