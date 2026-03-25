@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -57,9 +58,26 @@ async def lifespan(app: FastAPI):
     scheduler.start()
     log.info("Background workers started")
 
-    # Auto-run scrapers on startup if collective_prices is empty
+    # Fire scrapers on startup if DB is empty (after a short delay)
+    asyncio.create_task(run_all_scrapers_startup())
+
+    yield
+
+    # Shutdown
+    scheduler.shutdown(wait=False)
+    log.info("Background workers stopped")
+
+
+async def run_all_scrapers_startup():
+    """Wait for app to initialise, then run scrapers if DB is empty."""
+    await asyncio.sleep(10)
     try:
         from app.database import get_service_client
+        from app.workers.leaflet_worker import (
+            run_dunnes_scraper,
+            run_supervalu_scraper,
+            run_tesco_scraper,
+        )
 
         db = get_service_client()
         prices_check = (
@@ -68,26 +86,17 @@ async def lifespan(app: FastAPI):
             .limit(1)
             .execute()
         )
-        if (prices_check.count or 0) == 0:
-            import asyncio
-            from app.workers.leaflet_worker import (
-                run_dunnes_scraper,
-                run_tesco_scraper,
-                run_lidl_scraper,
-            )
+        if (prices_check.count or 0) > 0:
+            log.info("Startup: collective_prices has data — skipping scrapers")
+            return
 
-            log.info("No prices in DB — triggering initial scrapers...")
-            asyncio.create_task(run_dunnes_scraper())
-            asyncio.create_task(run_tesco_scraper())
-            asyncio.create_task(run_lidl_scraper())
+        log.info("Startup: collective_prices is empty — running all scrapers sequentially...")
+        await run_dunnes_scraper()
+        await run_supervalu_scraper()
+        await run_tesco_scraper()
+        log.info("Startup: all scrapers finished")
     except Exception as e:
-        log.warning(f"Startup scraper check failed: {e}")
-
-    yield
-
-    # Shutdown
-    scheduler.shutdown(wait=False)
-    log.info("Background workers stopped")
+        log.error(f"Startup scraper run failed: {e}")
 
 
 app = FastAPI(
@@ -127,3 +136,20 @@ if _admin_dir.is_dir():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "version": "1.0.0"}
+
+
+@app.post("/api/v1/debug/run-scrapers")
+async def debug_run_scrapers():
+    """Force-run all scrapers immediately (no auth — for testing)."""
+    from app.workers.leaflet_worker import (
+        run_dunnes_scraper,
+        run_supervalu_scraper,
+        run_tesco_scraper,
+        run_lidl_scraper,
+    )
+
+    asyncio.create_task(run_dunnes_scraper())
+    asyncio.create_task(run_supervalu_scraper())
+    asyncio.create_task(run_tesco_scraper())
+    asyncio.create_task(run_lidl_scraper())
+    return {"status": "started", "scrapers": ["dunnes", "supervalu", "tesco", "lidl"]}
