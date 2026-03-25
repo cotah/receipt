@@ -139,12 +139,41 @@ async def generate_monthly_report(db: Client, user_id: str, month: str) -> dict:
         if len(price_wins) >= 5:
             break
 
+    # Discounts by store
+    discount_store_map: dict[str, dict] = {}
+    for r in receipt_data:
+        s = r["store_name"]
+        disc = r.get("discount_total", 0) or 0
+        if disc <= 0:
+            continue
+        if s not in discount_store_map:
+            discount_store_map[s] = {
+                "store": s,
+                "total_discount": 0.0,
+                "offers_count": 0,
+            }
+        discount_store_map[s]["total_discount"] += disc
+        discount_store_map[s]["offers_count"] += 1
+    discounts_by_store = sorted(
+        discount_store_map.values(),
+        key=lambda x: -x["total_discount"],
+    )
+    for d in discounts_by_store:
+        d["total_discount"] = round(d["total_discount"], 2)
+
+    # Previous month saved
+    prev_saved = sum(
+        r.get("discount_total", 0) for r in (prev_receipts.data or [])
+    )
+
     period_label = start.strftime("%B %Y")
+    prev_period_label = prev_start.strftime("%B %Y")
     return {
         "period": period_label,
         "summary": {
             "total_spent": round(total_spent, 2),
             "total_saved": round(total_saved, 2),
+            "prev_saved": round(prev_saved, 2),
             "receipts_count": receipts_count,
             "items_count": items_count,
             "avg_basket_size": round(avg_basket, 2),
@@ -152,10 +181,13 @@ async def generate_monthly_report(db: Client, user_id: str, month: str) -> dict:
                 "amount": round(diff, 2),
                 "percent": round(diff_pct, 1),
                 "trend": trend,
+                "previous_total": round(prev_total, 2),
+                "previous_period": prev_period_label,
             },
         },
         "by_store": by_store,
         "by_category": by_category,
+        "discounts_by_store": discounts_by_store,
         "insights": insights,
         "price_wins": price_wins,
     }

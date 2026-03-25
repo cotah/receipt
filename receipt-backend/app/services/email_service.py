@@ -224,12 +224,83 @@ def _price_comparison(report: dict) -> str:
     <table width="100%" cellpadding="0" cellspacing="0"><tr>{cards}</tr></table>"""
 
 
+def _discounts_by_store_section(discounts: list[dict]) -> str:
+    """Grid of discount cards per store."""
+    if not discounts:
+        return ""
+
+    cards = ""
+    for d in discounts:
+        cards += (
+            f'<td style="padding:6px;width:50%;vertical-align:top">'
+            f'<div style="background:#F0F9F4;border:1px solid #A8D5B8;border-radius:10px;padding:14px">'
+            f'<p style="margin:0;{_FONT};font-size:14px;font-weight:600;color:{_TEXT}">'
+            f'{d["store"]}</p>'
+            f'<p style="margin:4px 0 0;{_MONO};font-size:20px;font-weight:bold;color:{_ACCENT_GREEN}">'
+            f'{_euro(d["total_discount"])}</p>'
+            f'<p style="margin:2px 0 0;{_FONT};font-size:11px;color:{_TEXT_SEC}">'
+            f'{d["offers_count"]} receipt{"s" if d["offers_count"] != 1 else ""} with discounts</p>'
+            f'</div></td>'
+        )
+
+    # Wrap in rows of 2
+    rows = ""
+    card_list = cards.split("</td>")
+    card_list = [c + "</td>" for c in card_list if c.strip()]
+    for i in range(0, len(card_list), 2):
+        row_cells = "".join(card_list[i : i + 2])
+        rows += f"<tr>{row_cells}</tr>"
+
+    return f"""\
+    <h2 style="margin:0 0 12px;{_FONT};font-size:16px;color:{_PRIMARY_DARK}">
+      Discounts by store &#127991;&#65039;</h2>
+    <table width="100%" cellpadding="0" cellspacing="0">{rows}</table>"""
+
+
+def _hero_savings(summary: dict, period: str) -> str:
+    """Hero banner with total saved and vs previous month."""
+    total_saved = summary.get("total_saved", 0)
+    prev_saved = summary.get("prev_saved", 0)
+    diff = total_saved - prev_saved
+
+    # Comparison badge
+    if diff > 0:
+        badge = (
+            f'<span style="display:inline-block;padding:4px 12px;border-radius:20px;'
+            f'background:rgba(255,255,255,0.15);color:#A8D5B8;{_FONT};font-size:12px;'
+            f'font-weight:600">&uarr; {_euro(abs(diff))} more than last month</span>'
+        )
+    elif diff < 0:
+        badge = (
+            f'<span style="display:inline-block;padding:4px 12px;border-radius:20px;'
+            f'background:rgba(255,255,255,0.15);color:#FCD34D;{_FONT};font-size:12px;'
+            f'font-weight:600">&darr; {_euro(abs(diff))} less than last month</span>'
+        )
+    else:
+        badge = ""
+
+    return f"""\
+    <table width="100%" cellpadding="0" cellspacing="0"
+           style="background:{_PRIMARY};border-radius:10px;overflow:hidden">
+      <tr><td style="padding:28px 24px;text-align:center">
+        <p style="margin:0;{_FONT};font-size:11px;color:#A8D5B8;text-transform:uppercase;
+                  letter-spacing:1.5px;font-weight:600">SmartDocket saved you</p>
+        <p style="margin:8px 0;{_MONO};font-size:48px;font-weight:bold;color:#FFFFFF;
+                  line-height:1.1">{_euro(total_saved)}</p>
+        <p style="margin:0 0 12px;{_FONT};font-size:14px;color:#C8E6D0">
+          in discounts &amp; smarter shopping this month</p>
+        {badge}
+      </td></tr>
+    </table>"""
+
+
 def build_monthly_report_html(report: dict, user_name: str) -> str:
     """Build a branded HTML email from a monthly report dict."""
     period = report["period"]
     summary = report["summary"]
     by_store = report.get("by_store", [])
     by_category = report.get("by_category", [])
+    discounts_by_store = report.get("discounts_by_store", [])
     insights = report.get("insights", [])
 
     # Key stats
@@ -272,8 +343,8 @@ def build_monthly_report_html(report: dict, user_name: str) -> str:
 
   <!-- HEADER with wordmark -->
   <tr><td style="background-color:{_PRIMARY};border-radius:12px 12px 0 0;padding:24px;text-align:center">
-    <img src="{_WORDMARK_URL}" alt="SmartDocket" height="50"
-         style="height:50px;width:auto;display:inline-block" />
+    <img src="{_WORDMARK_URL}" alt="SmartDocket" height="44"
+         style="height:44px;width:auto;display:inline-block" />
     <p style="margin:10px 0 0;{_FONT};font-size:13px;color:#C8E6D0;letter-spacing:0.3px">
       Your monthly spending report</p>
   </td></tr>
@@ -284,6 +355,11 @@ def build_monthly_report_html(report: dict, user_name: str) -> str:
       Hi <strong>{user_name}</strong>,<br>
       here's how your groceries looked in <strong>{period}</strong>.
     </p>
+  </td></tr>
+
+  <!-- HERO SAVINGS -->
+  <tr><td style="background-color:{_CARD};padding:0 24px 24px">
+    {_hero_savings(summary, period)}
   </td></tr>
 
   <!-- MONTH OVER MONTH -->
@@ -337,6 +413,11 @@ def build_monthly_report_html(report: dict, user_name: str) -> str:
   <tr><td style="background-color:{_CARD};padding:0 24px 24px">
     {_store_table(by_store)}
   </td></tr>
+
+  <!-- DISCOUNTS BY STORE -->
+  {"" if not discounts_by_store else f'''<tr><td style="background-color:{_CARD};padding:0 24px 24px">
+    {_discounts_by_store_section(discounts_by_store)}
+  </td></tr>'''}
 
   <!-- PRICE COMPARISON -->
   {"" if not report.get("price_comparisons") else f'''<tr><td style="background-color:{_CARD};padding:0 24px 24px">
