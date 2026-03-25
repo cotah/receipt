@@ -20,6 +20,16 @@ CREATE TABLE public.profiles (
     notify_alerts   BOOLEAN DEFAULT TRUE,
     notify_reports  BOOLEAN DEFAULT TRUE,
     push_token      TEXT,
+    plan            TEXT DEFAULT 'free' CHECK (plan IN ('free','pro')),
+    plan_expires_at TIMESTAMPTZ,
+    scans_this_month    INTEGER DEFAULT 0,
+    scans_month_reset   DATE,
+    chat_queries_today  INTEGER DEFAULT 0,
+    chat_queries_reset  DATE,
+    points          INTEGER DEFAULT 0,
+    referral_code   TEXT UNIQUE,
+    referred_by     TEXT,
+    is_admin        BOOLEAN DEFAULT FALSE,
     created_at      TIMESTAMPTZ DEFAULT NOW(),
     updated_at      TIMESTAMPTZ DEFAULT NOW()
 );

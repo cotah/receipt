@@ -14,6 +14,14 @@ class UserProfile(BaseModel):
     home_area: Optional[str] = None
     notify_alerts: bool = True
     notify_reports: bool = True
+    plan: str = "free"
+    plan_expires_at: Optional[datetime] = None
+    scans_this_month: int = 0
+    chat_queries_today: int = 0
+    points: int = 0
+    referral_code: Optional[str] = None
+    referred_by: Optional[str] = None
+    is_admin: bool = False
     created_at: datetime
     updated_at: datetime
 

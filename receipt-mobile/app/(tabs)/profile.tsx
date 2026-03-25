@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert, Switch, Pressable, Image, TextInput, ScrollView, Share } from 'react-native';
+import { View, Text, StyleSheet, Alert, Switch, Pressable, Image, TextInput, ScrollView, Share, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -32,6 +32,7 @@ export default function ProfileScreen() {
   const signOut = useAuthStore((s) => s.signOut);
   const setProfile = useAuthStore((s) => s.setProfile);
 
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [editingArea, setEditingArea] = useState(false);
   const [areaText, setAreaText] = useState(profile?.home_area ?? '');
   const [editingName, setEditingName] = useState(false);
@@ -310,9 +311,9 @@ export default function ProfileScreen() {
               ) : (
                 <Pressable
                   style={styles.upgradeBtn}
-                  onPress={() => Linking.openURL('https://smartdocket.ie/pro')}
+                  onPress={() => setShowUpgrade(true)}
                 >
-                  <Text style={styles.upgradeBtnText}>Upgrade to Pro →</Text>
+                  <Text style={styles.upgradeBtnText}>Upgrade</Text>
                 </Pressable>
               )}
             </View>
@@ -369,6 +370,54 @@ export default function ProfileScreen() {
           <Text style={styles.signOutText}>Sign Out</Text>
         </Pressable>
       </ScrollView>
+
+      {/* Upgrade Modal */}
+      <Modal visible={showUpgrade} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Choose your plan</Text>
+
+            <View style={styles.plansRow}>
+              {/* Free */}
+              <View style={styles.planCard}>
+                <Text style={styles.planName}>Free</Text>
+                <Text style={styles.planPrice}>€0</Text>
+                <Text style={styles.planPeriod}>/month</Text>
+                {['10 scans/month', '30-day history', 'Weekly offers', 'Collective prices', '5 AI queries/day'].map((f) => (
+                  <Text key={f} style={styles.planFeature}>✓ {f}</Text>
+                ))}
+                <Pressable style={styles.freeBtn} onPress={() => setShowUpgrade(false)}>
+                  <Text style={styles.freeBtnText}>Continue with Free</Text>
+                </Pressable>
+              </View>
+
+              {/* Pro */}
+              <View style={[styles.planCard, styles.planCardPro]}>
+                <View style={styles.popularTag}><Text style={styles.popularTagText}>POPULAR</Text></View>
+                <Text style={[styles.planName, { color: '#FFF' }]}>Pro</Text>
+                <Text style={[styles.planPrice, { color: '#FFF' }]}>€4.99</Text>
+                <Text style={[styles.planPeriod, { color: 'rgba(255,255,255,0.7)' }]}>/month</Text>
+                {['Unlimited scans', 'Full history', 'Price alerts', 'Store comparison', 'Monthly email report', 'Unlimited AI chat', 'Trends analysis', 'Data export'].map((f) => (
+                  <Text key={f} style={[styles.planFeature, { color: 'rgba(255,255,255,0.9)' }]}>✓ {f}</Text>
+                ))}
+                <Pressable
+                  style={styles.proBtn}
+                  onPress={() => {
+                    setShowUpgrade(false);
+                    Linking.openURL('https://smartdocket.ie/pro');
+                  }}
+                >
+                  <Text style={styles.proBtnText}>Upgrade — €4.99/mo</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <Pressable onPress={() => setShowUpgrade(false)} style={styles.modalClose}>
+              <Feather name="x" size={22} color={Colors.text.secondary} />
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -492,6 +541,72 @@ const styles = StyleSheet.create({
   badgeText: {
     fontFamily: 'DMSans_600SemiBold', fontSize: 12,
     color: Colors.accent.amber,
+  },
+
+  // Upgrade Modal
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center', alignItems: 'center', padding: 16,
+  },
+  modalContent: {
+    backgroundColor: Colors.surface.background, borderRadius: 20,
+    padding: 20, width: '100%', maxWidth: 400, position: 'relative',
+  },
+  modalTitle: {
+    fontFamily: 'DMSans_700Bold', fontSize: 20,
+    color: Colors.text.primary, textAlign: 'center', marginBottom: 16,
+  },
+  modalClose: {
+    position: 'absolute', top: 14, right: 14,
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: Colors.surface.alt,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  plansRow: { flexDirection: 'row', gap: 10 },
+  planCard: {
+    flex: 1, backgroundColor: '#FFF', borderRadius: 14,
+    padding: 14, borderWidth: 1, borderColor: Colors.surface.alt,
+  },
+  planCardPro: {
+    backgroundColor: '#1A4D35', borderColor: '#1A4D35',
+  },
+  planName: {
+    fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary,
+  },
+  planPrice: {
+    fontFamily: 'JetBrainsMono_700Bold', fontSize: 28,
+    color: Colors.text.primary, marginTop: 4,
+  },
+  planPeriod: {
+    fontFamily: 'DMSans_400Regular', fontSize: 12,
+    color: Colors.text.tertiary, marginBottom: 10,
+  },
+  planFeature: {
+    fontFamily: 'DMSans_400Regular', fontSize: 11,
+    color: Colors.text.secondary, paddingVertical: 2,
+  },
+  popularTag: {
+    position: 'absolute', top: -10, right: 12,
+    backgroundColor: '#E8A020', paddingHorizontal: 8,
+    paddingVertical: 2, borderRadius: 8,
+  },
+  popularTagText: {
+    fontFamily: 'DMSans_700Bold', fontSize: 9, color: '#FFF',
+    letterSpacing: 0.5,
+  },
+  freeBtn: {
+    marginTop: 12, paddingVertical: 10, borderRadius: 10,
+    borderWidth: 1, borderColor: Colors.surface.alt, alignItems: 'center',
+  },
+  freeBtnText: {
+    fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.text.secondary,
+  },
+  proBtn: {
+    marginTop: 12, paddingVertical: 10, borderRadius: 10,
+    backgroundColor: '#FFF', alignItems: 'center',
+  },
+  proBtnText: {
+    fontFamily: 'DMSans_700Bold', fontSize: 12, color: '#1A4D35',
   },
 
   // Sign out
