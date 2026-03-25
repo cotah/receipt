@@ -1005,6 +1005,370 @@ async def scrape_lidl_leaflet() -> None:
 # Tesco Ireland (SSR HTML) scraper
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Dunnes Stores Ireland (SSR HTML) scraper
+# ---------------------------------------------------------------------------
+
+DUNNES_HTML_BASE_URL = (
+    "https://www.dunnesstoresgrocery.com"
+    "/sm/delivery/rsid/258/promotions"
+)
+DUNNES_HTML_SESSION_URL = (
+    "https://www.dunnesstoresgrocery.com"
+    "/sm/delivery/rsid/258/promotions"
+)
+DUNNES_HTML_PAGE_SIZE = 30
+DUNNES_HTML_TOTAL_PAGES = 220  # ceil(6487/30) + safety margin
+
+_DUNNES_PRICE_RE = re.compile(r"[\d]+[.,]\d{2}")
+
+
+def _parse_dunnes_price(text: str) -> float | None:
+    """Extract first decimal price from text, e.g. '€1.40' -> 1.40"""
+    m = _DUNNES_PRICE_RE.search(text.replace(",", "."))
+    if m:
+        try:
+            return float(m.group())
+        except ValueError:
+            pass
+    return None
+
+
+def _parse_dunnes_page(
+    soup: BeautifulSoup,
+    db,
+    now: datetime,
+    expires_at: datetime,
+) -> int:
+    """Parse one Dunnes promotions HTML page (same Mi9 SSR as SuperValu)."""
+    count = 0
+
+    cards = soup.find_all(
+        lambda tag: tag.name
+        and tag.get("class")
+        and any("ProductCard--" in c for c in tag.get("class", []))
+    )
+
+    for card in cards:
+        try:
+            img = card.find("img")
+            name = img.get("alt", "").strip() if img else ""
+            if not name:
+                aria = card.find(
+                    lambda t: t.get("class")
+                    and any(
+                        "AriaProductTitle--" in c
+                        for c in t.get("class", [])
+                    )
+                )
+                if aria:
+                    raw = aria.get_text(strip=True)
+                    name = (
+                        raw.split(",")[0].strip()
+                        if "," in raw
+                        else raw[:60]
+                    )
+
+            if not name:
+                continue
+
+            price_el = card.find(
+                lambda t: t.get("class")
+                and any(
+                    "ProductPrice--" in c for c in t.get("class", [])
+                )
+            )
+            price_text = price_el.get_text(strip=True) if price_el else ""
+            price = _parse_dunnes_price(price_text)
+            if price is None:
+                continue
+
+            promo_el = card.find(
+                lambda t: t.get("class")
+                and any(
+                    "PromotionLabelBadge--" in c
+                    for c in t.get("class", [])
+                )
+            )
+            is_on_offer = promo_el is not None
+
+            product_key = generate_product_key(name)
+
+            db.table("collective_prices").insert(
+                {
+                    "product_key": product_key,
+                    "product_name": name,
+                    "category": "Other",
+                    "store_name": "Dunnes",
+                    "unit_price": price,
+                    "is_on_offer": is_on_offer,
+                    "source": "leaflet",
+                    "observed_at": now.isoformat(),
+                    "expires_at": expires_at.isoformat(),
+                }
+            ).execute()
+            count += 1
+
+        except Exception as e:
+            log.warning("Dunnes HTML scraper: item error: %s", e)
+
+    return count
+
+
+async def _scrape_dunnes_attempt(
+    db, use_proxy: bool = False
+) -> dict:
+    """Scrape Dunnes promotions page (SSR HTML).
+    Returns {"success": bool, "items_saved": int, "error": str|None}."""
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(days=7)
+    total_saved = 0
+    errors = 0
+
+    try:
+        db.table("collective_prices").delete().eq(
+            "store_name",
+            "Dunnes",
+        ).eq("source", "leaflet").lt(
+            "expires_at", now.isoformat()
+        ).execute()
+    except Exception:
+        pass
+
+    headers = _random_headers(
+        referer="https://www.dunnesstoresgrocery.com/",
+        origin="https://www.dunnesstoresgrocery.com",
+    )
+    client_kwargs = _make_client_kwargs(use_proxy=use_proxy)
+    client_kwargs["headers"] = headers
+
+    try:
+        async with httpx.AsyncClient(**client_kwargs) as client:
+            try:
+                session_resp = await client.get(DUNNES_HTML_SESSION_URL)
+                if session_resp.status_code == 403:
+                    return {
+                        "success": False,
+                        "items_saved": 0,
+                        "error": "Session blocked (403)",
+                    }
+                session_resp.raise_for_status()
+                log.info(
+                    "Dunnes HTML scraper: session OK (%d cookies)",
+                    len(client.cookies),
+                )
+            except Exception as e:
+                return {
+                    "success": False,
+                    "items_saved": 0,
+                    "error": f"Session failed: {e}",
+                }
+
+            total_pages = DUNNES_HTML_TOTAL_PAGES
+            try:
+                soup_p1 = BeautifulSoup(
+                    session_resp.text, "html.parser"
+                )
+                state_match = re.search(
+                    r"window\.__PRELOADED_STATE__\s*=\s*(\{.*?\})\s*;?"
+                    r"\s*</script>",
+                    session_resp.text,
+                    re.DOTALL,
+                )
+                if state_match:
+                    try:
+                        state = _json.loads(state_match.group(1))
+                        total_items = (
+                            state.get("search", {})
+                            .get("pagination", {})
+                            .get("promotions", {})
+                            .get("totalItems", 0)
+                        )
+                        if total_items > 0:
+                            total_pages = (
+                                total_items + DUNNES_HTML_PAGE_SIZE - 1
+                            ) // DUNNES_HTML_PAGE_SIZE
+                            log.info(
+                                "Dunnes HTML scraper: %d products "
+                                "across %d pages",
+                                total_items,
+                                total_pages,
+                            )
+                    except Exception:
+                        pass
+            except Exception:
+                soup_p1 = BeautifulSoup(
+                    session_resp.text, "html.parser"
+                )
+
+            saved_p1 = _parse_dunnes_page(
+                soup_p1, db, now, expires_at
+            )
+            total_saved += saved_p1
+
+            for page in range(2, total_pages + 1):
+                try:
+                    resp = await client.get(
+                        DUNNES_HTML_BASE_URL, params={"page": page}
+                    )
+                    if resp.status_code == 403:
+                        errors += 1
+                        log.warning(
+                            "Dunnes HTML scraper: 403 on page %d",
+                            page,
+                        )
+                        if errors >= 3:
+                            break
+                        await _page_delay()
+                        continue
+                    resp.raise_for_status()
+                    soup = BeautifulSoup(resp.text, "html.parser")
+                    saved = _parse_dunnes_page(
+                        soup, db, now, expires_at
+                    )
+                    total_saved += saved
+                except Exception as e:
+                    errors += 1
+                    log.warning(
+                        "Dunnes HTML scraper: page %d error: %s",
+                        page,
+                        e,
+                    )
+
+                if page % 50 == 0:
+                    log.info(
+                        "Dunnes HTML scraper: %d/%d pages "
+                        "(%d items saved)",
+                        page,
+                        total_pages,
+                        total_saved,
+                    )
+
+                await _page_delay()
+
+        if total_saved > 0:
+            return {
+                "success": True,
+                "items_saved": total_saved,
+                "error": None,
+            }
+        return {
+            "success": False,
+            "items_saved": 0,
+            "error": (
+                "Zero items saved — possible block or "
+                "HTML structure change"
+            ),
+        }
+
+    except Exception as e:
+        return {"success": False, "items_saved": 0, "error": str(e)}
+
+
+async def scrape_dunnes_promotions() -> None:
+    """Scrape Dunnes Stores promotions via HTML pages (SSR).
+    Fallback chain: 0->direct, 1->Webshare proxy, 2->Apify, 3->Auto-Fix AI."""
+    db = get_service_client()
+    run_id = _start_run(db, "Dunnes")
+
+    log.info("Dunnes HTML scraper: starting with fallback chain...")
+    await asyncio.sleep(random.uniform(5, 10))
+
+    # Fallback 0: direct
+    result = await _scrape_dunnes_attempt(db, use_proxy=False)
+    if result["success"]:
+        _finish_run(
+            db, run_id, status="success", fallback_level=0,
+            items_saved=result["items_saved"],
+        )
+        log.info(
+            "Dunnes HTML scraper: direct success (%d items)",
+            result["items_saved"],
+        )
+        return
+    log.warning(
+        "Dunnes HTML scraper: fallback 0 failed — %s",
+        result.get("error"),
+    )
+
+    # Fallback 1: Webshare proxy
+    if not settings.WEBSHARE_PROXY_URL:
+        log.info(
+            "Dunnes HTML scraper: no proxy configured — "
+            "skipping fallback 1"
+        )
+    else:
+        log.info("Dunnes HTML scraper: trying via Webshare proxy...")
+        result = await _scrape_dunnes_attempt(db, use_proxy=True)
+        if result["success"]:
+            _finish_run(
+                db, run_id, status="success", fallback_level=1,
+                items_saved=result["items_saved"],
+            )
+            log.info(
+                "Dunnes HTML scraper: proxy success (%d items)",
+                result["items_saved"],
+            )
+            return
+        log.warning(
+            "Dunnes HTML scraper: fallback 1 failed — %s",
+            result.get("error"),
+        )
+
+    # Fallback 2: Apify (if configured)
+    if settings.APIFY_ACTOR_DUNNES and settings.APIFY_API_TOKEN:
+        log.info(
+            "Dunnes HTML scraper: trying Apify actor %s...",
+            settings.APIFY_ACTOR_DUNNES,
+        )
+        items = await _run_apify_actor(
+            settings.APIFY_ACTOR_DUNNES,
+            {"startUrls": [{"url": DUNNES_HTML_SESSION_URL}]},
+        )
+        if items:
+            saved = await _save_mi9_items(db, DUNNES, items)
+            _finish_run(
+                db, run_id, status="success", fallback_level=2,
+                items_saved=saved,
+            )
+            log.info(
+                "Dunnes HTML scraper: Apify success (%d items)", saved
+            )
+            return
+        log.warning(
+            "Dunnes HTML scraper: fallback 2 (Apify) returned 0 items"
+        )
+    else:
+        log.info(
+            "Dunnes HTML scraper: Apify not configured — skipping"
+        )
+
+    # Fallback 3: Auto-Fix AI
+    log.error(
+        "Dunnes HTML scraper: all fallbacks failed — "
+        "activating Auto-Fix AI"
+    )
+    confidence, fix = await _autofix_scraper_ai(
+        "Dunnes",
+        f"HTML scraper at {DUNNES_HTML_BASE_URL} failed. "
+        f"Selectors: [class*='ProductCard--'], img[alt], "
+        f"[class*='ProductPrice--'], [class*='PromotionLabelBadge--']. "
+        f"Last error: {result.get('error', 'unknown')}",
+    )
+    _finish_run(
+        db, run_id,
+        status="failed",
+        fallback_level=3,
+        items_saved=0,
+        error_detail=(
+            f"All fallbacks failed. AutoFix: {confidence:.0%}"
+        ),
+        autofix_confidence=confidence,
+        autofix_applied=fix is not None,
+    )
+    log.error("Dunnes HTML scraper: failed at all levels")
+
+
 TESCO_BASE_URL = (
     "https://www.tesco.ie/groceries/en-IE/promotions/all"
 )
@@ -1726,12 +2090,12 @@ async def run_leaflet_job():
 
 
 async def run_dunnes_scraper():
-    """Run Dunnes scraper standalone."""
-    log.info("Starting Dunnes promotions scraper...")
+    """Run Dunnes HTML scraper standalone."""
+    log.info("Starting Dunnes HTML promotions scraper...")
     try:
-        await scrape_mi9_store(DUNNES)
+        await scrape_dunnes_promotions()
     except Exception as e:
-        log.error(f"Dunnes scraper failed: {e}")
+        log.error("Dunnes scraper failed: %s", e)
 
 
 async def run_supervalu_scraper():
