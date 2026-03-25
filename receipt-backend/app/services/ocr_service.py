@@ -25,10 +25,19 @@ openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 OCR_TIMEOUT = 30  # seconds
 
 OCR_PROMPT = """
-If this image is NOT a grocery receipt from an Irish supermarket
-(Tesco, Lidl, Aldi, Dunnes Stores, SuperValu), respond with exactly: NOT_A_RECEIPT
+STEP 1 — VALIDATE: Check if this image is a grocery receipt from one of
+these SPECIFIC Irish supermarkets ONLY:
+  Tesco Ireland, Lidl Ireland, Aldi Ireland, Dunnes Stores, SuperValu Ireland.
 
-Otherwise, extract ALL text from this supermarket receipt image exactly as it appears.
+If the receipt is from ANY other store, restaurant, pharmacy, petrol station,
+online order, or ANY business not in the list above, respond with exactly:
+NOT_A_RECEIPT
+
+If the image is not a receipt at all (selfie, document, random photo),
+respond with exactly: NOT_A_RECEIPT
+
+STEP 2 — EXTRACT: If and only if the image IS a valid receipt from one of
+the five stores above, extract ALL text exactly as it appears.
 Preserve the layout — one item per line.
 Include: store name, date, time, all items with prices, subtotal, discounts, total.
 Do not interpret or modify — raw extraction only.

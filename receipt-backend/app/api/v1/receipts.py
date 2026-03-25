@@ -1,3 +1,4 @@
+import hashlib
 import uuid
 import math
 import logging
@@ -93,6 +94,30 @@ async def process_receipt_async(
     try:
         log.info(f"[{receipt_id}] Starting processing (user={user_id}, {len(image_bytes)} bytes)")
 
+        # 0. LAYER 1 — Image hash duplicate check (before OCR to save tokens)
+        img_hash = hashlib.sha256(image_bytes).hexdigest()
+        existing_hash = (
+            db.table("receipts")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("image_hash", img_hash)
+            .neq("id", receipt_id)
+            .limit(1)
+            .execute()
+        )
+        if existing_hash.data:
+            log.warning(f"[{receipt_id}] Duplicate image hash detected")
+            db.table("receipts").update({
+                "status": "failed",
+                "image_hash": img_hash,
+            }).eq("id", receipt_id).execute()
+            return
+
+        # Store the image hash
+        db.table("receipts").update({
+            "image_hash": img_hash,
+        }).eq("id", receipt_id).execute()
+
         # 1. OCR — try direct text extraction for PDFs first
         source_row = db.table("receipts").select("source").eq("id", receipt_id).single().execute()
         receipt_source = source_row.data.get("source", "photo") if source_row.data else "photo"
@@ -113,7 +138,7 @@ async def process_receipt_async(
             raw_text = await extract_text_from_image(image_bytes)
             log.info(f"[{receipt_id}] Gemini OCR done ({len(raw_text)} chars)")
 
-        # 1b. Check if it's actually a receipt
+        # 1b. Check if it's actually a receipt from a supported store
         if raw_text.strip().upper().startswith("NOT_A_RECEIPT"):
             log.warning(f"[{receipt_id}] Image is not a valid grocery receipt")
             db.table("receipts").update({
@@ -131,8 +156,50 @@ async def process_receipt_async(
             f"total={data.get('total_amount')}, items={len(items)}"
         )
 
-        # 2b. Check receipt age against plan limits
+        # 2b. LAYER 2 — Data fingerprint duplicate check
         purchased_at = data.get("purchased_at") or datetime.now(timezone.utc).isoformat()
+        store_name = data.get("store_name", "Unknown")
+        total_amount = data.get("total_amount", 0)
+
+        fingerprint_str = (
+            f"{store_name}"
+            f"{str(purchased_at)[:10]}"
+            f"{round(float(total_amount), 2)}"
+        )
+        data_hash = hashlib.sha256(fingerprint_str.encode()).hexdigest()
+
+        thirty_days_ago = (
+            datetime.now(timezone.utc) - timedelta(days=30)
+        ).isoformat()
+        existing_fp = (
+            db.table("receipts")
+            .select("id, store_name, purchased_at, total_amount")
+            .eq("user_id", user_id)
+            .eq("data_hash", data_hash)
+            .eq("status", "done")
+            .neq("id", receipt_id)
+            .gte("purchased_at", thirty_days_ago)
+            .limit(1)
+            .execute()
+        )
+        if existing_fp.data:
+            dup = existing_fp.data[0]
+            dup_date = str(dup.get("purchased_at", ""))[:10]
+            dup_total = dup.get("total_amount", 0)
+            dup_store = dup.get("store_name", "Unknown")
+            msg = (
+                f"Duplicate receipt — a receipt from {dup_store} "
+                f"on {dup_date} for €{dup_total:.2f} already exists."
+            )
+            log.warning(f"[{receipt_id}] {msg}")
+            db.table("receipts").update({
+                "status": "failed",
+                "data_hash": data_hash,
+                "raw_text": raw_text,
+            }).eq("id", receipt_id).execute()
+            return
+
+        # 2c. Check receipt age against plan limits
         if data.get("purchased_at"):
             try:
                 from dateutil import parser as dateutil_parser
@@ -175,13 +242,14 @@ async def process_receipt_async(
 
         # 3. Update receipt
         db.table("receipts").update({
-            "store_name": data.get("store_name", "Unknown"),
+            "store_name": store_name,
             "store_branch": data.get("store_branch"),
             "purchased_at": purchased_at,
-            "total_amount": data.get("total_amount", 0),
+            "total_amount": total_amount,
             "subtotal": data.get("subtotal"),
             "discount_total": data.get("discount_total", 0),
             "raw_text": raw_text,
+            "data_hash": data_hash,
             "status": "done",
         }).eq("id", receipt_id).execute()
         log.info(f"[{receipt_id}] Receipt record updated (status=done)")
