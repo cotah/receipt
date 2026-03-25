@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import random
 import re
 from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
@@ -16,24 +17,89 @@ from app.utils.text_utils import generate_product_key
 log = logging.getLogger(__name__)
 
 PAGE_SIZE = 30
-REQUEST_DELAY = 3  # seconds between requests
 
-BROWSER_HEADERS = {
-    "User-Agent": (
+# ---------------------------------------------------------------------------
+# User-Agent rotation pool
+# ---------------------------------------------------------------------------
+
+USER_AGENTS = [
+    # Chrome 131 — Windows
+    (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/131.0.0.0 Safari/537.36"
+    ),
+    # Chrome 131 — macOS
+    (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/131.0.0.0 Safari/537.36"
     ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-IE,en-GB;q=0.9,en;q=0.8",
-    "Cache-Control": "no-cache",
-    "Pragma": "no-cache",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-User": "?1",
-    "Upgrade-Insecure-Requests": "1",
-}
+    # Firefox 133 — Windows
+    (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) "
+        "Gecko/20100101 Firefox/133.0"
+    ),
+    # Safari 17 — macOS
+    (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) "
+        "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+        "Version/17.0 Safari/605.1.15"
+    ),
+    # Edge 131 — Windows
+    (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0"
+    ),
+]
+
+
+def _random_headers(
+    *,
+    referer: str | None = None,
+    origin: str | None = None,
+    accept: str | None = None,
+) -> dict[str, str]:
+    """Build browser-like headers with a random User-Agent."""
+    ua = random.choice(USER_AGENTS)
+    h: dict[str, str] = {
+        "User-Agent": ua,
+        "Accept": accept or (
+            "text/html,application/xhtml+xml,application/xml;"
+            "q=0.9,image/avif,image/webp,*/*;q=0.8"
+        ),
+        "Accept-Language": "en-IE,en-GB;q=0.9,en;q=0.8",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+        "DNT": "1",
+        "Connection": "keep-alive",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
+    }
+    if referer:
+        h["Referer"] = referer
+    if origin:
+        h["Origin"] = origin
+    return h
+
+
+async def _page_delay() -> None:
+    """Random delay between page requests (3–8 s)."""
+    await asyncio.sleep(random.uniform(3, 8))
+
+
+async def _short_delay() -> None:
+    """Short random delay (0.5–1.5 s)."""
+    await asyncio.sleep(random.uniform(0.5, 1.5))
+
+
+async def _startup_delay() -> None:
+    """Random delay before starting a scraper (1–3 s)."""
+    await asyncio.sleep(random.uniform(1, 3))
 
 
 # ---------------------------------------------------------------------------
@@ -112,27 +178,37 @@ def _parse_expires(item: dict, fallback: datetime) -> datetime:
 
 
 _LOCATION_RE = re.compile(
-    r"/locations/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
+    r"/locations/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}"
+    r"-[0-9a-f]{4}-[0-9a-f]{12})",
     re.IGNORECASE,
 )
 
 
 async def _discover_location_id(
     client: httpx.AsyncClient,
+    session_resp: httpx.Response,
     store: Mi9Store,
 ) -> str | None:
-    """Try to extract the Mi9 location UUID from the session page or its
-    subsequent API calls.  Falls back to scraping the HTML body."""
-    # The session page often redirects through URLs containing the location id
-    for redirect in client.history:
-        m = _LOCATION_RE.search(str(redirect.url))
+    """Extract Mi9 location UUID from the session response URL chain or
+    store-info API.  Does NOT use client.history (httpx doesn't have it)."""
+
+    # 1. Check the final URL after redirects
+    m = _LOCATION_RE.search(str(session_resp.url))
+    if m:
+        return m.group(1)
+
+    # 2. Check response body for location references
+    try:
+        body = session_resp.text
+        m = _LOCATION_RE.search(body)
         if m:
             return m.group(1)
+    except Exception:
+        pass
 
-    # Also check the final URL
-    # (client.history only populated after a followed redirect chain)
-    # Try fetching the store-info endpoint which usually contains it
+    # 3. Try the store-info endpoint
     try:
+        await _short_delay()
         info_resp = await client.get(
             f"{store.api_base.rsplit('/locations', 1)[0]}/info",
         )
@@ -148,7 +224,7 @@ async def _discover_location_id(
 
 
 # ---------------------------------------------------------------------------
-# Generic Mi9 scraper
+# Generic Mi9 scraper (Dunnes, SuperValu)
 # ---------------------------------------------------------------------------
 
 
@@ -162,6 +238,7 @@ async def scrape_mi9_store(store: Mi9Store) -> None:
     label = f"{store.store_name} scraper"
 
     log.info("%s: starting (%d pages)...", label, store.total_pages)
+    await _startup_delay()
 
     # 1. Clean up expired entries
     db.table("collective_prices").delete().eq(
@@ -171,68 +248,126 @@ async def scrape_mi9_store(store: Mi9Store) -> None:
     ).execute()
     log.info("%s: expired entries removed", label)
 
-    # 2. Open session
-    headers = {
-        **BROWSER_HEADERS,
-        "Referer": store.referer,
-        "Origin": store.origin,
-    }
+    # 2. Open session with random UA
+    headers = _random_headers(
+        referer=store.referer,
+        origin=store.origin,
+    )
     async with httpx.AsyncClient(
         timeout=30,
         follow_redirects=True,
         headers=headers,
     ) as client:
-        try:
-            session_resp = await client.get(store.session_url)
-            if session_resp.status_code == 403:
-                log.warning(
-                    "%s: 403 Forbidden on session — temporarily unavailable, "
-                    "will retry next scheduled run",
-                    label,
+        # Session with retry (up to 3 attempts for 403)
+        session_resp = None
+        for attempt in range(1, 4):
+            try:
+                resp = await client.get(store.session_url)
+                if resp.status_code == 403:
+                    log.warning(
+                        "%s: 403 on session (attempt %d/3)",
+                        label,
+                        attempt,
+                    )
+                    await asyncio.sleep(random.uniform(5, 10))
+                    # Rotate UA for next attempt
+                    client.headers["User-Agent"] = random.choice(
+                        USER_AGENTS
+                    )
+                    continue
+                resp.raise_for_status()
+                session_resp = resp
+                break
+            except httpx.HTTPStatusError:
+                if attempt == 3:
+                    log.error(
+                        "%s: session failed after 3 attempts — "
+                        "will retry next scheduled run",
+                        label,
+                    )
+                    return
+                await asyncio.sleep(random.uniform(5, 10))
+            except Exception as e:
+                log.error(
+                    "%s: session request error: %s", label, e
                 )
                 return
-            session_resp.raise_for_status()
-            log.info(
-                "%s: session established (%d cookies)",
+
+        if session_resp is None:
+            log.error(
+                "%s: could not establish session — "
+                "temporarily unavailable",
                 label,
-                len(client.cookies),
             )
-        except Exception as e:
-            log.error("%s: failed to get session cookies: %s", label, e)
             return
+
+        log.info(
+            "%s: session established (%d cookies)",
+            label,
+            len(client.cookies),
+        )
 
         # 3. Resolve location id
         location_id = store.location_id
         if location_id is None:
-            location_id = await _discover_location_id(client, store)
+            location_id = await _discover_location_id(
+                client, session_resp, store
+            )
             if location_id is None:
                 log.error(
-                    "%s: could not discover location_id — aborting", label
+                    "%s: could not discover location_id — aborting",
+                    label,
                 )
                 return
             log.info("%s: discovered location_id=%s", label, location_id)
 
-        api_url = f"{store.api_base}/{location_id}/aisle/page_promotion"
+        api_url = (
+            f"{store.api_base}/{location_id}/aisle/page_promotion"
+        )
+
+        # Update headers for API calls
+        client.headers["Accept"] = (
+            "application/json, text/plain, */*"
+        )
+        client.headers["Sec-Fetch-Dest"] = "empty"
+        client.headers["Sec-Fetch-Mode"] = "cors"
+        client.headers["Sec-Fetch-Site"] = "same-site"
 
         # 4. Iterate pages
+        consecutive_403 = 0
         for page in range(1, store.total_pages + 1):
             skip = (page - 1) * PAGE_SIZE
-            params = {"page": page, "skip": skip, "pageSize": PAGE_SIZE}
+            params = {
+                "page": page,
+                "skip": skip,
+                "pageSize": PAGE_SIZE,
+            }
 
             try:
                 resp = await client.get(api_url, params=params)
                 if resp.status_code == 403:
+                    consecutive_403 += 1
                     log.warning(
-                        "%s: 403 on page %d — stopping (temporarily blocked)",
-                        label, page,
+                        "%s: 403 on page %d (%d consecutive)",
+                        label,
+                        page,
+                        consecutive_403,
                     )
-                    break
+                    if consecutive_403 >= 3:
+                        log.warning(
+                            "%s: 3 consecutive 403s — stopping",
+                            label,
+                        )
+                        break
+                    await asyncio.sleep(random.uniform(8, 15))
+                    continue
                 resp.raise_for_status()
                 data = resp.json()
+                consecutive_403 = 0
             except Exception as e:
                 errors += 1
                 log.warning("%s: page %d failed (%s)", label, page, e)
-                await asyncio.sleep(REQUEST_DELAY)
+                await _page_delay()
                 continue
 
             products = (
@@ -258,10 +393,14 @@ async def scrape_mi9_store(store: Mi9Store) -> None:
                     categories = item.get("defaultCategory", [])
                     category = "Other"
                     if categories and len(categories) > 0:
-                        category = categories[0].get("category", "Other")
+                        category = categories[0].get(
+                            "category", "Other"
+                        )
 
                     # Expiry
-                    expires_at = _parse_expires(item, default_expires)
+                    expires_at = _parse_expires(
+                        item, default_expires
+                    )
 
                     product_key = generate_product_key(name)
 
@@ -280,7 +419,10 @@ async def scrape_mi9_store(store: Mi9Store) -> None:
                 except Exception as e:
                     errors += 1
                     log.warning(
-                        "%s: item error on page %d: %s", label, page, e
+                        "%s: item error on page %d: %s",
+                        label,
+                        page,
+                        e,
                     )
 
             if page % 50 == 0:
@@ -292,7 +434,7 @@ async def scrape_mi9_store(store: Mi9Store) -> None:
                     total_saved,
                 )
 
-            await asyncio.sleep(REQUEST_DELAY)
+            await _page_delay()
 
     log.info(
         "%s: finished — %d items saved, %d errors",
@@ -306,13 +448,22 @@ async def scrape_mi9_store(store: Mi9Store) -> None:
 # Lidl Ireland (Schwarz API) scraper
 # ---------------------------------------------------------------------------
 
-LIDL_FLYER_API = (
-    "https://endpoints.leaflets.schwarz/v4/flyer"
-)
+LIDL_FLYER_API = "https://endpoints.leaflets.schwarz/v4/flyer"
 
 _MONTH_NAMES = [
-    "", "january", "february", "march", "april", "may", "june",
-    "july", "august", "september", "october", "november", "december",
+    "",
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
 ]
 
 
@@ -344,9 +495,14 @@ def _lidl_flyer_slug(today: datetime | None = None) -> str:
     if thu.month == wed.month:
         suffix = _MONTH_NAMES[thu.month]
     else:
-        suffix = f"{_MONTH_NAMES[thu.month]}-to-{_MONTH_NAMES[wed.month]}"
+        suffix = (
+            f"{_MONTH_NAMES[thu.month]}-to-{_MONTH_NAMES[wed.month]}"
+        )
 
-    return f"from-thu-{thu_dd}-{thu_mm}-to-wed-{wed_dd}-{wed_mm}-{suffix}"
+    return (
+        f"from-thu-{thu_dd}-{thu_mm}-to-wed-{wed_dd}-{wed_mm}"
+        f"-{suffix}"
+    )
 
 
 async def scrape_lidl_leaflet() -> None:
@@ -359,19 +515,23 @@ async def scrape_lidl_leaflet() -> None:
 
     slug = _lidl_flyer_slug(now)
     log.info("Lidl scraper: slug=%s", slug)
+    await _startup_delay()
 
     # Clean expired Lidl entries
     db.table("collective_prices").delete().eq(
-        "store_name", "Lidl",
+        "store_name",
+        "Lidl",
     ).eq("source", "leaflet").lt(
-        "expires_at", now.isoformat(),
+        "expires_at",
+        now.isoformat(),
     ).execute()
     log.info("Lidl scraper: expired entries removed")
 
+    headers = _random_headers()
     async with httpx.AsyncClient(
         timeout=30,
         follow_redirects=True,
-        headers=BROWSER_HEADERS,
+        headers=headers,
     ) as client:
         params = {
             "flyer_identifier": slug,
@@ -389,7 +549,9 @@ async def scrape_lidl_leaflet() -> None:
         # Flyer-level endDate for default expiry
         flyer_end = default_expires
         flyer_info = data if isinstance(data, dict) else {}
-        end_str = flyer_info.get("endDate") or flyer_info.get("end_date")
+        end_str = (
+            flyer_info.get("endDate") or flyer_info.get("end_date")
+        )
         if end_str:
             try:
                 dt = dateutil_parser.isoparse(end_str)
@@ -404,20 +566,22 @@ async def scrape_lidl_leaflet() -> None:
         if isinstance(data, list):
             products = data
         elif isinstance(data, dict):
-            # Try common keys
             for key in ("products", "items", "pages"):
-                items = data.get(key)
-                if items and isinstance(items, list):
-                    # "pages" may contain nested product lists
+                found = data.get(key)
+                if found and isinstance(found, list):
                     if key == "pages":
-                        for page in items:
-                            if isinstance(page, dict):
-                                page_items = page.get("products") or page.get("items") or []
+                        for pg in found:
+                            if isinstance(pg, dict):
+                                page_items = (
+                                    pg.get("products")
+                                    or pg.get("items")
+                                    or []
+                                )
                                 products.extend(page_items)
-                            elif isinstance(page, list):
-                                products.extend(page)
+                            elif isinstance(pg, list):
+                                products.extend(pg)
                     else:
-                        products = items
+                        products = found
                     break
 
         log.info("Lidl scraper: found %d products", len(products))
@@ -435,7 +599,10 @@ async def scrape_lidl_leaflet() -> None:
                 # Item-level or flyer-level expiry
                 item_expires = flyer_end
                 item_flyer = item.get("flyer") or {}
-                item_end = item_flyer.get("endDate") or item_flyer.get("end_date")
+                item_end = (
+                    item_flyer.get("endDate")
+                    or item_flyer.get("end_date")
+                )
                 if item_end:
                     try:
                         dt = dateutil_parser.isoparse(item_end)
@@ -479,9 +646,10 @@ TESCO_BASE_URL = (
 )
 TESCO_SESSION_URL = "https://www.tesco.ie/groceries/en-IE/"
 TESCO_PAGE_SIZE = 24
-TESCO_REQUEST_DELAY = 2  # seconds between pages
 
-_TESCO_TOTAL_RE = re.compile(r"of\s+([\d,]+)\s+results?", re.IGNORECASE)
+_TESCO_TOTAL_RE = re.compile(
+    r"of\s+([\d,]+)\s+results?", re.IGNORECASE
+)
 _TESCO_PRICE_RE = re.compile(r"[\d]+[.,]\d{2}")
 
 
@@ -505,22 +673,23 @@ async def scrape_tesco_promotions() -> None:
     errors = 0
 
     log.info("Tesco scraper: starting...")
+    await _startup_delay()
 
     # 1. Clean expired entries
     db.table("collective_prices").delete().eq(
-        "store_name", "Tesco",
+        "store_name",
+        "Tesco",
     ).eq("source", "leaflet").lt(
-        "expires_at", now.isoformat(),
+        "expires_at",
+        now.isoformat(),
     ).execute()
     log.info("Tesco scraper: expired entries removed")
 
     # 2. Session with cookies
-    tesco_headers = {
-        **BROWSER_HEADERS,
-        "Accept": "text/html,application/xhtml+xml,*/*",
-        "Referer": "https://www.tesco.ie/",
-        "Origin": "https://www.tesco.ie",
-    }
+    tesco_headers = _random_headers(
+        referer="https://www.tesco.ie/",
+        origin="https://www.tesco.ie",
+    )
     async with httpx.AsyncClient(
         timeout=30,
         follow_redirects=True,
@@ -548,13 +717,17 @@ async def scrape_tesco_promotions() -> None:
                 "count": TESCO_PAGE_SIZE,
             }
             try:
-                resp = await client.get(TESCO_BASE_URL, params=params)
+                resp = await client.get(
+                    TESCO_BASE_URL, params=params
+                )
                 resp.raise_for_status()
                 html = resp.text
             except Exception as e:
                 errors += 1
-                log.warning("Tesco scraper: page %d failed (%s)", page, e)
-                await asyncio.sleep(TESCO_REQUEST_DELAY)
+                log.warning(
+                    "Tesco scraper: page %d failed (%s)", page, e
+                )
+                await _page_delay()
                 page += 1
                 continue
 
@@ -565,7 +738,9 @@ async def scrape_tesco_promotions() -> None:
                 results_text = soup.get_text()
                 m = _TESCO_TOTAL_RE.search(results_text)
                 if m:
-                    total_items_count = int(m.group(1).replace(",", ""))
+                    total_items_count = int(
+                        m.group(1).replace(",", "")
+                    )
                     total_pages = (
                         total_items_count + TESCO_PAGE_SIZE - 1
                     ) // TESCO_PAGE_SIZE
@@ -591,7 +766,6 @@ async def scrape_tesco_promotions() -> None:
                         if container.parent is None:
                             break
                         container = container.parent
-                        # Check if we've found a reasonable container
                         price_el = container.select_one(
                             "[class*='product-tile-price__text'],"
                             "[class*='price-text'],"
@@ -608,10 +782,11 @@ async def scrape_tesco_promotions() -> None:
                         "[class*='price-per-sellable-unit']"
                     )
                     if price_el:
-                        price = _parse_tesco_price(price_el.get_text())
+                        price = _parse_tesco_price(
+                            price_el.get_text()
+                        )
 
                     if price is None:
-                        # Try any text with € in the container
                         for el in container.find_all(
                             string=re.compile(r"€")
                         ):
@@ -661,7 +836,7 @@ async def scrape_tesco_promotions() -> None:
                     total_saved,
                 )
 
-            await asyncio.sleep(TESCO_REQUEST_DELAY)
+            await _page_delay()
             page += 1
 
     log.info(
