@@ -12,13 +12,15 @@ const CORNER_SIZE = 30;
 interface ReceiptScannerProps {
   onCapture: () => void;
   onPickFromGallery: () => void;
+  flashOn?: boolean;
+  onToggleFlash?: () => void;
 }
 
 function Corner({ style }: { style: object }) {
   return <View style={[styles.corner, style]} />;
 }
 
-export default function ReceiptScanner({ onCapture, onPickFromGallery }: ReceiptScannerProps) {
+export default function ReceiptScanner({ onCapture, onPickFromGallery, flashOn, onToggleFlash }: ReceiptScannerProps) {
   return (
     <View style={styles.overlay}>
       {/* Guide frame */}
@@ -39,7 +41,9 @@ export default function ReceiptScanner({ onCapture, onPickFromGallery }: Receipt
         <Pressable onPress={onCapture} style={styles.captureBtn}>
           <View style={styles.captureBtnInner} />
         </Pressable>
-        <View style={styles.sideBtn} />
+        <Pressable onPress={onToggleFlash} style={styles.sideBtn}>
+          <Feather name={flashOn ? 'zap' : 'zap-off'} size={24} color="#FFF" />
+        </Pressable>
       </View>
     </View>
   );

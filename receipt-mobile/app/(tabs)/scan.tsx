@@ -17,6 +17,7 @@ export default function ScanScreen() {
   const isMounted = useRef(true);
   const [permission, requestPermission] = useCameraPermissions();
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
+  const [flashOn, setFlashOn] = useState(false);
   const { isProcessing, processingStatus, uploadReceipt, pollProcessingStatus } = useReceipts();
 
   // Track fake progress for smooth animation
@@ -190,8 +191,13 @@ export default function ScanScreen() {
 
   return (
     <View style={styles.container}>
-      <CameraView ref={cameraRef} style={styles.camera} facing="back">
-        <ReceiptScanner onCapture={handleCapture} onPickFromGallery={handlePickFromGallery} />
+      <CameraView ref={cameraRef} style={styles.camera} facing="back" enableTorch={flashOn}>
+        <ReceiptScanner
+          onCapture={handleCapture}
+          onPickFromGallery={handlePickFromGallery}
+          flashOn={flashOn}
+          onToggleFlash={() => setFlashOn((v) => !v)}
+        />
       </CameraView>
     </View>
   );

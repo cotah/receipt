@@ -131,8 +131,49 @@ async def process_receipt_async(
             f"total={data.get('total_amount')}, items={len(items)}"
         )
 
-        # 3. Update receipt
+        # 2b. Check receipt age against plan limits
         purchased_at = data.get("purchased_at") or datetime.now(timezone.utc).isoformat()
+        if data.get("purchased_at"):
+            try:
+                from dateutil import parser as dateutil_parser
+
+                receipt_dt = dateutil_parser.isoparse(purchased_at)
+                if receipt_dt.tzinfo is None:
+                    receipt_dt = receipt_dt.replace(tzinfo=timezone.utc)
+                days_old = (datetime.now(timezone.utc) - receipt_dt).days
+
+                profile_plan = (
+                    db.table("profiles")
+                    .select("plan, plan_expires_at")
+                    .eq("id", user_id)
+                    .single()
+                    .execute()
+                )
+                user_is_pro = is_pro(profile_plan.data or {})
+
+                max_days = 5 if user_is_pro else 2
+                if days_old > max_days:
+                    plan_label = "Pro" if user_is_pro else "Free"
+                    upgrade_hint = (
+                        " Upgrade to Pro for up to 5 days."
+                        if not user_is_pro
+                        else ""
+                    )
+                    msg = (
+                        f"Receipt too old ({days_old} days). "
+                        f"{plan_label} plan accepts receipts up to "
+                        f"{max_days} days old.{upgrade_hint}"
+                    )
+                    log.warning(f"[{receipt_id}] {msg}")
+                    db.table("receipts").update({
+                        "status": "failed",
+                        "raw_text": raw_text,
+                    }).eq("id", receipt_id).execute()
+                    return
+            except (ValueError, TypeError):
+                pass  # Could not parse date — accept the receipt
+
+        # 3. Update receipt
         db.table("receipts").update({
             "store_name": data.get("store_name", "Unknown"),
             "store_branch": data.get("store_branch"),

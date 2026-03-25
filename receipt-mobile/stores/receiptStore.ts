@@ -1,3 +1,4 @@
+import { LayoutAnimation } from 'react-native';
 import { create } from 'zustand';
 import api from '../services/api';
 
@@ -136,6 +137,7 @@ export const useReceiptStore = create<ReceiptState>((set, get) => ({
 
   deleteReceipt: async (id: string) => {
     await api.delete(`/receipts/${id}`);
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     set({ receipts: get().receipts.filter((r) => r.id !== id) });
   },
 
