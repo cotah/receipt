@@ -166,6 +166,19 @@ async def generate_monthly_report(db: Client, user_id: str, month: str) -> dict:
         r.get("discount_total", 0) for r in (prev_receipts.data or [])
     )
 
+    # SmartDocket attributed savings for this month
+    smartdocket_savings = 0.0
+    try:
+        from app.services.attribution_service import (
+            get_monthly_smartdocket_savings,
+        )
+
+        smartdocket_savings = get_monthly_smartdocket_savings(
+            db, user_id, start.isoformat(), end.isoformat()
+        )
+    except Exception:
+        pass
+
     period_label = start.strftime("%B %Y")
     prev_period_label = prev_start.strftime("%B %Y")
     return {
@@ -174,6 +187,7 @@ async def generate_monthly_report(db: Client, user_id: str, month: str) -> dict:
             "total_spent": round(total_spent, 2),
             "total_saved": round(total_saved, 2),
             "prev_saved": round(prev_saved, 2),
+            "smartdocket_savings": round(smartdocket_savings, 2),
             "receipts_count": receipts_count,
             "items_count": items_count,
             "avg_basket_size": round(avg_basket, 2),

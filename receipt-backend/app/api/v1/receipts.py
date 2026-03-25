@@ -248,6 +248,20 @@ async def process_receipt_async(
         except Exception as pts_err:
             log.warning(f"[{receipt_id}] Failed to award points: {pts_err}")
 
+        # 8. Check savings attribution (alert → purchase matching)
+        try:
+            from app.services.attribution_service import check_attribution
+
+            attributions = await check_attribution(db, user_id, receipt_id)
+            if attributions:
+                total_saving = sum(a["saving"] for a in attributions)
+                log.info(
+                    f"[{receipt_id}] Savings attributed: "
+                    f"{len(attributions)} items, €{total_saving:.2f}"
+                )
+        except Exception as attr_err:
+            log.warning(f"[{receipt_id}] Attribution check failed: {attr_err}")
+
         log.info(f"[{receipt_id}] Processing complete — {len(items)} items saved")
 
     except Exception as e:

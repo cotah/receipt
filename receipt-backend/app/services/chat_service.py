@@ -101,6 +101,13 @@ TOP PRODUCTS (most purchased all-time):
 
 PRODUCT PRICE INSIGHTS:
 {context['price_insights']}
+
+SMARTDOCKET SAVINGS (money saved thanks to SmartDocket alerts):
+- This month: €{context.get('smartdocket_savings_month', 0):.2f}
+- All time: €{context.get('smartdocket_savings_total', 0):.2f}
+Note: When the user asks how much they saved, include BOTH receipt discounts
+AND SmartDocket savings separately. Receipt discounts are from the store,
+SmartDocket savings are from following our price alerts.
 """
     return CHAT_SYSTEM_PROMPT.format(
         user_context=user_context,

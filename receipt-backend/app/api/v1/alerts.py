@@ -1,8 +1,8 @@
-import math
-from fastapi import APIRouter, Depends, HTTPException, Query
-from app.utils.auth_utils import get_current_user
+from fastapi import APIRouter, Depends, HTTPException
 from app.database import get_service_client
 from app.models.alert import AlertListResponse, AlertResponse
+from app.services.attribution_service import confirm_saving
+from app.utils.auth_utils import get_current_user
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
@@ -67,3 +67,20 @@ async def mark_all_as_read(user_id: str = Depends(get_current_user)):
     db = get_service_client()
     db.table("alerts").update({"is_read": True}).eq("user_id", user_id).eq("is_read", False).execute()
     return {"status": "ok"}
+
+
+@router.post("/{alert_id}/confirm-saving")
+async def confirm_alert_saving(
+    alert_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """Confirm that the user acted on an alert and saved money."""
+    db = get_service_client()
+    result = await confirm_saving(db, user_id, alert_id)
+    if result is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Alert not eligible for confirmation "
+            "(already confirmed, expired, or not found)",
+        )
+    return result

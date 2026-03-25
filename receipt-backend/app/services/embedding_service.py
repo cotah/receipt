@@ -172,6 +172,27 @@ async def get_relevant_context(user_id: str, query: str) -> dict:
     except Exception:
         pass
 
+    # SmartDocket savings (attributed savings from alerts)
+    smartdocket_savings_total = 0.0
+    smartdocket_savings_month = 0.0
+    try:
+        from app.services.attribution_service import (
+            get_monthly_smartdocket_savings,
+            get_total_smartdocket_savings,
+        )
+
+        smartdocket_savings_total = get_total_smartdocket_savings(
+            db, user_id
+        )
+        smartdocket_savings_month = get_monthly_smartdocket_savings(
+            db,
+            user_id,
+            month_start.isoformat(),
+            now.isoformat(),
+        )
+    except Exception:
+        pass
+
     return {
         "user_name": user_name,
         "current_hour_utc": now.hour,
@@ -186,4 +207,6 @@ async def get_relevant_context(user_id: str, query: str) -> dict:
         "price_insights": price_insights,
         "top_products": top_products_text or "No purchase history yet.",
         "favourite_categories": favourite_categories_text or "N/A",
+        "smartdocket_savings_total": smartdocket_savings_total,
+        "smartdocket_savings_month": smartdocket_savings_month,
     }
