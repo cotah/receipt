@@ -46,9 +46,11 @@ export default function ProfileScreen() {
       .from('profiles')
       .update(updates)
       .eq('id', profile.id);
-    if (!error) {
-      setProfile({ ...profile, ...updates } as typeof profile);
+    if (error) {
+      console.error('Profile update failed:', error.message);
+      return;
     }
+    setProfile({ ...profile, ...updates } as typeof profile);
   };
 
   const handleToggleNotifications = (value: boolean) => {
@@ -71,20 +73,27 @@ export default function ProfileScreen() {
 
   const handlePickAvatar = async () => {
     if (!profile?.id) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
 
-    if (result.canceled || !result.assets[0]) return;
-
-    setUploading(true);
     try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow photo access in Settings to change your avatar.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (result.canceled || !result.assets[0]) return;
+
+      setUploading(true);
       const asset = result.assets[0];
       const ext = asset.uri.split('.').pop() ?? 'jpg';
-      const path = `${profile!.id}/avatar.${ext}`;
+      const path = `${profile.id}/avatar.${ext}`;
 
       const base64 = await FileSystem.readAsStringAsync(asset.uri, {
         encoding: FileSystem.EncodingType.Base64,
@@ -104,6 +113,7 @@ export default function ProfileScreen() {
       await updateProfile({ avatar_url });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Unknown error';
+      console.error('Avatar upload failed:', msg, e);
       Alert.alert('Upload failed', msg);
     } finally {
       setUploading(false);
@@ -128,7 +138,11 @@ export default function ProfileScreen() {
         text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
-          await signOut();
+          try {
+            await signOut();
+          } catch (e) {
+            console.error('Sign out error:', e);
+          }
           router.replace('/(auth)/login');
         },
       },
@@ -158,7 +172,7 @@ export default function ProfileScreen() {
             </View>
           </Pressable>
           {uploading && <Text style={styles.uploadingText}>Uploading...</Text>}
-          <Text style={styles.profileName}>{profile?.full_name || 'User'}</Text>
+          <Text style={styles.profileName}>{profile?.full_name?.split(' ')[0] || 'User'}</Text>
           <Text style={styles.profileEmail}>{user?.email || profile?.email || ''}</Text>
         </View>
 
@@ -389,7 +403,7 @@ export default function ProfileScreen() {
                   <Text key={f} style={styles.planFeature}>✓ {f}</Text>
                 ))}
                 <Pressable style={styles.freeBtn} onPress={() => setShowUpgrade(false)}>
-                  <Text style={styles.freeBtnText}>Continue with Free</Text>
+                  <Text style={styles.freeBtnText}>Upgrade</Text>
                 </Pressable>
               </View>
 
@@ -409,7 +423,7 @@ export default function ProfileScreen() {
                     Linking.openURL('https://receipt-production-ebc4.up.railway.app/admin/pro.html');
                   }}
                 >
-                  <Text style={styles.proBtnText}>Upgrade — €4.99/mo</Text>
+                  <Text style={styles.proBtnText}>Upgrade</Text>
                 </Pressable>
               </View>
             </View>

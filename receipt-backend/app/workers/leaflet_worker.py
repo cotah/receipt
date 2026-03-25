@@ -16,16 +16,23 @@ from app.utils.text_utils import generate_product_key
 log = logging.getLogger(__name__)
 
 PAGE_SIZE = 30
-REQUEST_DELAY = 1  # seconds between requests
+REQUEST_DELAY = 3  # seconds between requests
 
 BROWSER_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/125.0.0.0 Safari/537.36"
+        "Chrome/131.0.0.0 Safari/537.36"
     ),
-    "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "en-IE,en;q=0.9",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-IE,en-GB;q=0.9,en;q=0.8",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
 }
 
 
@@ -177,6 +184,13 @@ async def scrape_mi9_store(store: Mi9Store) -> None:
     ) as client:
         try:
             session_resp = await client.get(store.session_url)
+            if session_resp.status_code == 403:
+                log.warning(
+                    "%s: 403 Forbidden on session — temporarily unavailable, "
+                    "will retry next scheduled run",
+                    label,
+                )
+                return
             session_resp.raise_for_status()
             log.info(
                 "%s: session established (%d cookies)",
@@ -207,6 +221,12 @@ async def scrape_mi9_store(store: Mi9Store) -> None:
 
             try:
                 resp = await client.get(api_url, params=params)
+                if resp.status_code == 403:
+                    log.warning(
+                        "%s: 403 on page %d — stopping (temporarily blocked)",
+                        label, page,
+                    )
+                    break
                 resp.raise_for_status()
                 data = resp.json()
             except Exception as e:

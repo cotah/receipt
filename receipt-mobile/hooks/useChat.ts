@@ -39,8 +39,9 @@ export function useChat() {
       console.log('[Chat] session_id:', currentSessionId ?? 'new');
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000);
+      const timeout = setTimeout(() => controller.abort(), 60000);
 
+      console.log('[Chat] fetch started', chatUrl);
       let response: Response;
       try {
         response = await fetch(chatUrl, {
@@ -69,6 +70,7 @@ export function useChat() {
         return;
       }
       clearTimeout(timeout);
+      console.log('[Chat] fetch completed, status:', response.status);
 
       if (!response.ok) {
         const errorBody = await response.text().catch(() => '');
