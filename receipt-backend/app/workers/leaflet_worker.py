@@ -2140,7 +2140,9 @@ def _save_tesco_apify_items(db, items: list) -> int:
     for item in items:
         try:
             name = item.get("name")
-            price = item.get("price")
+            price_raw = item.get("price") or item.get("priceText") or ""
+            price_match = re.search(r"[\d]+\.[\d]{2}", str(price_raw))
+            price = float(price_match.group()) if price_match else None
             if not name or price is None:
                 continue
 
@@ -2237,12 +2239,7 @@ async def scrape_tesco_promotions() -> None:
         items = await _run_apify_actor(
             settings.APIFY_ACTOR_TESCO,
             {
-                "region": "IE",
-                "urls": [
-                    "https://www.tesco.ie/groceries/en-IE/search?query=offers&inOffers=true"
-                ],
-                "max_items": 2000,
-                "include_product_details": False,
+                "maxPages": 24,
             },
         )
         if items:
