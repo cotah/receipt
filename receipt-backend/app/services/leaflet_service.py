@@ -184,11 +184,9 @@ async def process_pdf_leaflet(
             pix = page.get_pixmap(matrix=mat)
             img_bytes = pix.tobytes("jpeg")
 
-            # OCR with Gemini
-            raw_text = await extract_text_from_pdf_page(img_bytes)
-
-            # Extract products with GPT
-            products = await extract_leaflet_products(raw_text, store_name)
+            # Single-step extraction: image → Gemini → JSON products
+            from app.services.ocr_service import direct_extract_products_from_image
+            products = await direct_extract_products_from_image(img_bytes, store_name)
 
             log.info(
                 "%s PDF: page %d/%d — %d products extracted",

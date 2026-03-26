@@ -22,7 +22,7 @@ except Exception as e:
 # --- OpenAI setup (primary fallback / sole provider) ---
 openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
-OCR_TIMEOUT = 30  # seconds
+OCR_TIMEOUT = 45  # seconds (leaflet pages are dense)
 
 OCR_PROMPT = """
 STEP 1 — VALIDATE: Check if this image is a grocery receipt from one of
@@ -45,22 +45,48 @@ Output plain text, no markdown.
 """
 
 LEAFLET_OCR_PROMPT = """
-Extract ONLY supermarket grocery products from this leaflet page.
-Include: food, drinks, personal hygiene (shampoo, toothpaste, soap),
-household cleaning (detergent, bleach, surface cleaner), baby & pet products.
-Exclude: clothing, tools, electronics, furniture, garden plants, toys, books.
+You are extracting products from an Irish supermarket weekly leaflet/flyer page.
 
-For each food/drink product found, output one line in this format:
-NAME | PRICE | UNIT | ON_OFFER(yes/no)
+CRITICAL: Extract EVERY single product visible on this page. Do NOT skip any.
+Many leaflet pages have 5-15 products. If you see prices, there are products.
+
+For each product, output one line:
+PRODUCT_NAME | PRICE | CATEGORY
 
 Where:
-- NAME is the product name
-- PRICE is the numeric price in EUR (e.g. 1.49)
-- UNIT is kg, L, unit, pack, etc.
-- ON_OFFER is "yes" if it's a special offer, "no" otherwise
+- PRODUCT_NAME is the full product name as shown (include brand, size, weight)
+- PRICE is the numeric price in EUR (e.g. 1.49). Look carefully at price labels.
+- CATEGORY is one of: Fruit & Veg, Dairy, Meat & Fish, Bakery, Frozen, Drinks, Snacks & Confectionery, Personal Care, Cleaning & Household, Baby & Toddler, Pet Food, Other
 
-If no food products exist on this page, output nothing.
-Output only the extracted lines, no headers or explanations.
+INCLUDE: All food, drinks, alcohol, personal care, cleaning products, pet food.
+EXCLUDE: Clothing, power tools, electronics, furniture, garden equipment, toys.
+
+Be thorough — extract ALL products you can see, even partially visible ones.
+If you can see a price tag next to a product, include it.
+If no grocery products exist, output nothing.
+"""
+
+LEAFLET_DIRECT_EXTRACTION_PROMPT = """
+You are extracting products from an Irish supermarket weekly leaflet page image.
+
+CRITICAL RULES:
+1. Extract EVERY grocery product visible. Do NOT skip any.
+2. Look carefully at EVERY price label on the page.
+3. Typical leaflet pages have 5-15 products. Count them.
+4. Include ALL: food, drinks, alcohol, wine, beer, personal care, cleaning, pet food.
+5. EXCLUDE: clothing, tools, electronics, furniture, garden equipment, toys.
+
+Return ONLY a valid JSON array. No markdown, no explanation.
+
+[
+  {{"product_name": "Full Product Name With Brand and Size", "unit_price": 1.49, "category": "Dairy", "is_on_offer": true}},
+  ...
+]
+
+Categories: Fruit & Veg, Dairy, Meat & Fish, Bakery, Frozen, Drinks,
+Snacks & Confectionery, Personal Care, Cleaning & Household, Baby & Toddler, Pet Food, Other.
+
+Be thorough. Every price tag = one product entry.
 """
 
 
@@ -138,3 +164,71 @@ async def extract_text_from_pdf_page(page_image_bytes: bytes) -> str:
             log.warning(f"Leaflet OCR: Gemini failed ({type(e).__name__}: {e}), falling back to OpenAI")
 
     return await _openai_ocr(LEAFLET_OCR_PROMPT, page_image_bytes)
+
+
+async def direct_extract_products_from_image(
+    page_image_bytes: bytes,
+    store_name: str = "Aldi",
+) -> list[dict]:
+    """Extract products DIRECTLY from a leaflet image in a single step.
+
+    Sends the image to Gemini/OpenAI with a JSON extraction prompt,
+    bypassing the intermediate OCR-to-text step. More accurate because
+    the model can see the image layout and price labels directly.
+    """
+    import json as _json
+
+    prompt = LEAFLET_DIRECT_EXTRACTION_PROMPT
+
+    raw_text = None
+    if _gemini_model is not None:
+        try:
+            raw_text = await _gemini_ocr(prompt, page_image_bytes)
+        except Exception as e:
+            log.warning("Direct extraction: Gemini failed: %s", e)
+
+    if raw_text is None:
+        raw_text = await _openai_ocr(prompt, page_image_bytes)
+
+    if not raw_text:
+        return []
+
+    # Parse JSON from response
+    try:
+        # Strip markdown fences if present
+        clean = raw_text.strip()
+        if clean.startswith("```"):
+            clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
+            if clean.endswith("```"):
+                clean = clean[:-3]
+            clean = clean.strip()
+            if clean.startswith("json"):
+                clean = clean[4:].strip()
+
+        data = _json.loads(clean)
+        if isinstance(data, dict):
+            data = data.get("products", data.get("items", []))
+        if not isinstance(data, list):
+            return []
+
+        # Validate and clean
+        products = []
+        for item in data:
+            name = item.get("product_name", "")
+            price = item.get("unit_price")
+            if name and price is not None:
+                try:
+                    float(price)
+                    products.append(item)
+                except (ValueError, TypeError):
+                    pass
+
+        log.info(
+            "Direct extraction [%s]: %d products from image",
+            store_name, len(products),
+        )
+        return products
+
+    except _json.JSONDecodeError as e:
+        log.warning("Direct extraction: JSON parse failed: %s", e)
+        return []
