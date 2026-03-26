@@ -58,6 +58,20 @@ async def lifespan(app: FastAPI):
     setup_price_scheduler(scheduler)
     setup_email_report_scheduler(scheduler)
     setup_intelligence_scheduler(scheduler)
+
+    # Deals engine — every 2 days at 04:00 UTC (after scrapers)
+    from app.workers.deals_worker import generate_all_deals
+    scheduler.add_job(
+        generate_all_deals,
+        "cron",
+        hour=4,
+        minute=0,
+        day="*/2",
+        id="deals_engine",
+        replace_existing=True,
+    )
+    log.info("Deals engine scheduled: every 2 days at 04:00 UTC")
+
     scheduler.start()
     log.info("Background workers started")
 
@@ -156,3 +170,12 @@ async def debug_run_scrapers():
     asyncio.create_task(run_tesco_scraper())
     asyncio.create_task(run_lidl_scraper())
     return {"status": "started", "scrapers": ["supervalu", "tesco", "lidl"]}
+
+
+@app.post("/api/v1/debug/generate-deals")
+async def debug_generate_deals():
+    """Force-generate weekly deals immediately (no auth — for testing)."""
+    from app.workers.deals_worker import generate_all_deals
+
+    asyncio.create_task(generate_all_deals())
+    return {"status": "started", "message": "Deal generation triggered"}

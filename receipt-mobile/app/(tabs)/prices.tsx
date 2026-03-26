@@ -26,14 +26,15 @@ export default function PricesScreen() {
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
 
   const {
-    offers, isLoading, fetchLeafletOffers,
+    isLoading,
     searchResults, isSearching, smartSearch, clearSearch,
     selectedProduct, selectProduct, clearSelection,
     alternatives, isLoadingAlts,
+    weeklyDeals, isLoadingDeals, fetchWeeklyDeals,
   } = usePrices();
 
   useEffect(() => {
-    if (tab === 'offers') fetchLeafletOffers();
+    if (tab === 'offers') fetchWeeklyDeals();
   }, [tab]);
 
   // Fetch savings confirmation alerts
@@ -280,25 +281,126 @@ export default function PricesScreen() {
 
         {tab === 'offers' && (
           <>
-            {offers.map((offer, i) => (
-              <Card key={i} style={styles.offerCard}>
-                <View style={styles.offerRow}>
-                  <View style={styles.offerLeft}>
-                    <StoreTag storeName={offer.store} />
-                    <Text style={styles.offerName}>{offer.product_name}</Text>
-                    <Badge text={offer.category} variant="neutral" size="sm" />
+            {isLoadingDeals && (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator size="small" color={Colors.primary.default} />
+                <Text style={styles.loadingText}>Loading your deals...</Text>
+              </View>
+            )}
+
+            {!isLoadingDeals && weeklyDeals && (
+              <>
+                {/* Golden Deals — PRO only */}
+                {weeklyDeals.golden.length > 0 && (
+                  <View style={styles.dealSection}>
+                    <Text style={styles.dealSectionTitle}>🥇 Golden Offers</Text>
+                    <Text style={styles.dealSectionSub}>Exceptional deals matched to your profile</Text>
+                    {weeklyDeals.golden.map((deal) => (
+                      <Card key={deal.id} style={styles.goldenCard}>
+                        <View style={styles.dealRow}>
+                          <View style={styles.dealLeft}>
+                            <StoreTag storeName={deal.store_name} size="md" />
+                            <Text style={styles.goldenName} numberOfLines={2}>{deal.product_name}</Text>
+                            {deal.promotion_text && (
+                              <Text style={styles.goldenPromo}>{deal.promotion_text}</Text>
+                            )}
+                          </View>
+                          <View style={styles.dealRight}>
+                            <Text style={styles.goldenPrice}>{formatCurrency(deal.current_price)}</Text>
+                            {deal.avg_price_4w && (
+                              <Text style={styles.goldenWas}>avg €{Number(deal.avg_price_4w).toFixed(2)}</Text>
+                            )}
+                            {deal.discount_pct && (
+                              <Badge text={`-${deal.discount_pct}%`} variant="success" size="sm" />
+                            )}
+                          </View>
+                        </View>
+                      </Card>
+                    ))}
                   </View>
-                  <View style={styles.offerRight}>
-                    <Text style={styles.offerPrice}>{formatCurrency(offer.unit_price)}</Text>
-                    {offer.discount_percent && (
-                      <Badge text={`-${offer.discount_percent}%`} variant="success" size="sm" />
-                    )}
+                )}
+
+                {/* Trending Deals */}
+                {weeklyDeals.trending.length > 0 && (
+                  <View style={styles.dealSection}>
+                    <Text style={styles.dealSectionTitle}>🔥 Trending This Week</Text>
+                    <Text style={styles.dealSectionSub}>Best savings across all stores</Text>
+                    {weeklyDeals.trending.map((deal) => (
+                      <Card key={deal.id} style={styles.dealCard}>
+                        <View style={styles.dealRow}>
+                          <View style={styles.dealLeft}>
+                            <StoreTag storeName={deal.store_name} />
+                            <Text style={styles.dealName} numberOfLines={2}>{deal.product_name}</Text>
+                            {deal.promotion_text && (
+                              <Text style={styles.dealPromo} numberOfLines={2}>{deal.promotion_text}</Text>
+                            )}
+                          </View>
+                          <View style={styles.dealRight}>
+                            <Text style={styles.dealPrice}>{formatCurrency(deal.current_price)}</Text>
+                            {deal.discount_pct && (
+                              <Badge text={`-${deal.discount_pct}%`} variant="success" size="sm" />
+                            )}
+                          </View>
+                        </View>
+                      </Card>
+                    ))}
                   </View>
-                </View>
-              </Card>
-            ))}
-            {offers.length === 0 && !isLoading && (
-              <Text style={styles.hint}>No leaflet offers available right now</Text>
+                )}
+
+                {/* Personal Deals */}
+                {weeklyDeals.personalised.length > 0 && (
+                  <View style={styles.dealSection}>
+                    <Text style={styles.dealSectionTitle}>✨ Picked For You</Text>
+                    <Text style={styles.dealSectionSub}>Based on your shopping habits</Text>
+                    {weeklyDeals.personalised.map((deal) => (
+                      <Card key={deal.id} style={styles.dealCard}>
+                        <View style={styles.dealRow}>
+                          <View style={styles.dealLeft}>
+                            <StoreTag storeName={deal.store_name} />
+                            <Text style={styles.dealName} numberOfLines={2}>{deal.product_name}</Text>
+                            {deal.promotion_text && (
+                              <Text style={styles.dealPromo} numberOfLines={2}>{deal.promotion_text}</Text>
+                            )}
+                          </View>
+                          <View style={styles.dealRight}>
+                            <Text style={styles.dealPrice}>{formatCurrency(deal.current_price)}</Text>
+                            {deal.discount_pct && (
+                              <Badge text={`-${deal.discount_pct}%`} variant="success" size="sm" />
+                            )}
+                          </View>
+                        </View>
+                      </Card>
+                    ))}
+                  </View>
+                )}
+
+                {/* Refresh info */}
+                <Text style={styles.refreshInfo}>
+                  Refreshes every {weeklyDeals.refresh_days} days
+                  {weeklyDeals.plan === 'free' ? ' · Upgrade to Pro for more deals and Golden Offers' : ''}
+                </Text>
+
+                {/* Empty state */}
+                {weeklyDeals.total === 0 && (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyEmoji}>📦</Text>
+                    <Text style={styles.emptyTitle}>Deals are being prepared</Text>
+                    <Text style={styles.emptyText}>
+                      Your personalised offers are being generated. Check back soon!
+                    </Text>
+                  </View>
+                )}
+              </>
+            )}
+
+            {!isLoadingDeals && !weeklyDeals && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyEmoji}>📦</Text>
+                <Text style={styles.emptyTitle}>No offers right now</Text>
+                <Text style={styles.emptyText}>
+                  We're preparing smart deals for you. Check back soon!
+                </Text>
+              </View>
             )}
           </>
         )}
@@ -378,14 +480,26 @@ const styles = StyleSheet.create({
   emptyTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, textAlign: 'center', marginBottom: Spacing.xs },
   emptyText: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.tertiary, textAlign: 'center', lineHeight: 20 },
 
-  // Offers tab
-  hint: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.tertiary, textAlign: 'center', marginTop: Spacing.xl },
-  offerCard: { marginBottom: Spacing.sm },
-  offerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  offerLeft: { flex: 1, gap: 4 },
-  offerName: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: Colors.text.primary },
-  offerRight: { alignItems: 'flex-end', gap: 4 },
-  offerPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 18, color: Colors.accent.amber },
+  // Deals sections
+  dealSection: { marginBottom: Spacing.lg },
+  dealSectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: 2 },
+  dealSectionSub: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.tertiary, marginBottom: Spacing.md },
+
+  dealCard: { marginBottom: Spacing.sm },
+  dealRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  dealLeft: { flex: 1, gap: 4 },
+  dealName: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: Colors.text.primary },
+  dealPromo: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.secondary },
+  dealRight: { alignItems: 'flex-end', gap: 4, marginLeft: Spacing.sm },
+  dealPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 18, color: Colors.accent.amber },
+
+  goldenCard: { marginBottom: Spacing.sm, borderWidth: 2, borderColor: '#E8A020', borderRadius: BorderRadius.md },
+  goldenName: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: Colors.text.primary },
+  goldenPromo: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.primary.default },
+  goldenPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 20, color: Colors.accent.amber },
+  goldenWas: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, textDecorationLine: 'line-through' },
+
+  refreshInfo: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, textAlign: 'center', marginTop: Spacing.md, marginBottom: Spacing.lg },
 
   // Savings banner
   savingsBanner: {

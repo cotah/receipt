@@ -229,7 +229,7 @@ async def find_alternatives(
     try:
         # Step 1: Ask OpenAI for alternative product search terms
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-5.4-nano",
             temperature=0.3,
             max_tokens=200,
             messages=[

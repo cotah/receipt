@@ -1,9 +1,10 @@
-"""Weekly deals endpoint — serves 4 global + 6 personalised deals."""
+"""Weekly deals endpoint — serves trending + personalised + golden deals."""
 
+import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.database import get_service_client
 from app.services.cache_service import get_cache, set_cache
@@ -15,7 +16,11 @@ router = APIRouter(prefix="/deals", tags=["deals"])
 
 @router.get("/weekly")
 async def get_weekly_deals(user_id: str = Depends(get_current_user)):
-    """Returns 10 deals: 4 global + 6 personalised for this user."""
+    """Returns smart weekly deals: trending + personalised + golden (PRO).
+
+    Free: 4 trending + 2 personal = 6 deals, refreshes every 4 days
+    Pro:  4 trending + 6 personal + 3 golden = 13 deals, refreshes every 2 days
+    """
     cache_key = f"weekly_deals:{user_id}"
     cached = get_cache(cache_key)
     if cached:
@@ -24,7 +29,21 @@ async def get_weekly_deals(user_id: str = Depends(get_current_user)):
     db = get_service_client()
     now = datetime.now(timezone.utc).isoformat()
 
-    global_deals = (
+    # Get user plan
+    try:
+        profile = (
+            db.table("profiles")
+            .select("plan")
+            .eq("id", user_id)
+            .single()
+            .execute()
+        )
+        plan = (profile.data or {}).get("plan", "free")
+    except Exception:
+        plan = "free"
+
+    # Trending deals (global, same for everyone)
+    trending = (
         db.table("weekly_deals")
         .select("*")
         .is_("user_id", "null")
@@ -35,26 +54,60 @@ async def get_weekly_deals(user_id: str = Depends(get_current_user)):
         .execute()
     )
 
-    personal_deals = (
+    # Personal deals (for this user)
+    personal_limit = 6 if plan == "pro" else 2
+    personal = (
         db.table("weekly_deals")
         .select("*")
         .eq("user_id", user_id)
         .eq("deal_type", "personalised")
         .gte("valid_until", now)
         .order("rank")
-        .limit(6)
+        .limit(personal_limit)
         .execute()
     )
 
+    # Golden deals (PRO only)
+    golden_data = []
+    if plan == "pro":
+        golden = (
+            db.table("weekly_deals")
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("deal_type", "golden")
+            .gte("valid_until", now)
+            .order("rank")
+            .limit(3)
+            .execute()
+        )
+        golden_data = golden.data or []
+
     response = {
-        "global": global_deals.data or [],
-        "personalised": personal_deals.data or [],
-        "total": len(global_deals.data or [])
-        + len(personal_deals.data or []),
+        "plan": plan,
+        "trending": trending.data or [],
+        "personalised": personal.data or [],
+        "golden": golden_data,
+        "total": (
+            len(trending.data or [])
+            + len(personal.data or [])
+            + len(golden_data)
+        ),
+        "refresh_days": 2 if plan == "pro" else 4,
     }
 
-    set_cache(cache_key, response, ttl_seconds=10800)
+    # Cache for 1 hour
+    set_cache(cache_key, response, ttl_seconds=3600)
     return response
+
+
+@router.post("/generate")
+async def trigger_deal_generation(user_id: str = Depends(get_current_user)):
+    """Manually trigger deal generation (admin or debug)."""
+    from app.workers.deals_worker import generate_all_deals
+
+    # Run in background
+    asyncio.create_task(generate_all_deals())
+    return {"status": "started", "message": "Deal generation triggered"}
 
 
 @router.get("/price-history/{product_key}")
