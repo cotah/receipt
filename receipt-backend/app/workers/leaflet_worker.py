@@ -1562,7 +1562,7 @@ SUPERVALU_SESSION_URL = (
     "https://shop.supervalu.ie/sm/delivery/rsid/5550/promotions"
 )
 SUPERVALU_PAGE_SIZE = 30
-SUPERVALU_TOTAL_PAGES = 122  # ceil(3617/30) + safety margin
+SUPERVALU_TOTAL_PAGES = 1  # Pagination broken: SSR ignores ?page=N, all pages return page-1 content. Need Playwright actor for full ~3600 products.
 
 _SUPERVALU_PRICE_RE = re.compile(r"[\d]+[.,]\d{2}")
 
@@ -1715,7 +1715,11 @@ async def _scrape_supervalu_attempt(
                 }
 
             # 2. Discover total pages from first page
-            total_pages = SUPERVALU_TOTAL_PAGES
+            # NOTE: Pagination is broken — SSR ignores ?page=N, all pages
+            # return page-1 content. We cap at 1 page until a Playwright
+            # actor is built. The state reports ~3666 items across 122
+            # pages, but fetching them returns duplicate data.
+            total_pages = SUPERVALU_TOTAL_PAGES  # 1 — pagination broken
             try:
                 soup_p1 = BeautifulSoup(
                     session_resp.text, "html.parser"
@@ -1736,14 +1740,11 @@ async def _scrape_supervalu_attempt(
                             .get("totalItems", 0)
                         )
                         if total_items > 0:
-                            total_pages = (
-                                total_items + SUPERVALU_PAGE_SIZE - 1
-                            ) // SUPERVALU_PAGE_SIZE
+                            # Don't override total_pages — pagination broken
                             log.info(
-                                "SuperValu HTML scraper: %d products "
-                                "across %d pages",
+                                "SuperValu HTML scraper: site reports %d products "
+                                "but pagination is broken (SSR), only page 1 captured",
                                 total_items,
-                                total_pages,
                             )
                     except Exception:
                         pass
