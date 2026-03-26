@@ -944,56 +944,92 @@ async def scrape_lidl_leaflet() -> None:
             except (ValueError, TypeError):
                 pass
 
-        # Products can be nested in various structures
-        products: list[dict] = []
-        if isinstance(data, list):
-            products = data
-        elif isinstance(data, dict):
-            for key in ("products", "items", "pages"):
-                found = data.get(key)
-                if found and isinstance(found, list):
-                    if key == "pages":
-                        for pg in found:
-                            if isinstance(pg, dict):
-                                page_items = (
-                                    pg.get("products")
-                                    or pg.get("items")
-                                    or []
-                                )
-                                products.extend(page_items)
-                            elif isinstance(pg, list):
-                                products.extend(pg)
-                    else:
-                        products = found
-                    break
+        # New Schwarz API structure: products in flyer.pages[].links[]
+        flyer_data = data.get("flyer", data)
+        pages = flyer_data.get("pages", [])
 
-        log.info("Lidl scraper: found %d products", len(products))
+        product_links: list[dict] = []
+        for pg in pages:
+            for link in pg.get("links", []):
+                if link.get("displayType") == "product":
+                    product_links.append(
+                        {
+                            "title": link.get("title")
+                            or link.get("productDetails", {}).get(
+                                "title", ""
+                            ),
+                            "productId": link.get(
+                                "productDetails", {}
+                            ).get("productId", ""),
+                            "url": link.get("url", ""),
+                        }
+                    )
+
+        # Deduplicate by productId
+        seen: set[str] = set()
+        unique_links: list[dict] = []
+        for lnk in product_links:
+            if lnk["productId"] and lnk["productId"] not in seen:
+                seen.add(lnk["productId"])
+                unique_links.append(lnk)
+
+        log.info(
+            "Lidl scraper: found %d unique product links",
+            len(unique_links),
+        )
+
+        # Fetch price for each product page
+        async def _fetch_lidl_price(http_client, lnk):
+            try:
+                url = (
+                    lnk["url"]
+                    or f"https://www.lidl.ie/p/p{lnk['productId']}"
+                )
+                r = await http_client.get(url, timeout=10)
+                if r.status_code != 200:
+                    return None
+                prices_found = re.findall(
+                    r"€\s*([\d]+\.[\d]{2})", r.text
+                )
+                if not prices_found:
+                    return None
+                price = float(min(prices_found, key=float))
+                return {
+                    "title": lnk["title"],
+                    "price": price,
+                    "url": url,
+                }
+            except Exception as e:
+                log.debug(
+                    "Lidl price fetch failed for %s: %s",
+                    lnk.get("productId"),
+                    e,
+                )
+                return None
+
+        # Fetch in batches of 10
+        products: list[dict] = []
+        batch_size = 10
+        for i in range(0, len(unique_links), batch_size):
+            batch = unique_links[i : i + batch_size]
+            results = await asyncio.gather(
+                *[_fetch_lidl_price(client, lnk) for lnk in batch]
+            )
+            products.extend([r for r in results if r])
+            await asyncio.sleep(0.5)
+
+        log.info(
+            "Lidl scraper: fetched prices for %d/%d products",
+            len(products),
+            len(unique_links),
+        )
 
         for item in products:
             try:
-                name = item.get("title") or item.get("name")
-                price = item.get("price") or item.get("priceNumeric")
+                name = item["title"]
+                price = item["price"]
                 if not name or price is None:
                     continue
-
-                price = float(price)
-                category = item.get("categoryPrimary") or "Other"
-
-                # Item-level or flyer-level expiry
-                item_expires = flyer_end
-                item_flyer = item.get("flyer") or {}
-                item_end = (
-                    item_flyer.get("endDate")
-                    or item_flyer.get("end_date")
-                )
-                if item_end:
-                    try:
-                        dt = dateutil_parser.isoparse(item_end)
-                        if dt.tzinfo is None:
-                            dt = dt.replace(tzinfo=timezone.utc)
-                        item_expires = dt
-                    except (ValueError, TypeError):
-                        pass
 
                 product_key = generate_product_key(name)
 
@@ -1001,13 +1037,13 @@ async def scrape_lidl_leaflet() -> None:
                     {
                         "product_key": product_key,
                         "product_name": name,
-                        "category": category,
+                        "category": "Other",
                         "store_name": "Lidl",
                         "unit_price": price,
                         "is_on_offer": True,
                         "source": "leaflet",
                         "observed_at": now.isoformat(),
-                        "expires_at": item_expires.isoformat(),
+                        "expires_at": flyer_end.isoformat(),
                     },
                     on_conflict="product_key,store_name,source",
                 ).execute()
