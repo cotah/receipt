@@ -1,7 +1,67 @@
+import logging
 from datetime import datetime, timedelta, timezone
+
 from supabase import Client
+
 from app.utils.price_utils import get_ttl_days
 from app.utils.text_utils import generate_product_key
+
+log = logging.getLogger(__name__)
+
+
+async def record_shopping_analytics(
+    db: Client,
+    receipt_id: str,
+    user_id: str,
+    store_name: str,
+    purchased_at: datetime,
+    total_amount: float,
+    items_count: int,
+) -> None:
+    """Record shopping behaviour analytics — time, store, spend."""
+    try:
+        db.table("shopping_analytics").upsert(
+            {
+                "receipt_id": receipt_id,
+                "user_id": user_id,
+                "store_name": store_name,
+                "purchased_at": purchased_at.isoformat()
+                if isinstance(purchased_at, datetime)
+                else str(purchased_at),
+                "total_amount": total_amount,
+                "items_count": items_count,
+            },
+            on_conflict="receipt_id",
+        ).execute()
+    except Exception as e:
+        log.warning("shopping_analytics insert failed: %s", e)
+
+
+async def record_price_history(
+    db: Client,
+    product_key: str,
+    product_name: str,
+    store_name: str,
+    unit_price: float,
+    source: str,
+    observed_at: datetime,
+) -> None:
+    """Always record a price observation in history."""
+    try:
+        db.table("price_history").insert(
+            {
+                "product_key": product_key,
+                "product_name": product_name,
+                "store_name": store_name,
+                "unit_price": unit_price,
+                "source": source,
+                "observed_at": observed_at.isoformat()
+                if isinstance(observed_at, datetime)
+                else str(observed_at),
+            }
+        ).execute()
+    except Exception as e:
+        log.warning("price_history insert failed: %s", e)
 
 
 async def contribute_anonymous_price(
@@ -12,7 +72,7 @@ async def contribute_anonymous_price(
     home_area: str | None,
     observed_at: datetime,
 ) -> None:
-    """Contribute a price to the collective bank — completely anonymous."""
+    """Contribute price — only updates collective_prices if new price is lower."""
     category = item_data.get("category", "Other")
     ttl_days = get_ttl_days(category)
     product_key = generate_product_key(
@@ -20,45 +80,37 @@ async def contribute_anonymous_price(
     )
     expires_at = observed_at + timedelta(days=ttl_days)
 
-    # Check if similar price already exists recently
-    existing = (
-        db.table("collective_prices")
-        .select("id, confirmation_count")
-        .eq("product_key", product_key)
-        .eq("store_name", store_name)
-        .eq("unit_price", item_data["unit_price"])
-        .gte("observed_at", (observed_at - timedelta(days=1)).isoformat())
-        .limit(1)
-        .execute()
-    )
-
-    if existing.data:
-        # Increment confirmation
-        row = existing.data[0]
-        db.table("collective_prices").update(
+    try:
+        db.rpc(
+            "upsert_collective_price",
             {
-                "confirmation_count": row["confirmation_count"] + 1,
-                "observed_at": observed_at.isoformat(),
-                "expires_at": expires_at.isoformat(),
-            }
-        ).eq("id", row["id"]).execute()
-    else:
-        db.table("collective_prices").insert(
-            {
-                "product_key": product_key,
-                "product_name": item_data["normalized_name"],
-                "category": category,
-                "store_name": store_name,
-                "store_branch": store_branch,
-                "home_area": home_area,
-                "unit_price": item_data["unit_price"],
-                "unit": item_data.get("unit"),
-                "is_on_offer": item_data.get("is_on_offer", False),
-                "source": "receipt",
-                "observed_at": observed_at.isoformat(),
-                "expires_at": expires_at.isoformat(),
-            }
+                "p_product_key": product_key,
+                "p_product_name": item_data["normalized_name"],
+                "p_category": category,
+                "p_store_name": store_name,
+                "p_store_branch": store_branch,
+                "p_home_area": home_area,
+                "p_unit_price": item_data["unit_price"],
+                "p_unit": item_data.get("unit"),
+                "p_is_on_offer": item_data.get("is_on_offer", False),
+                "p_source": "receipt",
+                "p_observed_at": observed_at.isoformat(),
+                "p_expires_at": expires_at.isoformat(),
+            },
         ).execute()
+    except Exception as e:
+        log.warning("upsert_collective_price RPC failed: %s", e)
+
+    # Always record in price history
+    await record_price_history(
+        db,
+        product_key=product_key,
+        product_name=item_data["normalized_name"],
+        store_name=store_name,
+        unit_price=item_data["unit_price"],
+        source="receipt",
+        observed_at=observed_at,
+    )
 
 
 async def get_best_price(
@@ -83,11 +135,7 @@ async def get_best_price(
 async def compare_prices(
     db: Client, product: str, area: str | None = None
 ) -> list[dict]:
-    """Get all store prices for a product, sorted cheapest first.
-
-    Uses ilike prefix match so "banana" finds "banana", "banana_ea",
-    "banana_kg", etc.
-    """
+    """Get all store prices for a product, sorted cheapest first."""
     now = datetime.now(timezone.utc).isoformat()
     product_key = generate_product_key(product)
 

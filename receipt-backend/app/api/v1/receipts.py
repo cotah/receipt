@@ -337,6 +337,27 @@ async def process_receipt_async(
         except Exception as attr_err:
             log.warning(f"[{receipt_id}] Attribution check failed: {attr_err}")
 
+        # 9. Record shopping analytics
+        try:
+            from app.services.price_service import record_shopping_analytics
+
+            purchased_at_dt = (
+                datetime.fromisoformat(purchased_at)
+                if isinstance(purchased_at, str)
+                else purchased_at
+            )
+            await record_shopping_analytics(
+                db=db,
+                receipt_id=receipt_id,
+                user_id=user_id,
+                store_name=store_name,
+                purchased_at=purchased_at_dt,
+                total_amount=float(total_amount),
+                items_count=len(items),
+            )
+        except Exception as analytics_err:
+            log.warning(f"[{receipt_id}] Analytics recording failed: {analytics_err}")
+
         log.info(f"[{receipt_id}] Processing complete — {len(items)} items saved")
 
     except Exception as e:

@@ -56,3 +56,5 @@ class LeafletOffer(BaseModel):
 class LeafletOffersResponse(BaseModel):
     valid_until: Optional[date] = None
     offers: list[LeafletOffer]
+    total: Optional[int] = None
+    page: Optional[int] = 1

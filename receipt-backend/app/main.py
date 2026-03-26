@@ -17,7 +17,7 @@ if settings.SENTRY_DSN:
         send_default_pii=False,
     )
 from fastapi.staticfiles import StaticFiles
-from app.api.v1 import receipts, products, prices, chat, alerts, reports, leaflets, users, admin, payments
+from app.api.v1 import receipts, products, prices, chat, alerts, reports, leaflets, users, admin, payments, deals
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -51,10 +51,13 @@ async def lifespan(app: FastAPI):
             f"OPENAI_API_KEY={settings.OPENAI_API_KEY[:8]}..."
         )
 
+    from app.workers.intelligence_worker import setup_intelligence_scheduler
+
     setup_leaflet_scheduler(scheduler)
     setup_alert_scheduler(scheduler)
     setup_price_scheduler(scheduler)
     setup_email_report_scheduler(scheduler)
+    setup_intelligence_scheduler(scheduler)
     scheduler.start()
     log.info("Background workers started")
 
@@ -127,6 +130,7 @@ app.include_router(leaflets.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(payments.router, prefix="/api/v1")
+app.include_router(deals.router, prefix="/api/v1")
 
 # Admin panel static files
 _admin_dir = Path(__file__).resolve().parent.parent / "admin"
@@ -143,14 +147,12 @@ async def health_check():
 async def debug_run_scrapers():
     """Force-run all scrapers immediately (no auth — for testing)."""
     from app.workers.leaflet_worker import (
-        run_dunnes_scraper,
         run_supervalu_scraper,
         run_tesco_scraper,
         run_lidl_scraper,
     )
 
-    asyncio.create_task(run_dunnes_scraper())
     asyncio.create_task(run_supervalu_scraper())
     asyncio.create_task(run_tesco_scraper())
     asyncio.create_task(run_lidl_scraper())
-    return {"status": "started", "scrapers": ["dunnes", "supervalu", "tesco", "lidl"]}
+    return {"status": "started", "scrapers": ["supervalu", "tesco", "lidl"]}

@@ -156,23 +156,26 @@ async def calculate_basket(
 async def get_leaflet_offers(
     store: str | None = None,
     category: str | None = None,
+    page: int = 1,
+    limit: int = 100,
     user_id: str = Depends(get_current_user),
 ):
-    # Try cache first (1 hour TTL)
-    cache_key = f"leaflet_offers:{store or 'all'}:{category or 'all'}"
+    cache_key = f"leaflet_offers:{store or 'all'}:{category or 'all'}:{page}"
     cached = get_cache(cache_key)
     if cached is not None:
         return LeafletOffersResponse(**cached)
 
     db = get_service_client()
     now = datetime.now(timezone.utc)
+    offset = (page - 1) * limit
 
     query = (
         db.table("collective_prices")
-        .select("*")
+        .select("*", count="exact")
         .eq("source", "leaflet")
         .gte("expires_at", now.isoformat())
         .order("unit_price")
+        .range(offset, offset + limit - 1)
     )
     if store:
         query = query.eq("store_name", store)
@@ -198,6 +201,11 @@ async def get_leaflet_offers(
             valid_until=valid_until,
         ))
 
-    response = LeafletOffersResponse(valid_until=max_valid, offers=offers)
+    response = LeafletOffersResponse(
+        valid_until=max_valid,
+        offers=offers,
+        total=result.count,
+        page=page,
+    )
     set_cache(cache_key, response.model_dump(mode="json"), ttl_seconds=3600)
     return response

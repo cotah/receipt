@@ -2299,12 +2299,12 @@ async def run_leaflet_job():
 
 
 async def run_dunnes_scraper():
-    """Run Dunnes HTML scraper standalone."""
-    log.info("Starting Dunnes HTML promotions scraper...")
-    try:
-        await scrape_dunnes_promotions()
-    except Exception as e:
-        log.error("Dunnes scraper failed: %s", e)
+    """Dunnes scraper disabled — Akamai blocks all automated access.
+    Dunnes prices will be populated from user receipt scans.
+    Re-enable when a suitable proxy/actor solution is available."""
+    log.info(
+        "Dunnes scraper disabled — skipping (uses receipt data instead)"
+    )
 
 
 async def run_supervalu_scraper():
@@ -2352,17 +2352,9 @@ def setup_leaflet_scheduler(scheduler: AsyncIOScheduler):
         settings.LEAFLET_CRON_HOUR,
     )
 
-    # Dunnes — odd days at 05:00 (day 1,3,5,...,31)
-    scheduler.add_job(
-        run_dunnes_scraper,
-        "cron",
-        day="1-31/2",
-        hour=5,
-        minute=0,
-        id="dunnes_scraper",
-        replace_existing=True,
-    )
-    log.info("Dunnes scraper scheduled: odd days at 05:00")
+    # Dunnes — disabled (Akamai blocks automated access)
+    # Dunnes prices populated from user receipt scans instead.
+    log.info("Dunnes scraper disabled — prices from receipt scans only")
 
     # SuperValu — odd days at 06:00 (day 1,3,5,...,31)
     scheduler.add_job(
