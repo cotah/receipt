@@ -137,11 +137,15 @@ async def _run_apify_actor(
     run_input: dict,
     timeout_secs: int = 2400,
     poll_interval: int = 30,
+    max_dataset_age_hours: int = 24,
 ) -> list[dict]:
     """Run an Apify actor and return dataset items. Empty list on failure.
 
-    Uses polling instead of waitForFinish to handle actors that take
-    longer than Apify's waitForFinish limit (e.g. Tesco ~36 min).
+    Strategy (smart reuse):
+    1. Check recent runs (last 24h) — if one SUCCEEDED with data, reuse it
+    2. Check if a run is already RUNNING — wait for it instead of starting new
+    3. Only start a NEW run if no recent data and nothing running
+    4. Poll until complete, then fetch dataset items via JSON API
     """
     token = settings.APIFY_API_TOKEN
     if not token or not actor_id:
@@ -150,7 +154,98 @@ async def _run_apify_actor(
 
     try:
         async with httpx.AsyncClient(timeout=120) as client:
-            # 1. Start the run (don't wait — fire and poll)
+            # ── Step 1: Check recent runs for reusable data ──
+            try:
+                runs_resp = await client.get(
+                    f"https://api.apify.com/v2/acts/{actor_id}/runs",
+                    params={
+                        "token": token,
+                        "limit": 5,
+                        "desc": "true",
+                    },
+                )
+                if runs_resp.status_code == 200:
+                    recent_runs = (
+                        runs_resp.json()
+                        .get("data", {})
+                        .get("items", [])
+                    )
+
+                    # Look for a SUCCEEDED run with data
+                    for prev_run in recent_runs:
+                        if prev_run.get("status") != "SUCCEEDED":
+                            continue
+                        ds_id = prev_run.get("defaultDatasetId")
+                        if not ds_id:
+                            continue
+
+                        # Check age
+                        finished = prev_run.get("finishedAt", "")
+                        if finished:
+                            from datetime import datetime, timezone
+                            try:
+                                fin_dt = datetime.fromisoformat(
+                                    finished.replace("Z", "+00:00")
+                                )
+                                age_h = (
+                                    datetime.now(timezone.utc) - fin_dt
+                                ).total_seconds() / 3600
+                                if age_h > max_dataset_age_hours:
+                                    continue
+                            except Exception:
+                                pass
+
+                        # Check dataset has items
+                        ds_resp = await client.get(
+                            f"https://api.apify.com/v2/datasets/{ds_id}",
+                            params={"token": token},
+                        )
+                        if ds_resp.status_code == 200:
+                            item_count = (
+                                ds_resp.json()
+                                .get("data", {})
+                                .get("itemCount", 0)
+                            )
+                            if item_count > 0:
+                                log.info(
+                                    "Apify: reusing recent dataset %s "
+                                    "(%d items)",
+                                    ds_id,
+                                    item_count,
+                                )
+                                return await _fetch_apify_dataset(
+                                    client, token, actor_id, ds_id
+                                )
+
+                    # Look for a RUNNING run — wait for it
+                    for prev_run in recent_runs:
+                        if prev_run.get("status") != "RUNNING":
+                            continue
+                        run_id = prev_run.get("id")
+                        ds_id = prev_run.get("defaultDatasetId")
+                        if run_id and ds_id:
+                            log.info(
+                                "Apify: actor %s already running "
+                                "(run=%s) — waiting for it",
+                                actor_id,
+                                run_id,
+                            )
+                            return await _wait_and_fetch_apify(
+                                client, token, actor_id,
+                                run_id, ds_id,
+                                timeout_secs, poll_interval,
+                            )
+            except Exception as e:
+                log.warning(
+                    "Apify: error checking recent runs: %s", e
+                )
+
+            # ── Step 2: No recent data — start a new run ──
+            log.info(
+                "Apify: no recent data found — starting new run "
+                "for actor %s",
+                actor_id,
+            )
             run_resp = await client.post(
                 f"https://api.apify.com/v2/acts/{actor_id}/runs",
                 params={"token": token},
@@ -178,65 +273,89 @@ async def _run_apify_actor(
                 dataset_id,
             )
 
-            # 2. Poll for completion
-            elapsed = 0
-            while elapsed < timeout_secs:
-                await asyncio.sleep(poll_interval)
-                elapsed += poll_interval
-
-                try:
-                    status_resp = await client.get(
-                        f"https://api.apify.com/v2/actor-runs/{run_id}",
-                        params={"token": token},
-                    )
-                    if status_resp.status_code != 200:
-                        continue
-                    run_status = (
-                        status_resp.json()
-                        .get("data", {})
-                        .get("status", "RUNNING")
-                    )
-                except Exception:
-                    continue
-
-                if run_status in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
-                    log.info(
-                        "Apify: actor %s finished with status=%s after %ds",
-                        actor_id,
-                        run_status,
-                        elapsed,
-                    )
-                    break
-
-                if elapsed % 120 == 0:
-                    log.info(
-                        "Apify: actor %s still running (%ds elapsed)",
-                        actor_id,
-                        elapsed,
-                    )
-
-            # 3. Fetch dataset items (even if timed out — partial data is OK)
-            items_resp = await client.get(
-                f"https://api.apify.com/v2/datasets/{dataset_id}/items",
-                params={"token": token, "format": "json"},
+            return await _wait_and_fetch_apify(
+                client, token, actor_id,
+                run_id, dataset_id,
+                timeout_secs, poll_interval,
             )
-            if items_resp.status_code != 200:
-                log.warning(
-                    "Apify: dataset %s returned %d",
-                    dataset_id,
-                    items_resp.status_code,
-                )
-                return []
-
-            items = items_resp.json() or []
-            log.info(
-                "Apify: actor %s returned %d items", actor_id, len(items)
-            )
-            return items
 
     except Exception as e:
         log.error("Apify: error running actor %s: %s", actor_id, e)
         return []
+
+
+async def _wait_and_fetch_apify(
+    client, token, actor_id, run_id, dataset_id,
+    timeout_secs, poll_interval,
+) -> list[dict]:
+    """Poll an Apify run until complete, then fetch dataset items."""
+    elapsed = 0
+    while elapsed < timeout_secs:
+        await asyncio.sleep(poll_interval)
+        elapsed += poll_interval
+
+        try:
+            status_resp = await client.get(
+                f"https://api.apify.com/v2/actor-runs/{run_id}",
+                params={"token": token},
+            )
+            if status_resp.status_code != 200:
+                continue
+            run_status = (
+                status_resp.json()
+                .get("data", {})
+                .get("status", "RUNNING")
+            )
+        except Exception:
+            continue
+
+        if run_status in (
+            "SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"
+        ):
+            log.info(
+                "Apify: actor %s finished status=%s after %ds",
+                actor_id,
+                run_status,
+                elapsed,
+            )
+            break
+
+        if elapsed % 120 == 0:
+            log.info(
+                "Apify: actor %s still running (%ds elapsed)",
+                actor_id,
+                elapsed,
+            )
+
+    return await _fetch_apify_dataset(
+        client, token, actor_id, dataset_id
+    )
+
+
+async def _fetch_apify_dataset(
+    client, token, actor_id, dataset_id,
+) -> list[dict]:
+    """Fetch all items from an Apify dataset via JSON API."""
+    items_resp = await client.get(
+        f"https://api.apify.com/v2/datasets/{dataset_id}/items",
+        params={"token": token, "format": "json"},
+    )
+    if items_resp.status_code != 200:
+        log.warning(
+            "Apify: dataset %s returned %d",
+            dataset_id,
+            items_resp.status_code,
+        )
+        return []
+
+    items = items_resp.json() or []
+    log.info(
+        "Apify: actor %s dataset %s returned %d items",
+        actor_id,
+        dataset_id,
+        len(items),
+    )
+    return items
 
 
 def _start_run(db, store_name: str) -> str | None:
