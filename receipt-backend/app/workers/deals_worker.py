@@ -284,7 +284,7 @@ async def _ai_suggest_deals(
         response = await client.chat.completions.create(
             model="gpt-5.4-nano",
             temperature=0.5,
-            max_tokens=150,
+            max_completion_tokens=150,
             messages=[
                 {
                     "role": "system",

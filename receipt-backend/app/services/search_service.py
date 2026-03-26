@@ -231,7 +231,7 @@ async def find_alternatives(
         response = await client.chat.completions.create(
             model="gpt-5.4-nano",
             temperature=0.3,
-            max_tokens=200,
+            max_completion_tokens=200,
             messages=[
                 {
                     "role": "system",
