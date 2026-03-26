@@ -135,35 +135,87 @@ def _make_client_kwargs(*, use_proxy: bool = False) -> dict:
 async def _run_apify_actor(
     actor_id: str,
     run_input: dict,
-    timeout_secs: int = 1800,
+    timeout_secs: int = 2400,
+    poll_interval: int = 30,
 ) -> list[dict]:
-    """Run an Apify actor and return dataset items. Empty list on failure."""
+    """Run an Apify actor and return dataset items. Empty list on failure.
+
+    Uses polling instead of waitForFinish to handle actors that take
+    longer than Apify's waitForFinish limit (e.g. Tesco ~36 min).
+    """
     token = settings.APIFY_API_TOKEN
     if not token or not actor_id:
         log.info("Apify: token or actor_id not configured — skipping")
         return []
 
     try:
-        async with httpx.AsyncClient(timeout=timeout_secs + 60) as client:
+        async with httpx.AsyncClient(timeout=120) as client:
+            # 1. Start the run (don't wait — fire and poll)
             run_resp = await client.post(
                 f"https://api.apify.com/v2/acts/{actor_id}/runs",
-                params={"token": token, "waitForFinish": timeout_secs},
+                params={"token": token},
                 json=run_input,
             )
             if run_resp.status_code not in (200, 201):
                 log.warning(
-                    "Apify: actor %s returned %d",
+                    "Apify: actor %s start returned %d",
                     actor_id,
                     run_resp.status_code,
                 )
                 return []
 
             run_data = run_resp.json().get("data", {})
+            run_id = run_data.get("id")
             dataset_id = run_data.get("defaultDatasetId")
-            if not dataset_id:
-                log.warning("Apify: no defaultDatasetId in response")
+            if not run_id or not dataset_id:
+                log.warning("Apify: no run_id or datasetId in response")
                 return []
 
+            log.info(
+                "Apify: actor %s started (run=%s, dataset=%s)",
+                actor_id,
+                run_id,
+                dataset_id,
+            )
+
+            # 2. Poll for completion
+            elapsed = 0
+            while elapsed < timeout_secs:
+                await asyncio.sleep(poll_interval)
+                elapsed += poll_interval
+
+                try:
+                    status_resp = await client.get(
+                        f"https://api.apify.com/v2/actor-runs/{run_id}",
+                        params={"token": token},
+                    )
+                    if status_resp.status_code != 200:
+                        continue
+                    run_status = (
+                        status_resp.json()
+                        .get("data", {})
+                        .get("status", "RUNNING")
+                    )
+                except Exception:
+                    continue
+
+                if run_status in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
+                    log.info(
+                        "Apify: actor %s finished with status=%s after %ds",
+                        actor_id,
+                        run_status,
+                        elapsed,
+                    )
+                    break
+
+                if elapsed % 120 == 0:
+                    log.info(
+                        "Apify: actor %s still running (%ds elapsed)",
+                        actor_id,
+                        elapsed,
+                    )
+
+            # 3. Fetch dataset items (even if timed out — partial data is OK)
             items_resp = await client.get(
                 f"https://api.apify.com/v2/datasets/{dataset_id}/items",
                 params={"token": token, "format": "json"},
@@ -924,6 +976,11 @@ async def scrape_lidl_leaflet() -> None:
             data = resp.json()
         except Exception as e:
             log.error("Lidl scraper: API request failed: %s", e)
+            _finish_run(
+                db, run_id, status="failed", fallback_level=0,
+                items_saved=0,
+                error_detail=f"Schwarz API request failed: {e}",
+            )
             return
 
         # Get PDF URL directly from Schwarz API response
@@ -933,7 +990,8 @@ async def scrape_lidl_leaflet() -> None:
         if not pdf_url:
             log.warning("Lidl scraper: no PDF URL in API response")
             _finish_run(
-                db, run_id, status="failed", items_saved=0, errors=1,
+                db, run_id, status="failed", fallback_level=0,
+                items_saved=0,
                 error_detail="No PDF URL in Schwarz API response",
             )
             return
@@ -952,7 +1010,8 @@ async def scrape_lidl_leaflet() -> None:
 
         await process_pdf_leaflet(db, "Lidl", pdf_url)
 
-        _finish_run(db, run_id, status="success", items_saved=0, errors=0)
+        _finish_run(db, run_id, status="success", fallback_level=0,
+                    items_saved=0)
         log.info("Lidl scraper: PDF processing complete")
 
 
@@ -1856,17 +1915,9 @@ async def _scrape_tesco_attempt(
     mode = "proxy" if use_proxy else "direct"
     label = f"Tesco({mode})"
 
-    # Checkpoint resume
-    checkpoint = _get_checkpoint(db, "Tesco")
-    start_page = checkpoint["last_page"] if checkpoint else 1
-    total_saved = checkpoint["items_saved"] if checkpoint else 0
-    if checkpoint:
-        log.info(
-            "%s: resuming from page %d (%d items already saved)",
-            label,
-            start_page,
-            total_saved,
-        )
+    # Always start from page 1 — checkpoint removed (caused broken resume)
+    start_page = 1
+    total_saved = 0
 
     tesco_headers = _random_headers(
         referer="https://www.tesco.ie/",
@@ -2009,11 +2060,6 @@ async def _scrape_tesco_attempt(
                             label, page, e,
                         )
 
-                if page % 5 == 0:
-                    _save_checkpoint(
-                        db, "Tesco", page + 1, total_saved
-                    )
-
                 if page % 10 == 0:
                     log.info(
                         "%s: %d/%d pages (%d items)",
@@ -2025,7 +2071,6 @@ async def _scrape_tesco_attempt(
 
         if total_saved >= 50:
             # Less than 50 items = likely blocked (session page only)
-            _clear_checkpoint(db, "Tesco")
             return {
                 "success": True, "items_saved": total_saved, "error": None
             }
@@ -2043,15 +2088,22 @@ async def _scrape_tesco_attempt(
 
 
 def _save_tesco_apify_items(db, items: list) -> int:
-    """Save items from Apify actor radeance/tesco-scraper."""
+    """Save items from Apify actor pasquetto/my-actor.
+
+    The custom Playwright actor returns:
+      {"name": "...", "price": "€3.00", "promotion": "Clubcard Price...", "page": 1}
+    """
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(days=7)
     count = 0
+    errors = 0
     for item in items:
         try:
             name = item.get("name")
             price_raw = item.get("price") or item.get("priceText") or ""
-            price_match = re.search(r"[\d]+\.[\d]{2}", str(price_raw))
+            # Handle both €3.00 and €3,00 formats
+            price_str = str(price_raw).replace(",", ".")
+            price_match = re.search(r"[\d]+\.[\d]{2}", price_str)
             price = float(price_match.group()) if price_match else None
             if not name or price is None:
                 continue
@@ -2060,11 +2112,11 @@ def _save_tesco_apify_items(db, items: list) -> int:
             # promo is a plain string from the custom actor (e.g. "Clubcard Price...")
             # not a dict — just use it directly for is_on_offer flag
             is_on_offer = bool(promo)
-            item_expires = expires_at  # use default 7-day expiry
 
             product_key = generate_product_key(name)
             category = (
-                item.get("main_category")
+                item.get("category")
+                or item.get("main_category")
                 or item.get("product_category")
                 or "Other"
             )
@@ -2079,13 +2131,25 @@ def _save_tesco_apify_items(db, items: list) -> int:
                     "is_on_offer": is_on_offer,
                     "source": "leaflet",
                     "observed_at": now.isoformat(),
-                    "expires_at": item_expires.isoformat(),
+                    "expires_at": expires_at.isoformat(),
                 },
                 on_conflict="product_key,store_name,source",
             ).execute()
             count += 1
         except Exception as e:
+            errors += 1
             log.warning("_save_tesco_apify_items: item error: %s", e)
+            if errors <= 3:
+                try:
+                    import sentry_sdk
+                    sentry_sdk.capture_exception(e)
+                except Exception:
+                    pass
+
+    log.info(
+        "_save_tesco_apify_items: saved %d/%d items (%d errors)",
+        count, len(items), errors,
+    )
     return count
 
 
@@ -2211,10 +2275,13 @@ async def run_dunnes_scraper():
 
 
 async def run_supervalu_scraper():
-    """Run SuperValu HTML scraper standalone."""
-    log.info("Starting SuperValu HTML promotions scraper...")
+    """Run SuperValu scraper using Mi9 JSON API (proper pagination).
+    The HTML scraper (_scrape_supervalu_attempt) has broken pagination:
+    ?page=N is ignored by the site, so all pages return page-1 content.
+    The Mi9 API uses ?page=&skip=&pageSize= which works correctly."""
+    log.info("Starting SuperValu Mi9 API scraper...")
     try:
-        await scrape_supervalu_promotions()
+        await scrape_mi9_store(SUPERVALU)
     except Exception as e:
         log.error(f"SuperValu scraper failed: {e}")
 

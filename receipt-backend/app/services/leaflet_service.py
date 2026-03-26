@@ -190,13 +190,14 @@ async def process_pdf_leaflet(db: Client, store_name: str, pdf_url: str) -> None
                 }, on_conflict="product_key,store_name,source").execute()
                 total_items += 1
 
+        total_pages = len(doc)
         doc.close()
 
         # Update leaflet status
         if leaflet_id:
             db.table("leaflets").update({
                 "status": "done",
-                "page_count": len(doc) if not doc.is_closed else page_num + 1,
+                "page_count": total_pages,
                 "items_extracted": total_items,
             }).eq("id", leaflet_id).execute()
 
