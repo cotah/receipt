@@ -1086,10 +1086,17 @@ def _lidl_flyer_slug(today: datetime | None = None) -> str:
 
 
 async def scrape_lidl_leaflet() -> None:
-    """Fetch the current Lidl Ireland weekly flyer and save products."""
+    """Fetch the current Lidl Ireland weekly flyer via Schwarz API structured data.
+
+    Uses pages[].links[] from the API (real product data), NOT PDF OCR.
+    For each product, fetches the price from the lidl.ie product page.
+    """
     db = get_service_client()
     run_id = _start_run(db, "Lidl")
     now = datetime.now(timezone.utc)
+    default_expires = now + timedelta(days=7)
+    total_saved = 0
+    errors = 0
 
     slug = _lidl_flyer_slug(now)
     log.info("Lidl scraper: slug=%s", slug)
@@ -1119,36 +1126,175 @@ async def scrape_lidl_leaflet() -> None:
             )
             return
 
-        # Get PDF URL directly from Schwarz API response
-        flyer_data = data.get("flyer", data) if isinstance(data, dict) else {}
-        pdf_url = flyer_data.get("hiResPdfUrl") or flyer_data.get("pdfUrl")
+        # Parse flyer end date for expiry
+        flyer_end = default_expires
+        flyer_info = data if isinstance(data, dict) else {}
+        end_str = (
+            flyer_info.get("endDate") or flyer_info.get("end_date")
+        )
+        if end_str:
+            try:
+                dt = dateutil_parser.isoparse(end_str)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                flyer_end = dt
+            except (ValueError, TypeError):
+                pass
 
-        if not pdf_url:
-            log.warning("Lidl scraper: no PDF URL in API response")
+        # Extract products from structured API data: pages[].links[]
+        flyer_data = data.get("flyer", data)
+        pages = flyer_data.get("pages", [])
+
+        product_links: list[dict] = []
+        for pg in pages:
+            for link in pg.get("links", []):
+                if link.get("displayType") == "product":
+                    pd = link.get("productDetails", {})
+                    title = (
+                        link.get("title")
+                        or pd.get("title", "")
+                    )
+                    product_id = pd.get("productId", "")
+                    url = link.get("url", "")
+                    # Try to get price directly from API data
+                    price_raw = (
+                        pd.get("price")
+                        or pd.get("currentPrice")
+                        or link.get("price")
+                    )
+                    if title:
+                        product_links.append({
+                            "title": title.strip(),
+                            "productId": product_id,
+                            "url": url,
+                            "api_price": price_raw,
+                        })
+
+        # Deduplicate by productId
+        seen: set[str] = set()
+        unique_links: list[dict] = []
+        for lnk in product_links:
+            key = lnk["productId"] or lnk["title"]
+            if key and key not in seen:
+                seen.add(key)
+                unique_links.append(lnk)
+
+        log.info(
+            "Lidl scraper: found %d unique products in API data",
+            len(unique_links),
+        )
+
+        if not unique_links:
             _finish_run(
                 db, run_id, status="failed", fallback_level=0,
                 items_saved=0,
-                error_detail="No PDF URL in Schwarz API response",
+                error_detail=(
+                    f"Zero products in API response (slug={slug}). "
+                    f"Pages: {len(pages)}"
+                ),
             )
             return
 
-        # Get valid dates from API
-        end_date_str = (
-            flyer_data.get("endDate") or flyer_data.get("end_date")
-        )
+        # Fetch prices from product pages (batched)
+        async def _fetch_lidl_price(http_client, lnk):
+            """Fetch price for a Lidl product from its web page."""
+            # If API had a price, use it directly
+            if lnk.get("api_price") is not None:
+                try:
+                    return {
+                        "title": lnk["title"],
+                        "price": float(lnk["api_price"]),
+                    }
+                except (ValueError, TypeError):
+                    pass
+
+            # Otherwise fetch from product URL
+            try:
+                url = (
+                    lnk["url"]
+                    or f"https://www.lidl.ie/p/p{lnk['productId']}"
+                )
+                if not url.startswith("http"):
+                    url = f"https://www.lidl.ie{url}"
+                r = await http_client.get(url, timeout=15)
+                if r.status_code != 200:
+                    return None
+                prices_found = re.findall(
+                    r"€\s*([\d]+\.[\d]{2})", r.text
+                )
+                if not prices_found:
+                    return None
+                price = float(min(prices_found, key=float))
+                return {"title": lnk["title"], "price": price}
+            except Exception as e:
+                log.debug(
+                    "Lidl price fetch failed for %s: %s",
+                    lnk.get("productId"),
+                    e,
+                )
+                return None
+
+        # Fetch prices in batches of 10
+        products: list[dict] = []
+        batch_size = 10
+        for i in range(0, len(unique_links), batch_size):
+            batch = unique_links[i: i + batch_size]
+            results = await asyncio.gather(
+                *[_fetch_lidl_price(client, lnk) for lnk in batch]
+            )
+            products.extend([r for r in results if r])
+            await asyncio.sleep(0.5)
+
         log.info(
-            "Lidl scraper: PDF found — %s (valid until %s)",
-            pdf_url, end_date_str,
+            "Lidl scraper: got prices for %d/%d products",
+            len(products),
+            len(unique_links),
         )
 
-        # Process PDF using the same pipeline as Aldi
-        from app.services.leaflet_service import process_pdf_leaflet
+        # Save to collective_prices
+        for item in products:
+            try:
+                name = item["title"]
+                price = item["price"]
+                if not name or price is None or price <= 0:
+                    continue
 
-        await process_pdf_leaflet(db, "Lidl", pdf_url)
+                product_key = generate_product_key(name)
 
-        _finish_run(db, run_id, status="success", fallback_level=0,
-                    items_saved=0)
-        log.info("Lidl scraper: PDF processing complete")
+                db.table("collective_prices").upsert(
+                    {
+                        "product_key": product_key,
+                        "product_name": name,
+                        "category": "Other",
+                        "store_name": "Lidl",
+                        "unit_price": price,
+                        "is_on_offer": True,
+                        "source": "leaflet",
+                        "observed_at": now.isoformat(),
+                        "expires_at": flyer_end.isoformat(),
+                    },
+                    on_conflict="product_key,store_name,source",
+                ).execute()
+                total_saved += 1
+            except Exception as e:
+                errors += 1
+                log.warning("Lidl scraper: item error: %s", e)
+
+    _finish_run(
+        db, run_id,
+        status="success" if total_saved > 0 else "failed",
+        fallback_level=0,
+        items_saved=total_saved,
+        error_detail=(
+            None if total_saved > 0
+            else "Zero items saved — slug or API may have changed"
+        ),
+    )
+    log.info(
+        "Lidl scraper: finished — %d items saved, %d errors",
+        total_saved,
+        errors,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -2517,16 +2663,12 @@ async def run_supervalu_scraper():
 
 
 async def run_lidl_scraper():
-    """Lidl scraper DISABLED — PDF OCR pipeline produces unreliable data.
-    The Schwarz API provides a PDF URL but processing it via OCR + AI
-    causes hallucinated products (e.g. Coca-Cola, branded items Lidl
-    doesn't actually have in their leaflet).
-    Fix needed: parse Schwarz API structured data (pages[].links[])
-    instead of OCR'ing the PDF. Re-enable after fix."""
-    log.info(
-        "Lidl scraper disabled — PDF OCR produces unreliable data. "
-        "Needs fix to use Schwarz API structured data instead."
-    )
+    """Run Lidl leaflet scraper using Schwarz API structured data."""
+    log.info("Starting Lidl leaflet scraper (structured API)...")
+    try:
+        await scrape_lidl_leaflet()
+    except Exception as e:
+        log.error(f"Lidl scraper failed: {e}")
 
 
 async def run_tesco_scraper():
