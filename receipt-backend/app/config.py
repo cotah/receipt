@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     APIFY_ACTOR_TESCO: str = "t36eNfgaUdCTqMetE"
     APIFY_ACTOR_DUNNES: str = ""
     APIFY_ACTOR_SUPERVALU: str = ""
+    APIFY_ACTOR_ALDI: str = ""
 
     # Email (Resend)
     RESEND_API_KEY: str = ""

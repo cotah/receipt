@@ -2667,17 +2667,152 @@ async def scrape_tesco_promotions() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def run_leaflet_job():
-    """Download and process weekly leaflets from Irish supermarkets."""
-    log.info("Starting leaflet processing job...")
-    try:
-        from app.services.leaflet_service import fetch_and_process_leaflets
+async def scrape_aldi_leaflet() -> None:
+    """Scrape Aldi Ireland leaflet using Apify Playwright actor + OCR.
 
-        db = get_service_client()
-        await fetch_and_process_leaflets(db)
-        log.info("Leaflet processing completed")
+    Flow:
+    1. Apify actor navigates leaflet.aldi.ie pages 1-7 and captures images
+    2. Backend fetches page images from Apify dataset (base64)
+    3. Each image is OCR'd with Gemini, then products extracted with GPT
+    4. Products saved to collective_prices
+    """
+    from app.services.ocr_service import extract_text_from_pdf_page
+    from app.services.extraction_service import extract_leaflet_products
+
+    db = get_service_client()
+    run_id = _start_run(db, "Aldi")
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(days=7)
+    total_saved = 0
+    errors = 0
+
+    actor_id = settings.APIFY_ACTOR_ALDI
+    if not actor_id or not settings.APIFY_API_TOKEN:
+        log.info("Aldi scraper: Apify not configured — skipping")
+        _finish_run(
+            db, run_id, status="failed", fallback_level=0,
+            items_saved=0,
+            error_detail="APIFY_ACTOR_ALDI not configured",
+        )
+        return
+
+    log.info("Aldi scraper: starting Apify actor %s...", actor_id)
+
+    # Run actor (smart reuse will use recent dataset if available)
+    items = await _run_apify_actor(
+        actor_id,
+        {"maxPages": 7},
+        timeout_secs=600,
+        poll_interval=20,
+    )
+
+    if not items:
+        log.warning("Aldi scraper: Apify returned 0 items")
+        _finish_run(
+            db, run_id, status="failed", fallback_level=0,
+            items_saved=0,
+            error_detail="Apify actor returned 0 pages",
+        )
+        return
+
+    log.info("Aldi scraper: processing %d page images...", len(items))
+
+    import base64
+
+    for item in items:
+        page_num = item.get("page", 0)
+        image_b64 = item.get("image_base64", "")
+
+        if not image_b64:
+            log.warning("Aldi scraper: page %d has no image", page_num)
+            continue
+
+        try:
+            # Decode base64 → bytes
+            # Handle data:image/jpeg;base64,... prefix
+            if "," in image_b64:
+                image_b64 = image_b64.split(",", 1)[1]
+            img_bytes = base64.b64decode(image_b64)
+
+            # OCR the page image
+            raw_text = await extract_text_from_pdf_page(img_bytes)
+            if not raw_text or len(raw_text) < 20:
+                log.info(
+                    "Aldi scraper: page %d — OCR returned too little text (%d chars)",
+                    page_num, len(raw_text or ""),
+                )
+                continue
+
+            # Extract products with GPT
+            products = await extract_leaflet_products(raw_text, "Aldi")
+            log.info(
+                "Aldi scraper: page %d — %d products extracted",
+                page_num, len(products),
+            )
+
+            for product in products:
+                try:
+                    name = product.get("product_name", "")
+                    price = product.get("unit_price")
+                    if not name or price is None or float(price) <= 0:
+                        continue
+
+                    from app.utils.price_utils import get_ttl_days
+                    category = product.get("category", "Other")
+                    ttl_days = get_ttl_days(category)
+
+                    product_key = generate_product_key(
+                        name, product.get("unit"),
+                    )
+                    db.table("collective_prices").upsert(
+                        {
+                            "product_key": product_key,
+                            "product_name": name,
+                            "category": category,
+                            "store_name": "Aldi",
+                            "unit_price": float(price),
+                            "unit": product.get("unit"),
+                            "is_on_offer": product.get("is_on_offer", True),
+                            "source": "leaflet",
+                            "observed_at": now.isoformat(),
+                            "expires_at": (
+                                now + timedelta(days=max(ttl_days, 7))
+                            ).isoformat(),
+                        },
+                        on_conflict="product_key,store_name,source",
+                    ).execute()
+                    total_saved += 1
+                except Exception as e:
+                    errors += 1
+                    log.warning("Aldi scraper: item save error: %s", e)
+
+        except Exception as e:
+            errors += 1
+            log.warning("Aldi scraper: page %d processing error: %s", page_num, e)
+
+    _finish_run(
+        db, run_id,
+        status="success" if total_saved > 0 else "failed",
+        fallback_level=0,
+        items_saved=total_saved,
+        error_detail=(
+            None if total_saved > 0
+            else f"Zero items after OCR ({len(items)} pages processed)"
+        ),
+    )
+    log.info(
+        "Aldi scraper: finished — %d items saved, %d errors",
+        total_saved, errors,
+    )
+
+
+async def run_leaflet_job():
+    """Run Aldi leaflet scraper via Apify actor + OCR."""
+    log.info("Starting Aldi leaflet scraper (Apify + OCR)...")
+    try:
+        await scrape_aldi_leaflet()
     except Exception as e:
-        log.error(f"Leaflet job failed: {e}")
+        log.error(f"Aldi scraper failed: {e}")
 
 
 async def run_dunnes_scraper():
