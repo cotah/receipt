@@ -155,6 +155,10 @@ async def _run_apify_actor(
     try:
         async with httpx.AsyncClient(timeout=120) as client:
             # ── Step 1: Check recent runs for reusable data ──
+            best_ds_id = None
+            best_ds_count = 0
+            running_run_id = None
+            running_ds_id = None
             try:
                 runs_resp = await client.get(
                     f"https://api.apify.com/v2/acts/{actor_id}/runs",
@@ -171,8 +175,17 @@ async def _run_apify_actor(
                         .get("items", [])
                     )
 
-                    # Look for a SUCCEEDED run with data
+                    # Find the BEST dataset (most items) among
+                    # recent SUCCEEDED runs
                     for prev_run in recent_runs:
+                        if prev_run.get("status") == "RUNNING":
+                            if not running_run_id:
+                                running_run_id = prev_run.get("id")
+                                running_ds_id = prev_run.get(
+                                    "defaultDatasetId"
+                                )
+                            continue
+
                         if prev_run.get("status") != "SUCCEEDED":
                             continue
                         ds_id = prev_run.get("defaultDatasetId")
@@ -195,46 +208,50 @@ async def _run_apify_actor(
                             except Exception:
                                 pass
 
-                        # Check dataset has items
-                        ds_resp = await client.get(
-                            f"https://api.apify.com/v2/datasets/{ds_id}",
-                            params={"token": token},
-                        )
-                        if ds_resp.status_code == 200:
-                            item_count = (
-                                ds_resp.json()
-                                .get("data", {})
-                                .get("itemCount", 0)
+                        # Check dataset item count
+                        try:
+                            ds_resp = await client.get(
+                                f"https://api.apify.com/v2/"
+                                f"datasets/{ds_id}",
+                                params={"token": token},
                             )
-                            if item_count > 0:
-                                log.info(
-                                    "Apify: reusing recent dataset %s "
-                                    "(%d items)",
-                                    ds_id,
-                                    item_count,
+                            if ds_resp.status_code == 200:
+                                item_count = (
+                                    ds_resp.json()
+                                    .get("data", {})
+                                    .get("itemCount", 0)
                                 )
-                                return await _fetch_apify_dataset(
-                                    client, token, actor_id, ds_id
-                                )
+                                if item_count > best_ds_count:
+                                    best_ds_count = item_count
+                                    best_ds_id = ds_id
+                        except Exception:
+                            pass
 
-                    # Look for a RUNNING run — wait for it
-                    for prev_run in recent_runs:
-                        if prev_run.get("status") != "RUNNING":
-                            continue
-                        run_id = prev_run.get("id")
-                        ds_id = prev_run.get("defaultDatasetId")
-                        if run_id and ds_id:
-                            log.info(
-                                "Apify: actor %s already running "
-                                "(run=%s) — waiting for it",
-                                actor_id,
-                                run_id,
-                            )
-                            return await _wait_and_fetch_apify(
-                                client, token, actor_id,
-                                run_id, ds_id,
-                                timeout_secs, poll_interval,
-                            )
+                    # Use the best dataset if found
+                    if best_ds_id and best_ds_count > 0:
+                        log.info(
+                            "Apify: reusing best recent dataset %s "
+                            "(%d items)",
+                            best_ds_id,
+                            best_ds_count,
+                        )
+                        return await _fetch_apify_dataset(
+                            client, token, actor_id, best_ds_id
+                        )
+
+                    # Or wait for a running run
+                    if running_run_id and running_ds_id:
+                        log.info(
+                            "Apify: actor %s already running "
+                            "(run=%s) — waiting for it",
+                            actor_id,
+                            running_run_id,
+                        )
+                        return await _wait_and_fetch_apify(
+                            client, token, actor_id,
+                            running_run_id, running_ds_id,
+                            timeout_secs, poll_interval,
+                        )
             except Exception as e:
                 log.warning(
                     "Apify: error checking recent runs: %s", e
