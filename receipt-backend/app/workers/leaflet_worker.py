@@ -2183,17 +2183,10 @@ def _save_tesco_apify_items(db, items: list) -> int:
                 continue
 
             promo = item.get("promotion")
-            is_on_offer = promo is not None
-
-            item_expires = expires_at
-            if promo and promo.get("valid_to"):
-                try:
-                    dt = dateutil_parser.isoparse(promo["valid_to"])
-                    if dt.tzinfo is None:
-                        dt = dt.replace(tzinfo=timezone.utc)
-                    item_expires = dt
-                except (ValueError, TypeError):
-                    pass
+            # promo is a plain string from the custom actor (e.g. "Clubcard Price...")
+            # not a dict — just use it directly for is_on_offer flag
+            is_on_offer = bool(promo)
+            item_expires = expires_at  # use default 7-day expiry
 
             product_key = generate_product_key(name)
             category = (
