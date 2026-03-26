@@ -1937,7 +1937,9 @@ async def _scrape_supervalu_attempt(
 
                 await _page_delay()
 
-        if total_saved > 0:
+        if total_saved >= 100:
+            # At least 100 items = meaningful data (site has ~3600).
+            # 30 items means only page 1 was captured (pagination broken).
             return {
                 "success": True,
                 "items_saved": total_saved,
@@ -1945,10 +1947,10 @@ async def _scrape_supervalu_attempt(
             }
         return {
             "success": False,
-            "items_saved": 0,
+            "items_saved": total_saved,
             "error": (
-                "Zero items saved — possible block or "
-                "HTML structure change"
+                f"Only {total_saved} items saved (threshold=100) — "
+                "SSR pagination broken, falling back to Apify"
             ),
         }
 
