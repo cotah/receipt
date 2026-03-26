@@ -2517,12 +2517,16 @@ async def run_supervalu_scraper():
 
 
 async def run_lidl_scraper():
-    """Run Lidl leaflet scraper standalone."""
-    log.info("Starting Lidl leaflet scraper...")
-    try:
-        await scrape_lidl_leaflet()
-    except Exception as e:
-        log.error(f"Lidl scraper failed: {e}")
+    """Lidl scraper DISABLED — PDF OCR pipeline produces unreliable data.
+    The Schwarz API provides a PDF URL but processing it via OCR + AI
+    causes hallucinated products (e.g. Coca-Cola, branded items Lidl
+    doesn't actually have in their leaflet).
+    Fix needed: parse Schwarz API structured data (pages[].links[])
+    instead of OCR'ing the PDF. Re-enable after fix."""
+    log.info(
+        "Lidl scraper disabled — PDF OCR produces unreliable data. "
+        "Needs fix to use Schwarz API structured data instead."
+    )
 
 
 async def run_tesco_scraper():
