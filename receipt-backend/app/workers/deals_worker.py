@@ -35,25 +35,17 @@ def _get_ai():
 
 async def _generate_trending_deals(db, count: int = 4) -> list[dict]:
     """Find the best trending deals based on:
-    - Products available at 2+ stores with biggest price gap
+    - Products available at 2+ stores with biggest price gap (smart grouping)
     - Products with is_on_offer=true
     - Cross-store savings opportunities
     """
+    from app.services.search_service import _normalize_for_grouping, _token_similarity
+
     now = datetime.now(timezone.utc)
     deals = []
     seen_keys: set[str] = set()
 
-    # Strategy A: Biggest cross-store savings (same product, different prices)
-    try:
-        cross_store = db.rpc(
-            "get_cross_store_deals", {}
-        ).execute()
-        # Fallback: raw SQL via collective_prices
-    except Exception:
-        cross_store = None
-
-    # Since RPC may not exist, do it with queries
-    # Get all on-offer products grouped by product_key
+    # Get all on-offer products
     try:
         offers = (
             db.table("collective_prices")
@@ -62,73 +54,87 @@ async def _generate_trending_deals(db, count: int = 4) -> list[dict]:
             .eq("is_on_offer", True)
             .gte("expires_at", now.isoformat())
             .order("unit_price")
+            .limit(500)
             .execute()
         )
     except Exception as e:
         log.error("Trending: failed to fetch offers: %s", e)
         return []
 
-    # Group by product_key to find cross-store opportunities
-    product_map: dict[str, list[dict]] = {}
+    # Smart grouping: normalize names and find same product across stores
+    groups: list[dict] = []
     for row in offers.data or []:
-        key = row["product_key"]
-        if key not in product_map:
-            product_map[key] = []
-        product_map[key].append(row)
+        norm = _normalize_for_grouping(row["product_name"])
+        entry = {
+            "product_key": row["product_key"],
+            "product_name": row["product_name"],
+            "store_name": row["store_name"],
+            "unit_price": float(row["unit_price"]),
+            "category": row.get("category", "Other"),
+        }
 
-    # Find products with biggest price difference across stores
-    savings_list: list[tuple[float, str, dict, dict]] = []
-    for key, entries in product_map.items():
-        if len(entries) < 2:
-            continue
-        stores = {}
-        for e in entries:
-            s = e["store_name"]
-            if s not in stores or e["unit_price"] < stores[s]["unit_price"]:
-                stores[s] = e
-        if len(stores) < 2:
-            continue
-        prices = sorted(stores.values(), key=lambda x: x["unit_price"])
-        cheapest = prices[0]
-        most_expensive = prices[-1]
-        saving = float(most_expensive["unit_price"]) - float(cheapest["unit_price"])
-        if saving > 0.20:  # at least 20c saving
-            pct = saving / float(most_expensive["unit_price"]) * 100
-            savings_list.append((pct, key, cheapest, most_expensive))
+        matched = False
+        for group in groups:
+            if _token_similarity(norm, group["norm"]) >= 0.6:
+                existing_stores = {s["store_name"] for s in group["stores"]}
+                if entry["store_name"] not in existing_stores:
+                    group["stores"].append(entry)
+                matched = True
+                break
 
-    savings_list.sort(key=lambda x: -x[0])  # highest % savings first
+        if not matched:
+            groups.append({"norm": norm, "stores": [entry]})
 
-    for pct, key, cheapest, expensive in savings_list[:count]:
-        if key in seen_keys:
+    # Find groups with biggest cross-store savings
+    savings_list: list[tuple[float, dict]] = []
+    for group in groups:
+        if len(group["stores"]) < 2:
             continue
-        seen_keys.add(key)
+        group["stores"].sort(key=lambda s: s["unit_price"])
+        cheapest = group["stores"][0]
+        expensive = group["stores"][-1]
+        saving = expensive["unit_price"] - cheapest["unit_price"]
+        if saving > 0.20 and cheapest["unit_price"] > 0.30:
+            pct = saving / expensive["unit_price"] * 100
+            savings_list.append((pct, {
+                "cheapest": cheapest,
+                "expensive": expensive,
+                "pct": pct,
+                "saving": saving,
+            }))
+
+    savings_list.sort(key=lambda x: -x[0])
+
+    for pct, match in savings_list[:count]:
+        c = match["cheapest"]
+        e = match["expensive"]
+        if c["product_key"] in seen_keys:
+            continue
+        seen_keys.add(c["product_key"])
         deals.append({
-            "product_key": key,
-            "product_name": cheapest["product_name"],
-            "store_name": cheapest["store_name"],
-            "current_price": float(cheapest["unit_price"]),
-            "avg_price_4w": float(expensive["unit_price"]),
-            "discount_pct": int(pct),
-            "category": cheapest.get("category", "Other"),
+            "product_key": c["product_key"],
+            "product_name": c["product_name"],
+            "store_name": c["store_name"],
+            "current_price": c["unit_price"],
+            "avg_price_4w": e["unit_price"],
+            "discount_pct": int(match["pct"]),
+            "category": c.get("category", "Other"),
             "deal_type": "global",
             "promotion_text": (
-                f"Save {pct:.0f}% — €{float(cheapest['unit_price']):.2f} at "
-                f"{cheapest['store_name']} vs €{float(expensive['unit_price']):.2f} "
-                f"at {expensive['store_name']}"
+                f"Save {match['pct']:.0f}% — €{c['unit_price']:.2f} at "
+                f"{c['store_name']} vs €{e['unit_price']:.2f} at {e['store_name']}"
             ),
         })
 
-    # Fill remaining slots with cheapest on-offer products
+    # Fill remaining slots with cheapest on-offer products (>€0.50 to avoid junk)
     if len(deals) < count:
-        cheap_offers = sorted(
-            [r for r in (offers.data or []) if r["product_key"] not in seen_keys],
-            key=lambda x: float(x["unit_price"]),
-        )
+        cheap_offers = [
+            r for r in (offers.data or [])
+            if r["product_key"] not in seen_keys and float(r["unit_price"]) >= 0.50
+        ]
         for row in cheap_offers:
             if len(deals) >= count:
                 break
-            if row["product_key"] in seen_keys:
-                continue
             seen_keys.add(row["product_key"])
             deals.append({
                 "product_key": row["product_key"],
