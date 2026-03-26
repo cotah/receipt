@@ -19,6 +19,7 @@ LEAFLET_SOURCES = {
         "url": "https://www.aldi.ie/leaflet",
         "pdf_pattern": r"leaflet\.aldi\.ie",
         "parser": "aldi",
+        "max_pages": 7,  # Pages 1-7 are grocery, after that it's tools/clothes
     },
 }
 
@@ -40,7 +41,8 @@ async def fetch_and_process_leaflets(db: Client) -> None:
             log.info(f"Processing {store_name} leaflet...")
             pdf_url = await find_latest_pdf(source)
             if pdf_url:
-                await process_pdf_leaflet(db, store_name, pdf_url)
+                max_pages = source.get("max_pages")
+                await process_pdf_leaflet(db, store_name, pdf_url, max_pages=max_pages)
                 log.info(f"{store_name} leaflet processed")
             else:
                 log.warning(f"No PDF found for {store_name}")
@@ -132,8 +134,17 @@ async def find_latest_pdf(source: dict) -> str | None:
         return None
 
 
-async def process_pdf_leaflet(db: Client, store_name: str, pdf_url: str) -> None:
-    """Download PDF, convert pages to images, OCR, extract products."""
+async def process_pdf_leaflet(
+    db: Client, store_name: str, pdf_url: str, max_pages: int | None = None,
+) -> int:
+    """Download PDF, convert pages to images, OCR, extract products.
+
+    Args:
+        max_pages: Only process this many pages (e.g. Aldi has grocery
+                   items on pages 1-7, non-grocery after that).
+    Returns:
+        Number of items extracted.
+    """
     # Create leaflet record
     now = datetime.now(timezone.utc)
     valid_from = now.date()
@@ -157,8 +168,15 @@ async def process_pdf_leaflet(db: Client, store_name: str, pdf_url: str) -> None
 
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         total_items = 0
+        total_pages = len(doc)
+        pages_to_process = min(total_pages, max_pages) if max_pages else total_pages
 
-        for page_num in range(len(doc)):
+        log.info(
+            "%s PDF: %d pages total, processing %d",
+            store_name, total_pages, pages_to_process,
+        )
+
+        for page_num in range(pages_to_process):
             page = doc[page_num]
             mat = fitz.Matrix(2, 2)  # 2x zoom for better OCR
             pix = page.get_pixmap(matrix=mat)
@@ -169,6 +187,11 @@ async def process_pdf_leaflet(db: Client, store_name: str, pdf_url: str) -> None
 
             # Extract products with GPT
             products = await extract_leaflet_products(raw_text, store_name)
+
+            log.info(
+                "%s PDF: page %d/%d — %d products extracted",
+                store_name, page_num + 1, pages_to_process, len(products),
+            )
 
             # Save to collective prices
             for product in products:
@@ -193,16 +216,17 @@ async def process_pdf_leaflet(db: Client, store_name: str, pdf_url: str) -> None
                 }, on_conflict="product_key,store_name,source").execute()
                 total_items += 1
 
-        total_pages = len(doc)
         doc.close()
 
         # Update leaflet status
         if leaflet_id:
             db.table("leaflets").update({
                 "status": "done",
-                "page_count": total_pages,
+                "page_count": pages_to_process,
                 "items_extracted": total_items,
             }).eq("id", leaflet_id).execute()
+
+        return total_items
 
     except Exception as e:
         log.error(f"Error processing PDF for {store_name}: {e}")
