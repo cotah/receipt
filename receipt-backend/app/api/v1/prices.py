@@ -209,3 +209,59 @@ async def get_leaflet_offers(
     )
     set_cache(cache_key, response.model_dump(mode="json"), ttl_seconds=3600)
     return response
+
+
+@router.get("/smart-search")
+async def smart_search_products(
+    q: str = Query(..., min_length=2, description="Search query"),
+    limit: int = Query(20, ge=1, le=50),
+    user_id: str = Depends(get_current_user),
+):
+    """Smart product search with cross-store grouping.
+
+    Searches all leaflet products and groups the same product
+    from different stores together, so the user can compare prices
+    at a glance. Results are sorted: multi-store matches first,
+    then by cheapest price.
+    """
+    from app.services.search_service import smart_search
+
+    cache_key = f"smart_search:{q.lower().strip()}:{limit}"
+    cached = get_cache(cache_key)
+    if cached:
+        return cached
+
+    result = await smart_search(q, limit=limit)
+    set_cache(cache_key, result, ttl_seconds=1800)  # 30 min cache
+    return result
+
+
+@router.get("/alternatives")
+async def get_alternatives(
+    product_name: str = Query(
+        ..., min_length=2, description="Product to find alternatives for"
+    ),
+    limit: int = Query(6, ge=1, le=15),
+    user_id: str = Depends(get_current_user),
+):
+    """AI-powered cheaper alternatives for a given product.
+
+    Uses OpenAI to understand the product category and find
+    similar/cheaper alternatives from different brands in the database.
+    Example: 'Nutella 400g' → suggests store-brand hazelnut spreads.
+    """
+    from app.services.search_service import find_alternatives
+
+    cache_key = f"alternatives:{product_name.lower().strip()}"
+    cached = get_cache(cache_key)
+    if cached:
+        return cached
+
+    alternatives = await find_alternatives(product_name, limit=limit)
+    result = {
+        "product_name": product_name,
+        "alternatives": alternatives,
+        "total": len(alternatives),
+    }
+    set_cache(cache_key, result, ttl_seconds=3600)  # 1h cache
+    return result
