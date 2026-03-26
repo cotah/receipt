@@ -1096,6 +1096,7 @@ async def scrape_lidl_leaflet() -> None:
     now = datetime.now(timezone.utc)
     default_expires = now + timedelta(days=7)
     total_saved = 0
+    skipped = 0
     errors = 0
 
     slug = _lidl_flyer_slug(now)
@@ -1251,12 +1252,48 @@ async def scrape_lidl_leaflet() -> None:
             len(unique_links),
         )
 
-        # Save to collective_prices
+        # Save to collective_prices (grocery items only)
+        # Lidl leaflets include tools, clothes, toys etc — filter those out
+        _LIDL_NON_GROCERY_BRANDS = {
+            "parkside", "silvercrest", "crivit", "esmara", "livergy",
+            "ernesto", "florabest", "livarno", "melinera", "auriol",
+            "sanitas", "ideenwelt", "powerfix", "ultimate speed",
+        }
+        _LIDL_NON_GROCERY_KEYWORDS = {
+            "chainsaw", "lawnmower", "pressure washer", "hedge trimmer",
+            "pruner", "pruning saw", "cable reel", "hose reel",
+            "hose", "work trousers", "work gloves", "cargo",
+            "hoodie", "sweatshorts", "t-shirt", "joggers", "leggings",
+            "sneakers", "clogs", "slippers", "pyjamas",
+            "puzzle", "stationery", "soft toy", "nanofigures",
+            "lego", "minecraft", "super mario", "zuru",
+            "induction hob", "microwave", "toaster", "kettle",
+            "vacuum sealer", "sealing clips",
+            "frying pan", "knife assortment",
+            "grass trimmer", "combi-shear", "pole pruner",
+        }
+
         for item in products:
             try:
                 name = item["title"]
                 price = item["price"]
                 if not name or price is None or price <= 0:
+                    continue
+
+                # Filter non-grocery items
+                name_lower = name.lower()
+                is_non_grocery = False
+                for brand in _LIDL_NON_GROCERY_BRANDS:
+                    if brand in name_lower:
+                        is_non_grocery = True
+                        break
+                if not is_non_grocery:
+                    for kw in _LIDL_NON_GROCERY_KEYWORDS:
+                        if kw in name_lower:
+                            is_non_grocery = True
+                            break
+                if is_non_grocery:
+                    skipped += 1
                     continue
 
                 product_key = generate_product_key(name)
@@ -1291,8 +1328,9 @@ async def scrape_lidl_leaflet() -> None:
         ),
     )
     log.info(
-        "Lidl scraper: finished — %d items saved, %d errors",
+        "Lidl scraper: finished — %d items saved, %d skipped (non-grocery), %d errors",
         total_saved,
+        skipped,
         errors,
     )
 

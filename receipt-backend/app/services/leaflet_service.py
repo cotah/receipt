@@ -49,10 +49,11 @@ async def fetch_and_process_leaflets(db: Client) -> None:
 
 
 async def _find_aldi_pdf(source: dict) -> str | None:
-    """Find the Aldi leaflet PDF via BeautifulSoup.
+    """Find the Aldi leaflet PDF from aldi.ie/leaflet page.
 
-    The Aldi leaflet page has 'View Now' links pointing to
-    leaflet.aldi.ie/{slug}. The PDF is at that URL + /pdf.
+    Priority:
+    1. Direct CDN PDF link (cdn.aldi-digital.co.uk/*.pdf) — always works
+    2. leaflet.aldi.ie slug — append /pdf (legacy, may 404)
     """
     try:
         async with httpx.AsyncClient(
@@ -63,25 +64,27 @@ async def _find_aldi_pdf(source: dict) -> str | None:
 
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Find links to leaflet.aldi.ie
+        # Priority 1: Direct PDF link (CDN)
+        for a_tag in soup.find_all("a", href=True):
+            href = a_tag["href"]
+            if href.endswith(".pdf") and "aldi" in href.lower():
+                log.info("Aldi: found direct PDF at %s", href)
+                return href
+
+        # Priority 2: Any .pdf link
+        for a_tag in soup.find_all("a", href=True):
+            href = a_tag["href"]
+            if href.endswith(".pdf"):
+                log.info("Aldi: found PDF link at %s", href)
+                return href
+
+        # Priority 3: leaflet.aldi.ie slug → /pdf (may 404)
         for a_tag in soup.find_all("a", href=True):
             href = a_tag["href"]
             if "leaflet.aldi.ie" in href:
-                # Normalise: strip trailing slash, append /pdf
                 slug_url = href.rstrip("/")
                 pdf_url = f"{slug_url}/pdf"
-                log.info("Aldi: found leaflet PDF at %s", pdf_url)
-                return pdf_url
-
-        # Fallback: look for any link with the slug pattern
-        for a_tag in soup.find_all("a", href=True):
-            href = a_tag["href"]
-            if re.search(r"aldi-ie-thur-\d{2}-\w+-\w+-\d{2}-\w+", href):
-                slug_url = href.rstrip("/")
-                if not slug_url.startswith("http"):
-                    slug_url = f"https://leaflet.aldi.ie/{slug_url}"
-                pdf_url = f"{slug_url}/pdf"
-                log.info("Aldi: found leaflet PDF (fallback) at %s", pdf_url)
+                log.info("Aldi: trying leaflet slug PDF at %s", pdf_url)
                 return pdf_url
 
     except Exception as e:

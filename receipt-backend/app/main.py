@@ -164,12 +164,14 @@ async def debug_run_scrapers():
         run_supervalu_scraper,
         run_tesco_scraper,
         run_lidl_scraper,
+        run_leaflet_job,
     )
 
     asyncio.create_task(run_supervalu_scraper())
     asyncio.create_task(run_tesco_scraper())
     asyncio.create_task(run_lidl_scraper())
-    return {"status": "started", "scrapers": ["supervalu", "tesco", "lidl"]}
+    asyncio.create_task(run_leaflet_job())  # Aldi
+    return {"status": "started", "scrapers": ["supervalu", "tesco", "lidl", "aldi"]}
 
 
 @app.post("/api/v1/debug/generate-deals")
