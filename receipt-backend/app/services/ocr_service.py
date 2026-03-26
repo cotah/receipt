@@ -45,9 +45,10 @@ Output plain text, no markdown.
 """
 
 LEAFLET_OCR_PROMPT = """
-Extract ONLY food and drink products from this supermarket leaflet page.
-Use your judgment — jacket potato is food, denim jacket is not;
-plant-based burger is food, plant pot is not.
+Extract ONLY supermarket grocery products from this leaflet page.
+Include: food, drinks, personal hygiene (shampoo, toothpaste, soap),
+household cleaning (detergent, bleach, surface cleaner), baby & pet products.
+Exclude: clothing, tools, electronics, furniture, garden plants, toys, books.
 
 For each food/drink product found, output one line in this format:
 NAME | PRICE | UNIT | ON_OFFER(yes/no)

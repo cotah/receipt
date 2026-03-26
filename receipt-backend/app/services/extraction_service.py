@@ -46,9 +46,24 @@ LEAFLET_EXTRACTION_PROMPT = """
 You are a leaflet product extractor for Irish supermarkets.
 Given raw text extracted from a {store_name} weekly leaflet page, return a JSON array of products.
 
-IMPORTANT: Extract ONLY food and drink products.
-Ignore clothing, garden, tools, household appliances, or any non-food items.
-Use common sense — jacket potato is food, plant-based milk is food.
+IMPORTANT: Extract ONLY supermarket grocery products. This includes:
+- Food & drink (all categories)
+- Personal hygiene & health (shampoo, toothpaste, soap, deodorant, vitamins)
+- Household cleaning & laundry (detergent, washing powder, surface cleaner, bleach)
+- Baby & pet food products
+- Kitchen & cooking essentials (cooking oil, foil, cling film)
+
+EXCLUDE (do NOT extract):
+- Clothing, shoes, accessories
+- Power tools, garden equipment, DIY items
+- Electronics, appliances, gadgets
+- Furniture, home decor, storage items
+- Plants, flowers, garden plants
+- Toys, books, stationery
+- Seasonal decorations
+- Automotive products
+
+Use common sense — if it belongs in a supermarket grocery aisle, include it.
 
 Return ONLY valid JSON array:
 [
@@ -62,8 +77,9 @@ Return ONLY valid JSON array:
   }}
 ]
 
-Categories (food only): Fruit & Veg, Dairy, Meat & Fish, Bakery, Frozen,
-Drinks, Snacks & Confectionery, Other.
+Categories: Fruit & Veg, Dairy, Meat & Fish, Bakery, Frozen,
+Drinks, Snacks & Confectionery, Personal Care, Cleaning & Household,
+Baby & Toddler, Pet Food, Other.
 
 If no food products exist in the text, return an empty array: []
 
