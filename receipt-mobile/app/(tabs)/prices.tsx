@@ -1,17 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useTabSwipe } from '../../hooks/useTabSwipe';
 import Input from '../../components/ui/Input';
-import PriceCompare from '../../components/prices/PriceCompare';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import StoreTag from '../../components/prices/StoreTag';
-import { Colors } from '../../constants/colors';
-import { Spacing } from '../../constants/typography';
+import { Colors, Shadows } from '../../constants/colors';
+import { Spacing, BorderRadius, Fonts } from '../../constants/typography';
 import { formatCurrency } from '../../utils/formatCurrency';
-import { usePrices } from '../../hooks/usePrices';
+import { usePrices, SearchResult, Alternative } from '../../hooks/usePrices';
 import api from '../../services/api';
 
 interface EligibleAlert {
@@ -22,16 +21,22 @@ interface EligibleAlert {
 
 export default function PricesScreen() {
   const [tab, setTab] = useState<'compare' | 'offers'>('compare');
-  const [search, setSearch] = useState('');
+  const [searchText, setSearchText] = useState('');
   const [eligibleAlerts, setEligibleAlerts] = useState<EligibleAlert[]>([]);
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
-  const { comparison, offers, isLoading, compareProduct, fetchLeafletOffers } = usePrices();
+
+  const {
+    offers, isLoading, fetchLeafletOffers,
+    searchResults, isSearching, smartSearch, clearSearch,
+    selectedProduct, selectProduct, clearSelection,
+    alternatives, isLoadingAlts,
+  } = usePrices();
 
   useEffect(() => {
     if (tab === 'offers') fetchLeafletOffers();
   }, [tab]);
 
-  // Fetch alerts eligible for savings confirmation (5-8h old)
+  // Fetch savings confirmation alerts
   useEffect(() => {
     (async () => {
       try {
@@ -70,8 +75,18 @@ export default function PricesScreen() {
     }
   }, []);
 
-  const handleSearch = () => {
-    if (search.trim()) compareProduct(search.trim());
+  const handleSearchChange = (text: string) => {
+    setSearchText(text);
+    if (selectedProduct) clearSelection();
+    smartSearch(text);
+  };
+
+  const handleProductTap = (result: SearchResult) => {
+    selectProduct(result);
+  };
+
+  const handleBack = () => {
+    clearSelection();
   };
 
   const swipe = useTabSwipe(2);
@@ -83,7 +98,7 @@ export default function PricesScreen() {
 
       {/* Tabs */}
       <View style={styles.tabs}>
-        <Pressable onPress={() => setTab('compare')} style={[styles.tab, tab === 'compare' && styles.tabActive]}>
+        <Pressable onPress={() => { setTab('compare'); clearSearch(); setSearchText(''); }} style={[styles.tab, tab === 'compare' && styles.tabActive]}>
           <Text style={[styles.tabText, tab === 'compare' && styles.tabTextActive]}>Compare</Text>
         </Pressable>
         <Pressable onPress={() => setTab('offers')} style={[styles.tab, tab === 'offers' && styles.tabActive]}>
@@ -99,10 +114,7 @@ export default function PricesScreen() {
             <Text style={styles.savingsText}>
               Did you go to {alert.store} because of our alert?
             </Text>
-            <Pressable
-              style={styles.savingsBtn}
-              onPress={() => handleConfirmSaving(alert.id)}
-            >
+            <Pressable style={styles.savingsBtn} onPress={() => handleConfirmSaving(alert.id)}>
               <Text style={styles.savingsBtnText}>Yes, I went! (+10pts)</Text>
             </Pressable>
           </View>
@@ -111,26 +123,157 @@ export default function PricesScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {tab === 'compare' && (
           <>
+            {/* Search bar */}
             <Input
-              placeholder="Search a product..."
-              value={search}
-              onChangeText={setSearch}
+              placeholder="Search products... (e.g. brioche, milk, nutella)"
+              value={searchText}
+              onChangeText={handleSearchChange}
               leftIcon="search"
-              onSubmitEditing={handleSearch}
               returnKeyType="search"
             />
-            {comparison && comparison.stores && comparison.stores.length > 0 && (
-              <PriceCompare
-                product_name={comparison.product_name}
-                unit={comparison.unit}
-                stores={comparison.stores}
-              />
+
+            {/* Loading */}
+            {isSearching && (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator size="small" color={Colors.primary.default} />
+                <Text style={styles.loadingText}>Searching...</Text>
+              </View>
             )}
-            {comparison && (!comparison.stores || comparison.stores.length === 0) && (
-              <Text style={styles.hint}>No price data yet for "{search}". Scan more receipts to build the price database!</Text>
+
+            {/* Product Detail View */}
+            {selectedProduct && !isSearching && (
+              <View style={styles.detailSection}>
+                {/* Back button */}
+                <Pressable onPress={handleBack} style={styles.backBtn}>
+                  <Text style={styles.backText}>← Back to results</Text>
+                </Pressable>
+
+                {/* Product card with all store prices */}
+                <Text style={styles.detailTitle}>{selectedProduct.display_name}</Text>
+
+                {selectedProduct.stores.length > 1 && selectedProduct.potential_saving && (
+                  <View style={styles.savingChip}>
+                    <Text style={styles.savingChipText}>
+                      Save {formatCurrency(selectedProduct.potential_saving)} by choosing {selectedProduct.cheapest_store}
+                    </Text>
+                  </View>
+                )}
+
+                {selectedProduct.stores.map((store, i) => (
+                  <Card key={store.store_name} style={[styles.storeRow, i === 0 && styles.storeRowCheapest]}>
+                    <View style={styles.storeRowInner}>
+                      <View style={styles.storeRowLeft}>
+                        <StoreTag storeName={store.store_name} size="md" />
+                        <Text style={styles.storeProductName} numberOfLines={2}>
+                          {store.product_name}
+                        </Text>
+                      </View>
+                      <View style={styles.storeRowRight}>
+                        <Text style={[styles.storePrice, i === 0 && styles.storePriceCheapest]}>
+                          {formatCurrency(store.unit_price)}
+                        </Text>
+                        {store.is_cheapest && <Badge text="CHEAPEST" variant="success" size="sm" />}
+                        {store.is_on_offer && <Badge text="OFFER" variant="warning" size="sm" />}
+                      </View>
+                    </View>
+                  </Card>
+                ))}
+
+                {/* AI Alternatives Section */}
+                <View style={styles.altSection}>
+                  <View style={styles.altHeader}>
+                    <Text style={styles.altTitle}>💡 Cheaper Alternatives</Text>
+                    <Text style={styles.altSubtitle}>AI-powered suggestions based on similar products</Text>
+                  </View>
+
+                  {isLoadingAlts && (
+                    <View style={styles.loadingRow}>
+                      <ActivityIndicator size="small" color={Colors.accent.blue} />
+                      <Text style={styles.loadingText}>Finding alternatives...</Text>
+                    </View>
+                  )}
+
+                  {!isLoadingAlts && alternatives.length === 0 && (
+                    <Text style={styles.altEmpty}>No alternatives found in current promotions</Text>
+                  )}
+
+                  {alternatives.map((alt, i) => (
+                    <Card key={`${alt.product_key}-${i}`} style={styles.altCard}>
+                      <View style={styles.altRow}>
+                        <View style={styles.altLeft}>
+                          <StoreTag storeName={alt.store_name} size="sm" />
+                          <Text style={styles.altName} numberOfLines={2}>{alt.product_name}</Text>
+                        </View>
+                        <View style={styles.altRight}>
+                          <Text style={styles.altPrice}>{formatCurrency(alt.unit_price)}</Text>
+                          {alt.is_on_offer && <Badge text="OFFER" variant="warning" size="sm" />}
+                        </View>
+                      </View>
+                    </Card>
+                  ))}
+                </View>
+              </View>
             )}
-            {!comparison && !isLoading && (
-              <Text style={styles.hint}>Search for a product to compare prices across stores</Text>
+
+            {/* Search Results List */}
+            {!selectedProduct && !isSearching && searchResults.length > 0 && (
+              <View style={styles.resultsSection}>
+                <Text style={styles.resultsCount}>
+                  {searchResults.length} product{searchResults.length !== 1 ? 's' : ''} found
+                </Text>
+                {searchResults.map((result, i) => (
+                  <Pressable key={`${result.product_key}-${i}`} onPress={() => handleProductTap(result)}>
+                    <Card style={styles.resultCard}>
+                      <View style={styles.resultTop}>
+                        <Text style={styles.resultName} numberOfLines={2}>
+                          {result.display_name}
+                        </Text>
+                        <Text style={styles.resultPrice}>{formatCurrency(result.cheapest_price)}</Text>
+                      </View>
+                      <View style={styles.resultBottom}>
+                        <View style={styles.resultStores}>
+                          {result.stores.map((s) => (
+                            <StoreTag key={s.store_name} storeName={s.store_name} size="sm" />
+                          ))}
+                        </View>
+                        {result.potential_saving && result.potential_saving > 0 && (
+                          <Badge
+                            text={`Save ${formatCurrency(result.potential_saving)}`}
+                            variant="success"
+                            size="sm"
+                          />
+                        )}
+                      </View>
+                      {result.store_count > 1 && (
+                        <Text style={styles.resultHint}>
+                          Available in {result.store_count} stores · Tap to compare
+                        </Text>
+                      )}
+                    </Card>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            {/* Empty states */}
+            {!selectedProduct && !isSearching && searchResults.length === 0 && searchText.length >= 2 && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyEmoji}>🔍</Text>
+                <Text style={styles.emptyTitle}>No products found</Text>
+                <Text style={styles.emptyText}>
+                  Try a different search term, like "milk", "bread", or a brand name
+                </Text>
+              </View>
+            )}
+
+            {!selectedProduct && !isSearching && searchText.length < 2 && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyEmoji}>🛒</Text>
+                <Text style={styles.emptyTitle}>Compare prices across stores</Text>
+                <Text style={styles.emptyText}>
+                  Search for any product to see prices at SuperValu, Tesco, and Lidl. We'll show you the cheapest option and suggest alternatives.
+                </Text>
+              </View>
             )}
           </>
         )}
@@ -173,7 +316,69 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: Colors.primary.dark },
   tabText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.secondary },
   tabTextActive: { color: Colors.text.inverse },
-  content: { padding: Spacing.md },
+  content: { padding: Spacing.md, paddingBottom: 100 },
+
+  // Loading
+  loadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.lg, gap: Spacing.sm },
+  loadingText: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.tertiary },
+
+  // Search results list
+  resultsSection: { marginTop: Spacing.sm },
+  resultsCount: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.tertiary, marginBottom: Spacing.sm },
+  resultCard: { marginBottom: Spacing.sm, padding: Spacing.md },
+  resultTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: Spacing.sm },
+  resultName: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: Colors.text.primary, flex: 1 },
+  resultPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 18, color: Colors.primary.default },
+  resultBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.sm },
+  resultStores: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1 },
+  resultHint: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, marginTop: 6 },
+
+  // Product detail
+  detailSection: { marginTop: Spacing.sm },
+  backBtn: { paddingVertical: Spacing.xs, marginBottom: Spacing.sm },
+  backText: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.accent.blue },
+  detailTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, color: Colors.text.primary, marginBottom: Spacing.sm },
+
+  savingChip: {
+    backgroundColor: '#E8F5EE',
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#A8D5B8',
+  },
+  savingChipText: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: Colors.primary.default },
+
+  storeRow: { marginBottom: Spacing.sm },
+  storeRowCheapest: { borderWidth: 2, borderColor: Colors.accent.green, borderRadius: BorderRadius.md },
+  storeRowInner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  storeRowLeft: { flex: 1, gap: 6 },
+  storeProductName: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary },
+  storeRowRight: { alignItems: 'flex-end', gap: 4 },
+  storePrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 20, color: Colors.accent.amber },
+  storePriceCheapest: { color: Colors.accent.green },
+
+  // Alternatives
+  altSection: { marginTop: Spacing.lg, paddingTop: Spacing.lg, borderTopWidth: 1, borderTopColor: Colors.surface.alt },
+  altHeader: { marginBottom: Spacing.md },
+  altTitle: { fontFamily: 'DMSans_700Bold', fontSize: 17, color: Colors.text.primary },
+  altSubtitle: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.tertiary, marginTop: 2 },
+  altEmpty: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.tertiary, textAlign: 'center', paddingVertical: Spacing.md },
+  altCard: { marginBottom: Spacing.xs },
+  altRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  altLeft: { flex: 1, gap: 4 },
+  altName: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.text.primary },
+  altRight: { alignItems: 'flex-end', gap: 4 },
+  altPrice: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 16, color: Colors.accent.amber },
+
+  // Empty states
+  emptyState: { alignItems: 'center', paddingVertical: Spacing.xxl, paddingHorizontal: Spacing.lg },
+  emptyEmoji: { fontSize: 48, marginBottom: Spacing.md },
+  emptyTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, textAlign: 'center', marginBottom: Spacing.xs },
+  emptyText: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.tertiary, textAlign: 'center', lineHeight: 20 },
+
+  // Offers tab
   hint: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.tertiary, textAlign: 'center', marginTop: Spacing.xl },
   offerCard: { marginBottom: Spacing.sm },
   offerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
@@ -181,6 +386,8 @@ const styles = StyleSheet.create({
   offerName: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: Colors.text.primary },
   offerRight: { alignItems: 'flex-end', gap: 4 },
   offerPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 18, color: Colors.accent.amber },
+
+  // Savings banner
   savingsBanner: {
     marginHorizontal: Spacing.md,
     marginTop: Spacing.sm,
@@ -194,21 +401,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.sm,
   },
-  savingsText: {
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 13,
-    color: Colors.text.primary,
-    flex: 1,
-  },
-  savingsBtn: {
-    backgroundColor: Colors.primary.default,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  savingsBtnText: {
-    fontFamily: 'DMSans_700Bold',
-    fontSize: 12,
-    color: '#FFF',
-  },
+  savingsText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.primary, flex: 1 },
+  savingsBtn: { backgroundColor: Colors.primary.default, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  savingsBtnText: { fontFamily: 'DMSans_700Bold', fontSize: 12, color: '#FFF' },
 });
