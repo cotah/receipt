@@ -1621,17 +1621,9 @@ async def _scrape_supervalu_attempt(
     expires_at = now + timedelta(days=7)
     errors = 0
 
-    # Checkpoint resume
-    checkpoint = _get_checkpoint(db, "SuperValu")
-    start_page = checkpoint["last_page"] if checkpoint else 1
-    total_saved = checkpoint["items_saved"] if checkpoint else 0
-    if checkpoint:
-        log.info(
-            "SuperValu HTML scraper: resuming from page %d "
-            "(%d items already saved)",
-            start_page,
-            total_saved,
-        )
+    # Always start from page 1 — checkpoint removed (caused broken resume)
+    start_page = 1
+    total_saved = 0
 
     headers = _random_headers(
         referer="https://shop.supervalu.ie/",
@@ -1738,11 +1730,6 @@ async def _scrape_supervalu_attempt(
                         e,
                     )
 
-                if page % 5 == 0:
-                    _save_checkpoint(
-                        db, "SuperValu", page + 1, total_saved
-                    )
-
                 if page % 20 == 0:
                     log.info(
                         "SuperValu HTML scraper: %d/%d pages "
@@ -1755,7 +1742,6 @@ async def _scrape_supervalu_attempt(
                 await _page_delay()
 
         if total_saved > 0:
-            _clear_checkpoint(db, "SuperValu")
             return {
                 "success": True,
                 "items_saved": total_saved,
