@@ -109,6 +109,11 @@ async def test_pdf_text_extraction_used_for_digital_pdf(
     db_instance.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
     db_instance.table.return_value.insert.return_value.execute.return_value = MagicMock()
 
+    # Hash check + fingerprint check must return no duplicates (empty data)
+    no_dup = MagicMock(data=[])
+    db_instance.table.return_value.select.return_value.eq.return_value.eq.return_value.neq.return_value.limit.return_value.execute.return_value = no_dup
+    db_instance.table.return_value.select.return_value.eq.return_value.eq.return_value.neq.return_value.gte.return_value.limit.return_value.execute.return_value = no_dup
+
     # extraction_service returns structured data
     mock_extract.return_value = {
         "store_name": "Lidl",
@@ -153,6 +158,11 @@ async def test_pdf_ocr_fallback_for_image_pdf(
     ]
     db_instance.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
     db_instance.table.return_value.insert.return_value.execute.return_value = MagicMock()
+
+    # Hash check + fingerprint check must return no duplicates (empty data)
+    no_dup = MagicMock(data=[])
+    db_instance.table.return_value.select.return_value.eq.return_value.eq.return_value.neq.return_value.limit.return_value.execute.return_value = no_dup
+    db_instance.table.return_value.select.return_value.eq.return_value.eq.return_value.neq.return_value.gte.return_value.limit.return_value.execute.return_value = no_dup
 
     mock_extract.return_value = {
         "store_name": "Aldi",
