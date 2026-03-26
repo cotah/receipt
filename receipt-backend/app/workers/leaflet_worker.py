@@ -135,7 +135,7 @@ def _make_client_kwargs(*, use_proxy: bool = False) -> dict:
 async def _run_apify_actor(
     actor_id: str,
     run_input: dict,
-    timeout_secs: int = 300,
+    timeout_secs: int = 1800,
 ) -> list[dict]:
     """Run an Apify actor and return dataset items. Empty list on failure."""
     token = settings.APIFY_API_TOKEN
@@ -144,7 +144,7 @@ async def _run_apify_actor(
         return []
 
     try:
-        async with httpx.AsyncClient(timeout=timeout_secs + 30) as client:
+        async with httpx.AsyncClient(timeout=timeout_secs + 60) as client:
             run_resp = await client.post(
                 f"https://api.apify.com/v2/acts/{actor_id}/runs",
                 params={"token": token, "waitForFinish": timeout_secs},
