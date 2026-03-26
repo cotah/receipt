@@ -2237,9 +2237,9 @@ async def scrape_tesco_promotions() -> None:
         items = await _run_apify_actor(
             settings.APIFY_ACTOR_TESCO,
             {
-                "region": "Ireland",
+                "region": "IE",
                 "urls": [
-                    "https://www.tesco.ie/groceries/en-IE/promotions/all"
+                    "https://www.tesco.ie/groceries/en-IE/search?query=offers&inOffers=true"
                 ],
                 "max_items": 2000,
                 "include_product_details": False,
