@@ -544,7 +544,7 @@ async def _save_mi9_items(
             expires_at = _parse_expires(item, default_expires)
             product_key = generate_product_key(name)
 
-            db.table("collective_prices").insert(
+            db.table("collective_prices").upsert(
                 {
                     "product_key": product_key,
                     "product_name": name,
@@ -555,7 +555,8 @@ async def _save_mi9_items(
                     "source": "leaflet",
                     "observed_at": now.isoformat(),
                     "expires_at": expires_at.isoformat(),
-                }
+                },
+                on_conflict="product_key,store_name,source",
             ).execute()
             count += 1
         except Exception as e:
@@ -582,18 +583,6 @@ async def _scrape_mi9_attempt(
     total_saved = 0
     mode = "proxy" if use_proxy else "direct"
     label = f"{store.store_name}({mode})"
-
-    # Clean expired entries
-    try:
-        db.table("collective_prices").delete().eq(
-            "store_name",
-            store.store_name,
-        ).eq("source", "leaflet").lt(
-            "expires_at",
-            now.isoformat(),
-        ).execute()
-    except Exception:
-        pass
 
     headers = _random_headers(referer=store.referer, origin=store.origin)
     client_kwargs = _make_client_kwargs(use_proxy=use_proxy)
@@ -921,16 +910,6 @@ async def scrape_lidl_leaflet() -> None:
     log.info("Lidl scraper: slug=%s", slug)
     await _startup_delay()
 
-    # Clean expired Lidl entries
-    db.table("collective_prices").delete().eq(
-        "store_name",
-        "Lidl",
-    ).eq("source", "leaflet").lt(
-        "expires_at",
-        now.isoformat(),
-    ).execute()
-    log.info("Lidl scraper: expired entries removed")
-
     headers = _random_headers()
     async with httpx.AsyncClient(
         timeout=30,
@@ -1018,17 +997,20 @@ async def scrape_lidl_leaflet() -> None:
 
                 product_key = generate_product_key(name)
 
-                db.table("collective_prices").insert({
-                    "product_key": product_key,
-                    "product_name": name,
-                    "category": category,
-                    "store_name": "Lidl",
-                    "unit_price": price,
-                    "is_on_offer": True,
-                    "source": "leaflet",
-                    "observed_at": now.isoformat(),
-                    "expires_at": item_expires.isoformat(),
-                }).execute()
+                db.table("collective_prices").upsert(
+                    {
+                        "product_key": product_key,
+                        "product_name": name,
+                        "category": category,
+                        "store_name": "Lidl",
+                        "unit_price": price,
+                        "is_on_offer": True,
+                        "source": "leaflet",
+                        "observed_at": now.isoformat(),
+                        "expires_at": item_expires.isoformat(),
+                    },
+                    on_conflict="product_key,store_name,source",
+                ).execute()
                 total_saved += 1
             except Exception as e:
                 errors += 1
@@ -1143,7 +1125,7 @@ def _parse_dunnes_page(
 
             product_key = generate_product_key(name)
 
-            db.table("collective_prices").insert(
+            db.table("collective_prices").upsert(
                 {
                     "product_key": product_key,
                     "product_name": name,
@@ -1154,7 +1136,8 @@ def _parse_dunnes_page(
                     "source": "leaflet",
                     "observed_at": now.isoformat(),
                     "expires_at": expires_at.isoformat(),
-                }
+                },
+                on_conflict="product_key,store_name,source",
             ).execute()
             count += 1
 
@@ -1186,17 +1169,6 @@ async def _scrape_dunnes_attempt(
             start_page,
             total_saved,
         )
-
-    # Clean expired
-    try:
-        db.table("collective_prices").delete().eq(
-            "store_name",
-            "Dunnes",
-        ).eq("source", "leaflet").lt(
-            "expires_at", now.isoformat()
-        ).execute()
-    except Exception:
-        pass
 
     # Proxy config
     proxies = None
@@ -1694,7 +1666,7 @@ def _parse_supervalu_page(
 
             product_key = generate_product_key(name)
 
-            db.table("collective_prices").insert(
+            db.table("collective_prices").upsert(
                 {
                     "product_key": product_key,
                     "product_name": name,
@@ -1705,7 +1677,8 @@ def _parse_supervalu_page(
                     "source": "leaflet",
                     "observed_at": now.isoformat(),
                     "expires_at": expires_at.isoformat(),
-                }
+                },
+                on_conflict="product_key,store_name,source",
             ).execute()
             count += 1
 
@@ -1735,17 +1708,6 @@ async def _scrape_supervalu_attempt(
             start_page,
             total_saved,
         )
-
-    # Clean expired entries
-    try:
-        db.table("collective_prices").delete().eq(
-            "store_name",
-            "SuperValu",
-        ).eq("source", "leaflet").lt(
-            "expires_at", now.isoformat()
-        ).execute()
-    except Exception:
-        pass
 
     headers = _random_headers(
         referer="https://shop.supervalu.ie/",
@@ -1996,16 +1958,6 @@ async def _scrape_tesco_attempt(
             total_saved,
         )
 
-    # Clean expired
-    try:
-        db.table("collective_prices").delete().eq(
-            "store_name", "Tesco",
-        ).eq("source", "leaflet").lt(
-            "expires_at", now.isoformat(),
-        ).execute()
-    except Exception:
-        pass
-
     tesco_headers = _random_headers(
         referer="https://www.tesco.ie/",
         origin="https://www.tesco.ie",
@@ -2125,17 +2077,20 @@ async def _scrape_tesco_attempt(
                         is_on_offer = promo_el is not None
                         product_key = generate_product_key(name)
 
-                        db.table("collective_prices").insert({
-                            "product_key": product_key,
-                            "product_name": name,
-                            "category": "Other",
-                            "store_name": "Tesco",
-                            "unit_price": price,
-                            "is_on_offer": is_on_offer,
-                            "source": "leaflet",
-                            "observed_at": now.isoformat(),
-                            "expires_at": expires_at.isoformat(),
-                        }).execute()
+                        db.table("collective_prices").upsert(
+                            {
+                                "product_key": product_key,
+                                "product_name": name,
+                                "category": "Other",
+                                "store_name": "Tesco",
+                                "unit_price": price,
+                                "is_on_offer": is_on_offer,
+                                "source": "leaflet",
+                                "observed_at": now.isoformat(),
+                                "expires_at": expires_at.isoformat(),
+                            },
+                            on_conflict="product_key,store_name,source",
+                        ).execute()
                         total_saved += 1
 
                     except Exception as e:
@@ -2209,17 +2164,20 @@ def _save_tesco_apify_items(db, items: list) -> int:
                 or "Other"
             )
 
-            db.table("collective_prices").insert({
-                "product_key": product_key,
-                "product_name": name,
-                "category": category,
-                "store_name": "Tesco",
-                "unit_price": float(price),
-                "is_on_offer": is_on_offer,
-                "source": "leaflet",
-                "observed_at": now.isoformat(),
-                "expires_at": item_expires.isoformat(),
-            }).execute()
+            db.table("collective_prices").upsert(
+                {
+                    "product_key": product_key,
+                    "product_name": name,
+                    "category": category,
+                    "store_name": "Tesco",
+                    "unit_price": float(price),
+                    "is_on_offer": is_on_offer,
+                    "source": "leaflet",
+                    "observed_at": now.isoformat(),
+                    "expires_at": item_expires.isoformat(),
+                },
+                on_conflict="product_key,store_name,source",
+            ).execute()
             count += 1
         except Exception as e:
             log.warning("_save_tesco_apify_items: item error: %s", e)
