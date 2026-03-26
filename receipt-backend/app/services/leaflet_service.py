@@ -176,7 +176,7 @@ async def process_pdf_leaflet(db: Client, store_name: str, pdf_url: str) -> None
                 category = product.get("category", "Other")
                 ttl_days = get_ttl_days(category)
 
-                db.table("collective_prices").insert({
+                db.table("collective_prices").upsert({
                     "product_key": product_key,
                     "product_name": product.get("product_name", "Unknown"),
                     "category": category,
@@ -187,7 +187,7 @@ async def process_pdf_leaflet(db: Client, store_name: str, pdf_url: str) -> None
                     "source": "leaflet",
                     "observed_at": now.isoformat(),
                     "expires_at": (now + timedelta(days=max(ttl_days, 7))).isoformat(),
-                }).execute()
+                }, on_conflict="product_key,store_name,source").execute()
                 total_items += 1
 
         doc.close()

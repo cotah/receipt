@@ -2174,7 +2174,7 @@ async def scrape_tesco_promotions() -> None:
         log.info("Tesco scraper: Apify not configured — skipping")
 
     # Fallback 3: Auto-Fix AI
-    log.error(
+    log.warning(
         "Tesco scraper: all fallbacks failed — activating Auto-Fix AI"
     )
     confidence, fix = await _autofix_scraper_ai(
@@ -2194,7 +2194,7 @@ async def scrape_tesco_promotions() -> None:
         autofix_confidence=confidence,
         autofix_applied=fix is not None,
     )
-    log.error("Tesco scraper: failed at all levels")
+    log.warning("Tesco scraper: failed at all levels")
 
 
 # ---------------------------------------------------------------------------
