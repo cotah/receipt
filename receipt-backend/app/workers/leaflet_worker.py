@@ -1958,7 +1958,7 @@ async def _scrape_supervalu_attempt(
 
 async def scrape_supervalu_promotions() -> None:
     """Scrape SuperValu Ireland promotions via HTML pages (SSR).
-    Fallback chain: 0->direct, 1->Webshare proxy, 3->Auto-Fix AI."""
+    Fallback chain: 0->direct, 1->Webshare proxy, 2->Apify actor, 3->Auto-Fix AI."""
     db = get_service_client()
     run_id = _start_run(db, "SuperValu")
 
@@ -2006,7 +2006,35 @@ async def scrape_supervalu_promotions() -> None:
             result.get("error"),
         )
 
-    # Fallback 3: Auto-Fix AI (no Apify actor for SuperValu)
+    # Fallback 2: Apify Playwright actor
+    if settings.APIFY_API_TOKEN and settings.APIFY_ACTOR_SUPERVALU:
+        log.info(
+            "SuperValu scraper: trying Apify actor %s...",
+            settings.APIFY_ACTOR_SUPERVALU,
+        )
+        items = await _run_apify_actor(
+            settings.APIFY_ACTOR_SUPERVALU,
+            {"maxPages": 130},
+        )
+        if items:
+            saved = _save_supervalu_apify_items(db, items)
+            _finish_run(
+                db, run_id, status="success", fallback_level=2,
+                items_saved=saved,
+            )
+            log.info(
+                "SuperValu scraper: success via Apify (%d items)", saved
+            )
+            return
+        log.warning(
+            "SuperValu scraper: fallback 2 (Apify) returned 0 items"
+        )
+    else:
+        log.info(
+            "SuperValu scraper: Apify not configured — skipping"
+        )
+
+    # Fallback 3: Auto-Fix AI
     log.error(
         "SuperValu HTML scraper: all fallbacks failed — "
         "activating Auto-Fix AI"
@@ -2030,6 +2058,70 @@ async def scrape_supervalu_promotions() -> None:
         autofix_applied=fix is not None,
     )
     log.error("SuperValu HTML scraper: failed at all levels")
+
+
+def _save_supervalu_apify_items(db, items: list) -> int:
+    """Save items from Apify SuperValu Playwright actor.
+
+    The custom Playwright actor returns:
+      {"name": "...", "price": "€2.50", "promotion": "3 for €10", "page": 1}
+    """
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(days=7)
+    count = 0
+    errors = 0
+    for item in items:
+        try:
+            name = item.get("name")
+            # Clean name: strip UI artifacts from Playwright extraction
+            if name:
+                name = (
+                    name.replace("Open Product Description", "")
+                    .strip()
+                )
+            price_raw = item.get("price") or ""
+            # Handle €3.00, €3,00, and multi-price formats like "€2.50 was €3.00"
+            price_str = str(price_raw).replace(",", ".")
+            price_match = re.search(r"[\d]+\.[\d]{2}", price_str)
+            price = float(price_match.group()) if price_match else None
+            if not name or price is None:
+                continue
+
+            promo = item.get("promotion")
+            is_on_offer = bool(promo)
+
+            product_key = generate_product_key(name)
+
+            db.table("collective_prices").upsert(
+                {
+                    "product_key": product_key,
+                    "product_name": name,
+                    "category": "Other",
+                    "store_name": "SuperValu",
+                    "unit_price": float(price),
+                    "is_on_offer": is_on_offer,
+                    "source": "leaflet",
+                    "observed_at": now.isoformat(),
+                    "expires_at": expires_at.isoformat(),
+                },
+                on_conflict="product_key,store_name,source",
+            ).execute()
+            count += 1
+        except Exception as e:
+            errors += 1
+            log.warning("_save_supervalu_apify_items: item error: %s", e)
+            if errors <= 3:
+                try:
+                    import sentry_sdk
+                    sentry_sdk.capture_exception(e)
+                except Exception:
+                    pass
+
+    log.info(
+        "_save_supervalu_apify_items: saved %d/%d items (%d errors)",
+        count, len(items), errors,
+    )
+    return count
 
 
 def _parse_tesco_price(text: str) -> float | None:
@@ -2412,11 +2504,9 @@ async def run_dunnes_scraper():
 
 
 async def run_supervalu_scraper():
-    """Run SuperValu HTML scraper.
-    Note: HTML pagination is server-side rendered (SSR) and ?page=N is ignored
-    by the site, so only page 1 (~30 products) is captured. The Mi9 JSON API
-    gateway returns 404, so we can't use it. For ~3600 products, a Playwright
-    actor (like the Tesco one) would be needed in the future."""
+    """Run SuperValu scraper with full fallback chain.
+    HTML scraper captures page 1 (~30 products), then falls back to
+    Apify Playwright actor for full pagination (~3600+ products)."""
     log.info("Starting SuperValu HTML promotions scraper...")
     try:
         await scrape_supervalu_promotions()
