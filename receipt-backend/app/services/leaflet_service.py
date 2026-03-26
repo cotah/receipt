@@ -160,8 +160,10 @@ async def process_pdf_leaflet(
     leaflet_id = leaflet.data[0]["id"] if leaflet.data else None
 
     try:
-        # Download PDF
-        async with httpx.AsyncClient(follow_redirects=True, timeout=60) as client:
+        # Download PDF with browser-like headers (some CDNs block bare requests)
+        async with httpx.AsyncClient(
+            follow_redirects=True, timeout=60, headers=BROWSER_HEADERS,
+        ) as client:
             response = await client.get(pdf_url)
             response.raise_for_status()
             pdf_bytes = response.content
