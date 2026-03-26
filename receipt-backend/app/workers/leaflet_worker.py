@@ -2275,13 +2275,14 @@ async def run_dunnes_scraper():
 
 
 async def run_supervalu_scraper():
-    """Run SuperValu scraper using Mi9 JSON API (proper pagination).
-    The HTML scraper (_scrape_supervalu_attempt) has broken pagination:
-    ?page=N is ignored by the site, so all pages return page-1 content.
-    The Mi9 API uses ?page=&skip=&pageSize= which works correctly."""
-    log.info("Starting SuperValu Mi9 API scraper...")
+    """Run SuperValu HTML scraper.
+    Note: HTML pagination is server-side rendered (SSR) and ?page=N is ignored
+    by the site, so only page 1 (~30 products) is captured. The Mi9 JSON API
+    gateway returns 404, so we can't use it. For ~3600 products, a Playwright
+    actor (like the Tesco one) would be needed in the future."""
+    log.info("Starting SuperValu HTML promotions scraper...")
     try:
-        await scrape_mi9_store(SUPERVALU)
+        await scrape_supervalu_promotions()
     except Exception as e:
         log.error(f"SuperValu scraper failed: {e}")
 
