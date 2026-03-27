@@ -210,9 +210,11 @@ async def _generate_personal_deals(
                 break
             name = prod["normalized_name"]
             avg_price = float(prod.get("avg_price") or 0)
-            # Search for this product or similar in current offers
-            words = name.lower().split()[:3]  # first 3 words
+
+            # Strategy A: ILIKE text match (fast, exact)
+            words = name.lower().split()[:3]
             pattern = "%" + "%".join(words) + "%"
+            matched = False
             try:
                 matches = (
                     db.table("collective_prices")
@@ -248,9 +250,48 @@ async def _generate_personal_deals(
                             f"You usually pay €{avg_price:.2f} — now €{current:.2f} ({saving_pct}% cheaper)"
                         ),
                     })
-                    break  # one match per user product
+                    matched = True
+                    break
             except Exception as e:
-                log.warning("Personal deals: match failed for '%s': %s", name, e)
+                log.warning("Personal deals: ILIKE match failed for '%s': %s", name, e)
+
+            # Strategy B: Embedding similarity (smart, catches "Milk 2L" → "Fresh Milk")
+            if not matched:
+                try:
+                    from app.services.embedding_service import find_similar_products
+                    similar = await find_similar_products(
+                        f"{name} {prod.get('category', '')}",
+                        threshold=0.75,
+                        limit=3,
+                    )
+                    for s in similar:
+                        pkey = s.get("product_name", "").lower().replace(" ", "_")
+                        if pkey in seen_keys:
+                            continue
+                        seen_keys.add(pkey)
+                        current = float(s["unit_price"])
+                        saving_pct = None
+                        if avg_price > 0 and current < avg_price:
+                            saving_pct = int((avg_price - current) / avg_price * 100)
+
+                        deals.append({
+                            "product_key": pkey,
+                            "product_name": s["product_name"],
+                            "store_name": s["store_name"],
+                            "current_price": current,
+                            "avg_price_4w": avg_price if avg_price > 0 else None,
+                            "discount_pct": saving_pct,
+                            "category": s.get("category", "Other"),
+                            "deal_type": "personalised",
+                            "promotion_text": (
+                                f"Similar to what you buy — €{current:.2f} at {s['store_name']}"
+                                if not saving_pct else
+                                f"You usually pay €{avg_price:.2f} for similar — now €{current:.2f} ({saving_pct}% cheaper)"
+                            ),
+                        })
+                        break
+                except Exception as e:
+                    log.debug("Personal deals: embedding match failed for '%s': %s", name, e)
 
     # Step 4: AI fallback — if not enough deals from purchase history
     if len(deals) < count:

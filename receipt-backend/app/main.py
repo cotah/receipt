@@ -136,6 +136,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Rate limiting
+from app.middleware.rate_limit import RateLimitMiddleware
+app.add_middleware(RateLimitMiddleware)
+
 # Routers
 app.include_router(receipts.router, prefix="/api/v1")
 app.include_router(products.router, prefix="/api/v1")
@@ -207,6 +211,21 @@ async def debug_categorize(request: Request):
 
     asyncio.create_task(_run_all())
     return {"status": "started", "message": "Categorization running in background"}
+
+
+@app.post("/api/v1/debug/embed-products")
+async def debug_embed_products(request: Request):
+    """Generate embeddings for all products — requires X-Admin-Key header."""
+    _verify_admin_key(request)
+    from app.services.embedding_service import run_full_embedding
+
+    async def _run():
+        total = await run_full_embedding()
+        import logging
+        logging.getLogger(__name__).info(f"Embedding complete: {total} products")
+
+    asyncio.create_task(_run())
+    return {"status": "started", "message": "Embedding generation running in background"}
 
 
 def _verify_admin_key(request: Request):

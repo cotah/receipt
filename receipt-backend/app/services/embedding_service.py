@@ -210,3 +210,87 @@ async def get_relevant_context(user_id: str, query: str) -> dict:
         "smartdocket_savings_total": smartdocket_savings_total,
         "smartdocket_savings_month": smartdocket_savings_month,
     }
+
+
+async def batch_embed_products(batch_size: int = 100) -> int:
+    """Generate embeddings for collective_prices products that don't have one.
+
+    Uses OpenAI text-embedding-3-small ($0.02/1M tokens).
+    ~3,700 products ≈ $0.004 total.
+    """
+    import logging
+    log = logging.getLogger(__name__)
+    db = get_service_client()
+
+    # Get products without embeddings
+    result = (
+        db.table("collective_prices")
+        .select("id, product_name, category")
+        .eq("source", "leaflet")
+        .is_("embedding", "null")
+        .limit(batch_size)
+        .execute()
+    )
+
+    if not result.data:
+        return 0
+
+    products = result.data
+    texts = [
+        f"{p['product_name']} {p.get('category', '')}"
+        for p in products
+    ]
+
+    try:
+        response = await client.embeddings.create(
+            model="text-embedding-3-small",
+            input=texts,
+        )
+
+        updated = 0
+        for i, emb_data in enumerate(response.data):
+            try:
+                db.table("collective_prices").update({
+                    "embedding": emb_data.embedding,
+                }).eq("id", products[i]["id"]).execute()
+                updated += 1
+            except Exception:
+                pass
+
+        log.info(f"Embedded {updated}/{len(products)} products")
+        return updated
+
+    except Exception as e:
+        log.warning(f"Batch embedding failed: {e}")
+        return 0
+
+
+async def run_full_embedding() -> int:
+    """Embed all products without embeddings. Run in batches."""
+    total = 0
+    for _ in range(50):  # Max 50 batches = 5000 products
+        count = await batch_embed_products(100)
+        if count == 0:
+            break
+        total += count
+    return total
+
+
+async def find_similar_products(
+    query_text: str,
+    threshold: float = 0.7,
+    limit: int = 5,
+) -> list[dict]:
+    """Find similar products using vector similarity."""
+    embedding = await generate_embedding(query_text)
+    db = get_service_client()
+
+    try:
+        result = db.rpc("match_products", {
+            "query_embedding": embedding,
+            "match_threshold": threshold,
+            "match_count": limit,
+        }).execute()
+        return result.data or []
+    except Exception:
+        return []
