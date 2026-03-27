@@ -80,6 +80,180 @@ async def upload_receipt(
     return ReceiptUploadResponse(receipt_id=uuid.UUID(receipt_id))
 
 
+@router.post("/upload-multi", response_model=ReceiptUploadResponse, status_code=202)
+async def upload_multi_receipt(
+    background_tasks: BackgroundTasks,
+    files: list[UploadFile] = File(...),
+    source: str = Form("photo"),
+    user_id: str = Depends(get_current_user),
+):
+    """Upload multiple photos of the same receipt (for long receipts).
+
+    The user takes 2-5 photos of the same receipt (top, middle, bottom).
+    Each photo is OCR'd separately, texts are combined, and the receipt
+    is extracted once from the merged text. This captures all items even
+    on very long receipts.
+    """
+    if len(files) < 1:
+        raise HTTPException(status_code=400, detail="At least 1 image required")
+    if len(files) > 5:
+        raise HTTPException(status_code=400, detail="Maximum 5 images per receipt")
+
+    db = get_service_client()
+
+    # Check plan
+    profile_row = (
+        db.table("profiles")
+        .select("plan, plan_expires_at, scans_this_month, scans_month_reset")
+        .eq("id", user_id)
+        .single()
+        .execute()
+    )
+    check_scan_limit(db, user_id, profile_row.data or {})
+
+    # Read and validate all images
+    all_contents: list[bytes] = []
+    for f in files:
+        content = await f.read()
+        error = validate_image(f.content_type or "", len(content), settings.MAX_IMAGE_SIZE_MB)
+        if error:
+            raise HTTPException(status_code=400, detail=f"Image error: {error}")
+        if f.content_type and f.content_type.startswith("image/") and len(content) > 2 * 1024 * 1024:
+            content = compress_image(content)
+        all_contents.append(content)
+
+    receipt_id = str(uuid.uuid4())
+
+    # Upload first image as main receipt image
+    storage_path = f"{user_id}/{receipt_id}.jpg"
+    db.storage.from_(settings.RECEIPT_IMAGES_BUCKET).upload(storage_path, all_contents[0])
+    image_url = (
+        f"{settings.SUPABASE_URL}/storage/v1/object/public/"
+        f"{settings.RECEIPT_IMAGES_BUCKET}/{storage_path}"
+    )
+
+    # Upload additional images
+    for i, extra in enumerate(all_contents[1:], 2):
+        extra_path = f"{user_id}/{receipt_id}_part{i}.jpg"
+        try:
+            db.storage.from_(settings.RECEIPT_IMAGES_BUCKET).upload(extra_path, extra)
+        except Exception as e:
+            log.warning(f"[{receipt_id}] Failed to upload part {i}: {e}")
+
+    # Create receipt record
+    db.table("receipts").insert({
+        "id": receipt_id,
+        "user_id": user_id,
+        "store_name": "Processing...",
+        "purchased_at": datetime.now(timezone.utc).isoformat(),
+        "total_amount": 0,
+        "image_url": image_url,
+        "status": "processing",
+        "source": source,
+    }).execute()
+
+    # Process in background — pass ALL image contents
+    background_tasks.add_task(
+        process_multi_receipt_async,
+        receipt_id, user_id, all_contents, image_url,
+    )
+
+    return ReceiptUploadResponse(receipt_id=uuid.UUID(receipt_id))
+
+
+async def process_multi_receipt_async(
+    receipt_id: str,
+    user_id: str,
+    image_list: list[bytes],
+    image_url: str,
+) -> None:
+    """Process multiple photos of the same receipt.
+
+    OCR each photo → combine texts → extract once → save.
+    """
+    from app.services.ocr_service import extract_text_from_image
+
+    db = get_service_client()
+    log.info(
+        f"[{receipt_id}] Multi-photo processing: {len(image_list)} images"
+    )
+
+    try:
+        # Hash check using first image
+        combined_hash_input = b"".join(image_list)
+        img_hash = hashlib.sha256(combined_hash_input).hexdigest()
+
+        existing_hash = (
+            db.table("receipts")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("image_hash", img_hash)
+            .neq("id", receipt_id)
+            .limit(1)
+            .execute()
+        )
+        if existing_hash.data:
+            log.warning(f"[{receipt_id}] Duplicate multi-photo hash")
+            db.table("receipts").update({
+                "status": "failed",
+                "image_hash": img_hash,
+                "error_reason": "Duplicate receipt — these photos have already been scanned.",
+            }).eq("id", receipt_id).execute()
+            return
+
+        db.table("receipts").update({"image_hash": img_hash}).eq(
+            "id", receipt_id
+        ).execute()
+
+        # OCR each image
+        ocr_texts: list[str] = []
+        for i, img_bytes in enumerate(image_list):
+            log.info(
+                f"[{receipt_id}] OCR image {i+1}/{len(image_list)} "
+                f"({len(img_bytes)} bytes)"
+            )
+            text = await extract_text_from_image(img_bytes)
+            if text and not text.strip().upper().startswith("NOT_A_RECEIPT"):
+                ocr_texts.append(text)
+            else:
+                log.info(
+                    f"[{receipt_id}] Image {i+1} — not a receipt or empty"
+                )
+
+        if not ocr_texts:
+            db.table("receipts").update({
+                "status": "failed",
+                "error_reason": "None of the images contain a valid receipt.",
+            }).eq("id", receipt_id).execute()
+            return
+
+        # Combine OCR texts (with separator)
+        raw_text = "\n--- next section ---\n".join(ocr_texts)
+        log.info(
+            f"[{receipt_id}] Combined OCR: {len(ocr_texts)} sections, "
+            f"{len(raw_text)} chars total"
+        )
+
+        # Continue with the standard pipeline (extract → save → etc)
+        # Re-use the single-image processor from the combined text
+        await _process_from_text(
+            receipt_id, user_id, raw_text, image_url, db,
+        )
+
+    except Exception as e:
+        log.error(
+            f"[{receipt_id}] Multi-photo processing failed: {e}",
+            exc_info=True,
+        )
+        try:
+            db.table("receipts").update({
+                "status": "failed",
+                "error_reason": f"Processing error: {str(e)[:200]}",
+            }).eq("id", receipt_id).execute()
+        except Exception:
+            pass
+
+
 async def process_receipt_async(
     receipt_id: str, user_id: str, image_bytes: bytes, image_url: str
 ) -> None:
@@ -152,6 +326,36 @@ async def process_receipt_async(
             }).eq("id", receipt_id).execute()
             return
 
+        # Continue with shared pipeline
+        await _process_from_text(receipt_id, user_id, raw_text, image_url, db)
+
+    except Exception as e:
+        log.error(f"[{receipt_id}] FAILED: {e}\n{traceback.format_exc()}")
+        try:
+            db.table("receipts").update({"status": "failed"}).eq("id", receipt_id).execute()
+        except Exception:
+            pass
+
+
+async def _process_from_text(
+    receipt_id: str,
+    user_id: str,
+    raw_text: str,
+    image_url: str,
+    db=None,
+) -> None:
+    """Shared pipeline: extract → validate → save → contribute prices.
+
+    Used by both single-image and multi-image processors after OCR.
+    """
+    from app.services.extraction_service import extract_receipt_data
+    from app.services.price_service import contribute_anonymous_price
+    from app.services.embedding_service import store_item_embedding
+
+    if db is None:
+        db = get_service_client()
+
+    try:
         # 2. Extract structured data
         log.info(f"[{receipt_id}] Calling OpenAI extraction...")
         data = await extract_receipt_data(raw_text)
