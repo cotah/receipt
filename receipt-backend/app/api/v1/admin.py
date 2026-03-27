@@ -370,10 +370,20 @@ async def clear_cache(_admin: str = Depends(require_admin)):
 async def send_test_email(_admin: str = Depends(require_admin)):
     from app.services.email_service import send_email
     db = get_service_client()
+
+    # When using admin key, look up the first admin user
+    user_id = _admin
+    if _admin == "admin-key-user":
+        admins = db.table("profiles").select("id").eq("is_admin", True).limit(1).execute()
+        if admins.data:
+            user_id = admins.data[0]["id"]
+        else:
+            raise HTTPException(status_code=400, detail="No admin user found")
+
     profile = (
         db.table("profiles")
         .select("email, full_name")
-        .eq("id", _admin)
+        .eq("id", user_id)
         .single()
         .execute()
     )
@@ -460,25 +470,28 @@ async def admin_product_search(
             count="exact",
         )
         .eq("source", "leaflet")
-        .order("product_name")
     )
     if q:
-        query = query.ilike("product_name", f"%{q}%")
+        query = query.filter("product_name", "ilike", f"%{q}%")
     if store:
         query = query.eq("store_name", store)
     if category:
         query = query.eq("category", category)
 
     offset = (page - 1) * per_page
-    query = query.range(offset, offset + per_page - 1)
-    result = query.execute()
+    query = query.order("product_name").range(offset, offset + per_page - 1)
 
-    return {
-        "products": result.data or [],
-        "total": result.count or 0,
-        "page": page,
-        "per_page": per_page,
-    }
+    try:
+        result = query.execute()
+        return {
+            "products": result.data or [],
+            "total": result.count or 0,
+            "page": page,
+            "per_page": per_page,
+        }
+    except Exception as e:
+        log.warning("Product search failed: %s", e)
+        return {"products": [], "total": 0, "page": page, "per_page": per_page}
 
 
 @router.post("/products/{product_id}/category")
