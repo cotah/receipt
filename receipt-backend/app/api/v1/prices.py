@@ -265,3 +265,235 @@ async def get_alternatives(
     }
     set_cache(cache_key, result, ttl_seconds=3600)  # 1h cache
     return result
+
+
+@router.get("/price-memory")
+async def get_price_memory(
+    limit: int = Query(10, ge=1, le=30),
+    user_id: str = Depends(get_current_user),
+):
+    """Price Memory — shows user products they bought that are now cheaper.
+
+    Cross-references receipt_items with current collective_prices to find:
+    - Products the user bought recently
+    - That are currently available cheaper at any store
+    Sorted by biggest potential saving.
+    """
+    from app.services.search_service import _normalize_for_grouping, _token_similarity
+
+    cache_key = f"price_memory:{user_id}:{limit}"
+    cached = get_cache(cache_key)
+    if cached:
+        return cached
+
+    db = get_service_client()
+    now = datetime.now(timezone.utc)
+
+    # Get user's receipt items (last 90 days)
+    from datetime import timedelta
+    cutoff = (now - timedelta(days=90)).isoformat()
+
+    receipt_items = (
+        db.table("receipt_items")
+        .select("normalized_name, unit_price, category, receipt_id")
+        .eq("user_id", user_id)
+        .gte("created_at", cutoff)
+        .order("created_at", desc=True)
+        .limit(50)
+        .execute()
+    )
+
+    if not receipt_items.data:
+        result = {"memories": [], "total": 0, "potential_savings": 0}
+        set_cache(cache_key, result, ttl_seconds=3600)
+        return result
+
+    # Get the store_name for each receipt
+    receipt_ids = list({r["receipt_id"] for r in receipt_items.data})
+    receipts = (
+        db.table("receipts")
+        .select("id, store_name, purchased_at")
+        .in_("id", receipt_ids)
+        .execute()
+    )
+    receipt_map = {r["id"]: r for r in (receipts.data or [])}
+
+    # For each user product, find current offers
+    memories = []
+    seen_products: set[str] = set()
+
+    for item in receipt_items.data:
+        name = item["normalized_name"]
+        if not name or name.lower() in seen_products:
+            continue
+
+        receipt_info = receipt_map.get(item["receipt_id"], {})
+        paid_price = float(item["unit_price"])
+        paid_store = receipt_info.get("store_name", "Unknown")
+        paid_date = receipt_info.get("purchased_at", "")
+
+        # Search for this product in current offers
+        words = name.lower().split()[:3]
+        pattern = "%" + "%".join(words) + "%"
+
+        try:
+            matches = (
+                db.table("collective_prices")
+                .select("product_name, store_name, unit_price, is_on_offer")
+                .eq("source", "leaflet")
+                .gte("expires_at", now.isoformat())
+                .ilike("product_name", pattern)
+                .order("unit_price")
+                .limit(5)
+                .execute()
+            )
+
+            for m in matches.data or []:
+                current_price = float(m["unit_price"])
+                # Use token similarity to confirm it's the same product
+                norm_user = _normalize_for_grouping(name)
+                norm_match = _normalize_for_grouping(m["product_name"])
+                if _token_similarity(norm_user, norm_match) < 0.4:
+                    continue
+
+                saving = round(paid_price - current_price, 2)
+                if saving > 0.10:  # At least 10c saving
+                    memories.append({
+                        "product_name": name,
+                        "paid_price": paid_price,
+                        "paid_store": paid_store,
+                        "paid_date": paid_date[:10] if paid_date else None,
+                        "current_price": current_price,
+                        "current_store": m["store_name"],
+                        "is_on_offer": m.get("is_on_offer", False),
+                        "saving": saving,
+                        "saving_pct": round(saving / paid_price * 100),
+                        "message": (
+                            f"You paid €{paid_price:.2f} at {paid_store}"
+                            f" — now €{current_price:.2f} at {m['store_name']}"
+                            f" (save €{saving:.2f})"
+                        ),
+                    })
+                    seen_products.add(name.lower())
+                    break  # One match per user product
+        except Exception:
+            pass
+
+    # Sort by saving descending
+    memories.sort(key=lambda x: -x["saving"])
+    memories = memories[:limit]
+    total_savings = round(sum(m["saving"] for m in memories), 2)
+
+    result = {
+        "memories": memories,
+        "total": len(memories),
+        "potential_savings": total_savings,
+    }
+    set_cache(cache_key, result, ttl_seconds=1800)  # 30 min cache
+    return result
+
+
+@router.get("/savings-summary")
+async def get_savings_summary(
+    user_id: str = Depends(get_current_user),
+):
+    """Savings summary for the home screen.
+
+    Calculates:
+    - Total potential savings this month (from price-memory matches)
+    - Number of products with better prices available
+    - Best single saving opportunity
+    """
+    cache_key = f"savings_summary:{user_id}"
+    cached = get_cache(cache_key)
+    if cached:
+        return cached
+
+    db = get_service_client()
+    now = datetime.now(timezone.utc)
+
+    from datetime import timedelta
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Get this month's receipt items with store info
+    receipt_items = (
+        db.table("receipt_items")
+        .select("normalized_name, unit_price, receipt_id")
+        .eq("user_id", user_id)
+        .gte("created_at", month_start.isoformat())
+        .execute()
+    )
+
+    if not receipt_items.data:
+        result = {
+            "month_potential_savings": 0,
+            "products_with_better_price": 0,
+            "best_saving": None,
+            "receipt_count": 0,
+        }
+        set_cache(cache_key, result, ttl_seconds=3600)
+        return result
+
+    receipt_ids = list({r["receipt_id"] for r in receipt_items.data})
+    receipts = (
+        db.table("receipts")
+        .select("id, store_name")
+        .in_("id", receipt_ids)
+        .execute()
+    )
+    receipt_map = {r["id"]: r["store_name"] for r in (receipts.data or [])}
+
+    total_savings = 0.0
+    better_count = 0
+    best_saving = None
+    seen: set[str] = set()
+
+    for item in receipt_items.data:
+        name = item["normalized_name"]
+        if not name or name.lower() in seen:
+            continue
+        seen.add(name.lower())
+
+        paid = float(item["unit_price"])
+        paid_store = receipt_map.get(item["receipt_id"], "")
+
+        words = name.lower().split()[:3]
+        pattern = "%" + "%".join(words) + "%"
+
+        try:
+            matches = (
+                db.table("collective_prices")
+                .select("product_name, store_name, unit_price")
+                .eq("source", "leaflet")
+                .gte("expires_at", now.isoformat())
+                .ilike("product_name", pattern)
+                .order("unit_price")
+                .limit(1)
+                .execute()
+            )
+            if matches.data:
+                current = float(matches.data[0]["unit_price"])
+                saving = paid - current
+                if saving > 0.05:
+                    total_savings += saving
+                    better_count += 1
+                    if best_saving is None or saving > best_saving["saving"]:
+                        best_saving = {
+                            "product": name,
+                            "paid": paid,
+                            "paid_store": paid_store,
+                            "now": current,
+                            "now_store": matches.data[0]["store_name"],
+                            "saving": round(saving, 2),
+                        }
+        except Exception:
+            pass
+
+    result = {
+        "month_potential_savings": round(total_savings, 2),
+        "products_with_better_price": better_count,
+        "best_saving": best_saving,
+        "receipt_count": len(receipt_ids),
+    }
+    set_cache(cache_key, result, ttl_seconds=1800)
+    return result

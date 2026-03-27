@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -14,6 +14,7 @@ import { formatCurrency, formatCurrencyChange } from '../../utils/formatCurrency
 import { useAuthStore } from '../../stores/authStore';
 import { useReceipts } from '../../hooks/useReceipts';
 import { useProducts } from '../../hooks/useProducts';
+import api from '../../services/api';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -22,10 +23,15 @@ export default function HomeScreen() {
   const { receipts, fetchReceipts } = useReceipts();
   const { runningLow, fetchRunningLow } = useProducts();
   const [locationChecked, setLocationChecked] = useState(false);
+  const [savings, setSavings] = useState<any>(null);
+  const [priceMemories, setPriceMemories] = useState<any[]>([]);
 
   useEffect(() => {
     fetchReceipts(1);
     fetchRunningLow();
+    // Fetch savings + price memory
+    api.get('/prices/savings-summary').then(({ data }) => setSavings(data)).catch(() => {});
+    api.get('/prices/price-memory?limit=3').then(({ data }) => setPriceMemories(data.memories || [])).catch(() => {});
   }, []);
 
   // Auto-detect location on first login if home_area is empty
@@ -110,9 +116,13 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Discounts</Text>
           </Card>
           <Card style={styles.statCard}>
-            <Text style={[styles.statValue, { color: Colors.text.tertiary }]}>{formatCurrency(0)}</Text>
-            <Text style={styles.statLabel}>Saved with SD</Text>
-            <Text style={styles.comingSoon}>Track your savings</Text>
+            <Text style={[styles.statValue, { color: savings?.month_potential_savings > 0 ? Colors.accent.green : Colors.text.tertiary }]}>
+              {formatCurrency(savings?.month_potential_savings ?? 0)}
+            </Text>
+            <Text style={styles.statLabel}>Could save</Text>
+            {savings?.products_with_better_price > 0 && (
+              <Text style={styles.comingSoon}>{savings.products_with_better_price} items cheaper</Text>
+            )}
           </Card>
         </View>
 
@@ -132,6 +142,43 @@ export default function HomeScreen() {
               ))}
             </ScrollView>
           </View>
+        )}
+
+        {/* Price Memory — products you bought that are cheaper elsewhere */}
+        {priceMemories.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>💰 Price Memory</Text>
+            {priceMemories.map((m, i) => (
+              <Card key={i} style={styles.memoryCard}>
+                <Text style={styles.memoryProduct} numberOfLines={1}>{m.product_name}</Text>
+                <Text style={styles.memoryDetail}>
+                  You paid {formatCurrency(m.paid_price)} at {m.paid_store}
+                </Text>
+                <View style={styles.memoryRow}>
+                  <Text style={styles.memoryNow}>
+                    Now {formatCurrency(m.current_price)} at {m.current_store}
+                  </Text>
+                  <View style={styles.savingBadge}>
+                    <Text style={styles.savingBadgeText}>Save {formatCurrency(m.saving)}</Text>
+                  </View>
+                </View>
+              </Card>
+            ))}
+            <Pressable onPress={() => router.push('/(tabs)/prices')}>
+              <Text style={styles.seeAll}>See all price comparisons →</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Best saving highlight */}
+        {savings?.best_saving && priceMemories.length === 0 && (
+          <Card style={styles.bestSavingCard}>
+            <Text style={styles.bestSavingTitle}>💡 Best saving right now</Text>
+            <Text style={styles.bestSavingText}>
+              {savings.best_saving.product} — you paid {formatCurrency(savings.best_saving.paid)} at {savings.best_saving.paid_store}, 
+              now {formatCurrency(savings.best_saving.now)} at {savings.best_saving.now_store}
+            </Text>
+          </Card>
         )}
 
         {/* Recent Receipts */}
@@ -171,4 +218,17 @@ const styles = StyleSheet.create({
   lowCard: { width: 140, padding: Spacing.sm, gap: 4 },
   lowName: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.primary },
   lowPrice: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 11, color: Colors.accent.green },
+
+  // Price Memory
+  memoryCard: { marginBottom: Spacing.xs, padding: Spacing.sm },
+  memoryProduct: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: Colors.text.primary },
+  memoryDetail: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary, marginTop: 2 },
+  memoryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+  memoryNow: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.primary },
+  savingBadge: { backgroundColor: '#E8F5EE', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  savingBadgeText: { fontFamily: 'DMSans_600SemiBold', fontSize: 12, color: Colors.accent.green },
+  seeAll: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.accent.blue, marginTop: Spacing.xs, textAlign: 'center' },
+  bestSavingCard: { marginBottom: Spacing.lg, padding: Spacing.md, borderWidth: 1, borderColor: '#A8D5B8', borderRadius: 12, backgroundColor: '#F0F9F4' },
+  bestSavingTitle: { fontFamily: 'DMSans_700Bold', fontSize: 15, color: Colors.text.primary, marginBottom: 4 },
+  bestSavingText: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary, lineHeight: 18 },
 });
