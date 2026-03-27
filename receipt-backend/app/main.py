@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import sentry_sdk
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.config import settings
@@ -46,10 +46,7 @@ async def lifespan(app: FastAPI):
     if _missing:
         log.warning(f"MISSING ENV VARS: {', '.join(_missing)} — receipt processing will fail!")
     else:
-        log.info(
-            f"API keys loaded — GOOGLE_API_KEY={settings.GOOGLE_API_KEY[:8]}..., "
-            f"OPENAI_API_KEY={settings.OPENAI_API_KEY[:8]}..."
-        )
+        log.info("All required API keys loaded")
 
     from app.workers.intelligence_worker import setup_intelligence_scheduler
 
@@ -165,8 +162,9 @@ async def health_check():
 
 
 @app.post("/api/v1/debug/run-scrapers")
-async def debug_run_scrapers():
-    """Force-run all scrapers immediately (no auth — for testing)."""
+async def debug_run_scrapers(request: Request):
+    """Force-run all scrapers — requires X-Admin-Key header."""
+    _verify_admin_key(request)
     from app.workers.leaflet_worker import (
         run_supervalu_scraper,
         run_tesco_scraper,
@@ -182,9 +180,19 @@ async def debug_run_scrapers():
 
 
 @app.post("/api/v1/debug/generate-deals")
-async def debug_generate_deals():
-    """Force-generate weekly deals immediately (no auth — for testing)."""
+async def debug_generate_deals(request: Request):
+    """Force-generate weekly deals — requires X-Admin-Key header."""
+    _verify_admin_key(request)
     from app.workers.deals_worker import generate_all_deals
 
     asyncio.create_task(generate_all_deals())
     return {"status": "started", "message": "Deal generation triggered"}
+
+
+def _verify_admin_key(request: Request):
+    """Check X-Admin-Key header matches ADMIN_KEY env var."""
+    if not settings.ADMIN_KEY:
+        return  # No key configured = open (dev mode)
+    key = request.headers.get("X-Admin-Key", "")
+    if key != settings.ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="Invalid admin key")

@@ -28,6 +28,7 @@ async def compare_prices(
     now = datetime.now(timezone.utc)
     product_key = generate_product_key(product)
 
+    # Try exact product_key match first
     query = (
         db.table("collective_prices")
         .select("*")
@@ -38,6 +39,22 @@ async def compare_prices(
     if area:
         query = query.eq("home_area", area)
     result = query.execute()
+
+    # Fallback: ILIKE search if exact key returns nothing
+    if not result.data:
+        words = product.lower().split()[:4]
+        pattern = "%" + "%".join(words) + "%"
+        query = (
+            db.table("collective_prices")
+            .select("*")
+            .ilike("product_name", pattern)
+            .gte("expires_at", now.isoformat())
+            .order("unit_price")
+            .limit(20)
+        )
+        if area:
+            query = query.eq("home_area", area)
+        result = query.execute()
 
     # Group by store (keep cheapest per store)
     store_map: dict[str, dict] = {}
