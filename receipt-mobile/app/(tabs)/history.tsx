@@ -5,7 +5,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GestureDetector } from 'react-native-gesture-handler';
+
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
@@ -14,7 +14,7 @@ import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/typography';
 import { STORE_NAMES } from '../../constants/stores';
 import { useReceipts } from '../../hooks/useReceipts';
-import { useTabSwipe } from '../../hooks/useTabSwipe';
+
 
 const FILTER_OPTIONS = ['All', ...STORE_NAMES];
 
@@ -46,10 +46,10 @@ export default function HistoryScreen() {
     setPickerVisible(false);
   };
 
-  const swipe = useTabSwipe(1);
+  
 
   return (
-    <GestureDetector gesture={swipe}>
+    <>
     <SafeAreaView style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>History</Text>
@@ -102,7 +102,7 @@ export default function HistoryScreen() {
         />
       )}
     </SafeAreaView>
-    </GestureDetector>
+    </>
   );
 }
 

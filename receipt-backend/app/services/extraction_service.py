@@ -5,35 +5,81 @@ from app.config import settings
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 EXTRACTION_PROMPT = """
-You are a receipt data extractor. Given raw text from an Irish supermarket receipt,
-extract structured data and return ONLY valid JSON. No explanation, no markdown.
+You are an expert receipt data extractor for Irish supermarkets.
+Given raw text from a grocery receipt, extract structured data.
+Return ONLY valid JSON. No explanation, no markdown fences.
 
-Normalise product names (e.g. "BANANAS LH KG" → "Banana").
-Detect category from: Fruit & Veg, Dairy, Meat & Fish, Bakery, Frozen,
+CRITICAL RULES FOR IRISH RECEIPT FORMATS:
+
+1. QUANTITY LINES: When you see a line like "2 x 1.79" or "3 x 0.99",
+   it refers to the product on the PREVIOUS line. It means:
+   - quantity = 2 (or 3)
+   - unit_price = 1.79 (or 0.99)
+   - total_price = the amount shown on the PREVIOUS product line
+   Example:
+     STRAIGHT CUT CHIPS    1.55 E    ← total_price is 1.55 (deal price for 2)
+     2 x                   1.79      ← quantity=2, unit_price=1.79 (original each)
+   This means: 2 chips, unit_price €1.79 each, but total is €1.55 (multi-buy deal)
+   The "2 x 1.79" line is NOT a separate product.
+
+2. ALDI format:
+   - Product code + NAME + PRICE + E (E=VAT exempt)
+   - "2 x PRICE" on next line = quantity/unit for PREVIOUS item
+   - Total line at bottom
+   - Date at bottom (DD/MM/YY format)
+
+3. TESCO format:
+   - NAME + PRICE on each line
+   - "Qty X @ PRICE" or "X x PRICE" = quantity for previous item
+   - "Clubcard Price" or "Promotional Saving" lines = discounts
+   - "Meal Deal" lines = bundle discounts
+
+4. LIDL format:
+   - Similar to Aldi: code + NAME + PRICE
+   - Quantity lines below
+   - Deposit lines for bottles
+
+5. SUPERVALU format:
+   - NAME + PRICE
+   - "X @ PRICE" = quantity lines
+   - "Multibuy Save" = discount
+
+6. PRICE RULES:
+   - unit_price = price PER SINGLE UNIT (before multi-buy deals)
+   - total_price = actual amount charged for this line item
+   - If "2 x 1.79" and line shows 3.58: unit_price=1.79, quantity=2, total_price=3.58
+   - If "2 x 1.79" and line shows 1.55: unit_price=1.79, quantity=2, total_price=1.55 (deal)
+   - discount_amount = difference if deal applies
+
+7. VALIDATION: Sum of all total_price values should equal or be close to the receipt total.
+   If your extraction doesn't add up, re-check the quantities and prices.
+
+8. NORMALIZE product names: "STRGHT CT CHIPS" → "Straight Cut Chips"
+   Keep brand names when visible. Include weight/size if shown.
+
+Categories: Fruit & Veg, Dairy, Meat & Fish, Bakery, Frozen,
 Drinks, Snacks & Confectionery, Household, Personal Care, Baby & Kids, Other.
-Detect store: Lidl/Aldi/Tesco/SuperValu/Dunnes/Other.
-All prices in EUR as decimal numbers.
 
 Return this exact JSON structure:
 {{
-  "store_name": "Lidl",
-  "store_branch": "Lidl Rathmines",
-  "purchased_at": "2026-03-20T14:30:00",
-  "subtotal": 51.03,
-  "discount_total": 3.20,
-  "total_amount": 47.83,
+  "store_name": "Aldi",
+  "store_branch": "Aldi Rathmines",
+  "purchased_at": "2026-03-26T19:31:00",
+  "subtotal": 6.62,
+  "discount_total": 0,
+  "total_amount": 6.62,
   "items": [
     {{
-      "raw_name": "BANANAS LH KG",
-      "normalized_name": "Banana",
-      "category": "Fruit & Veg",
+      "raw_name": "STRAIGHT CUT CHIPS",
+      "normalized_name": "Straight Cut Chips",
+      "category": "Frozen",
       "brand": null,
-      "quantity": 1.2,
-      "unit": "kg",
-      "unit_price": 0.99,
-      "total_price": 1.19,
-      "discount_amount": 0,
-      "is_on_offer": false
+      "quantity": 2,
+      "unit": "pack",
+      "unit_price": 1.79,
+      "total_price": 1.55,
+      "discount_amount": 2.03,
+      "is_on_offer": true
     }}
   ]
 }}

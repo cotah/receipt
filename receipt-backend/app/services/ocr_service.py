@@ -25,23 +25,23 @@ openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 OCR_TIMEOUT = 45  # seconds (leaflet pages are dense)
 
 OCR_PROMPT = """
-STEP 1 — VALIDATE: Check if this image is a grocery receipt from one of
-these SPECIFIC Irish supermarkets ONLY:
-  Tesco Ireland, Lidl Ireland, Aldi Ireland, Dunnes Stores, SuperValu Ireland.
+You are reading an Irish supermarket grocery receipt. Extract ALL text with EXACT precision.
 
-If the receipt is from ANY other store, restaurant, pharmacy, petrol station,
-online order, or ANY business not in the list above, respond with exactly:
-NOT_A_RECEIPT
+STEP 1 — VALIDATE: Is this a grocery receipt from Tesco, Lidl, Aldi, Dunnes, or SuperValu Ireland?
+If NOT, respond with exactly: NOT_A_RECEIPT
 
-If the image is not a receipt at all (selfie, document, random photo),
-respond with exactly: NOT_A_RECEIPT
+STEP 2 — EXTRACT with these critical rules:
+- Extract EVERY line exactly as printed, including product codes/numbers
+- PRESERVE quantity lines like "2 x 1.79" or "3 @ 0.99" — keep them on their own line
+- PRESERVE the exact price on each line (do NOT recalculate)
+- Include ALL: store name, branch, date, time, every item line, every quantity line,
+  every discount line, subtotal, VAT, total, payment method
+- Keep the original line-by-line layout
+- Do NOT skip any line, even if it looks like a duplicate
+- Do NOT merge quantity lines with product lines
+- Extract date in whatever format appears (DD/MM/YY, DD.MM.YYYY, etc)
 
-STEP 2 — EXTRACT: If and only if the image IS a valid receipt from one of
-the five stores above, extract ALL text exactly as it appears.
-Preserve the layout — one item per line.
-Include: store name, date, time, all items with prices, subtotal, discounts, total.
-Do not interpret or modify — raw extraction only.
-Output plain text, no markdown.
+Output plain text only, no markdown, no interpretation.
 """
 
 LEAFLET_OCR_PROMPT = """

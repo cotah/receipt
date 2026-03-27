@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GestureDetector } from 'react-native-gesture-handler';
-import { useTabSwipe } from '../../hooks/useTabSwipe';
+
+
 import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
@@ -24,23 +24,28 @@ export default function PricesScreen() {
   const [searchText, setSearchText] = useState('');
   const [eligibleAlerts, setEligibleAlerts] = useState<EligibleAlert[]>([]);
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
-  const [addedToList, setAddedToList] = useState<Set<string>>(new Set());
+  const [addedToList, setAddedToList] = useState<Map<string, string>>(new Map());
   const [timing, setTiming] = useState<any>(null);
 
-  const addToShoppingList = useCallback(async (name: string, store: string, price: number, category?: string) => {
+  const toggleShoppingList = useCallback(async (name: string, store: string, price: number, category?: string) => {
     const key = `${name}-${store}`;
-    if (addedToList.has(key)) return;
-    try {
-      await api.post('/shopping-list/add', {
-        product_name: name,
-        store_name: store,
-        unit_price: price,
-        category: category || 'Other',
-        source: 'deal',
-      });
-      setAddedToList(prev => new Set(prev).add(key));
-    } catch {
-      Alert.alert('Error', 'Could not add to list');
+    const existingId = addedToList.get(key);
+    if (existingId) {
+      try {
+        await api.delete(`/shopping-list/${existingId}`);
+        setAddedToList(prev => { const n = new Map(prev); n.delete(key); return n; });
+      } catch {}
+    } else {
+      try {
+        const { data } = await api.post('/shopping-list/add', {
+          product_name: name, store_name: store, unit_price: price,
+          category: category || 'Other', source: 'deal',
+        });
+        const itemId = data.item?.id || 'exists';
+        setAddedToList(prev => new Map(prev).set(key, itemId));
+      } catch {
+        Alert.alert('Error', 'Could not update list');
+      }
     }
   }, [addedToList]);
 
@@ -112,10 +117,10 @@ export default function PricesScreen() {
     clearSelection();
   };
 
-  const swipe = useTabSwipe(2);
+  
 
   return (
-    <GestureDetector gesture={swipe}>
+    <>
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Prices</Text>
 
@@ -336,7 +341,7 @@ export default function PricesScreen() {
                               <Badge text={`-${deal.discount_pct}%`} variant="success" size="sm" />
                             )}
                             <Pressable
-                              onPress={() => addToShoppingList(deal.product_name, deal.store_name, deal.current_price, deal.category)}
+                              onPress={() => toggleShoppingList(deal.product_name, deal.store_name, deal.current_price, deal.category)}
                               style={styles.addBtn}
                             >
                               <Text style={styles.addBtnText}>
@@ -371,7 +376,7 @@ export default function PricesScreen() {
                               <Badge text={`-${deal.discount_pct}%`} variant="success" size="sm" />
                             )}
                             <Pressable
-                              onPress={() => addToShoppingList(deal.product_name, deal.store_name, deal.current_price, deal.category)}
+                              onPress={() => toggleShoppingList(deal.product_name, deal.store_name, deal.current_price, deal.category)}
                               style={styles.addBtn}
                             >
                               <Text style={styles.addBtnText}>
@@ -406,7 +411,7 @@ export default function PricesScreen() {
                               <Badge text={`-${deal.discount_pct}%`} variant="success" size="sm" />
                             )}
                             <Pressable
-                              onPress={() => addToShoppingList(deal.product_name, deal.store_name, deal.current_price, deal.category)}
+                              onPress={() => toggleShoppingList(deal.product_name, deal.store_name, deal.current_price, deal.category)}
                               style={styles.addBtn}
                             >
                               <Text style={styles.addBtnText}>
@@ -495,7 +500,7 @@ export default function PricesScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
-    </GestureDetector>
+    </>
   );
 }
 

@@ -205,7 +205,7 @@ async def process_multi_receipt_async(
             "id", receipt_id
         ).execute()
 
-        # OCR each image
+        # OCR each image — only check NOT_A_RECEIPT for first image
         ocr_texts: list[str] = []
         for i, img_bytes in enumerate(image_list):
             log.info(
@@ -213,12 +213,26 @@ async def process_multi_receipt_async(
                 f"({len(img_bytes)} bytes)"
             )
             text = await extract_text_from_image(img_bytes)
-            if text and not text.strip().upper().startswith("NOT_A_RECEIPT"):
-                ocr_texts.append(text)
-            else:
-                log.info(
-                    f"[{receipt_id}] Image {i+1} — not a receipt or empty"
-                )
+            if not text or len(text.strip()) < 10:
+                log.info(f"[{receipt_id}] Image {i+1} — empty OCR result")
+                continue
+
+            # Only validate first image as receipt — middle/bottom
+            # sections may not have store name and would be rejected
+            if i == 0 and text.strip().upper().startswith("NOT_A_RECEIPT"):
+                log.info(f"[{receipt_id}] Image 1 — not a receipt")
+                db.table("receipts").update({
+                    "status": "failed",
+                    "error_reason": "First image is not a valid receipt.",
+                }).eq("id", receipt_id).execute()
+                return
+
+            # For images 2+, skip NOT_A_RECEIPT check — they're continuations
+            clean = text.strip()
+            if clean.upper().startswith("NOT_A_RECEIPT"):
+                clean = ""  # Empty but don't reject
+            if clean:
+                ocr_texts.append(clean)
 
         if not ocr_texts:
             db.table("receipts").update({

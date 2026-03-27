@@ -343,14 +343,19 @@ async def get_price_memory(
         name = item["normalized_name"]
         if not name or name.lower() in seen_products:
             continue
+        if len(name) < 3 or name.lower() in {"deposit", "bag", "carrier bag"}:
+            continue
 
         receipt_info = receipt_map.get(item["receipt_id"], {})
         paid_price = float(item["unit_price"])
         paid_store = receipt_info.get("store_name", "Unknown")
         paid_date = receipt_info.get("purchased_at", "")
+        item_category = item.get("category", "Other")
 
-        # Search for this product in current offers
-        words = name.lower().split()[:3]
+        # Use ALL significant words for search (not just 3)
+        words = [w for w in name.lower().split() if len(w) > 2][:5]
+        if not words:
+            continue
         pattern = "%" + "%".join(words) + "%"
 
         try:
@@ -361,16 +366,17 @@ async def get_price_memory(
                 .gte("expires_at", now.isoformat())
                 .ilike("product_name", pattern)
                 .order("unit_price")
-                .limit(5)
+                .limit(10)
                 .execute()
             )
 
             for m in matches.data or []:
                 current_price = float(m["unit_price"])
-                # Use token similarity to confirm it's the same product
+                # High similarity threshold — must be the SAME product
                 norm_user = _normalize_for_grouping(name)
                 norm_match = _normalize_for_grouping(m["product_name"])
-                if _token_similarity(norm_user, norm_match) < 0.4:
+                similarity = _token_similarity(norm_user, norm_match)
+                if similarity < 0.6:
                     continue
 
                 saving = round(paid_price - current_price, 2)
@@ -385,6 +391,7 @@ async def get_price_memory(
                         "is_on_offer": m.get("is_on_offer", False),
                         "saving": saving,
                         "saving_pct": round(saving / paid_price * 100),
+                        "similarity": round(similarity, 2),
                         "message": (
                             f"You paid €{paid_price:.2f} at {paid_store}"
                             f" — now €{current_price:.2f} at {m['store_name']}"

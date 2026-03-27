@@ -1,8 +1,8 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GestureDetector } from 'react-native-gesture-handler';
-import { useTabSwipe } from '../../hooks/useTabSwipe';
+
+
 import ChatBubble from '../../components/chat/ChatBubble';
 import ChatInput from '../../components/chat/ChatInput';
 import TypingIndicator from '../../components/chat/TypingIndicator';
@@ -24,7 +24,7 @@ export default function ChatScreen() {
   const profile = useAuthStore((s) => s.profile);
   const firstName = profile?.full_name?.split(' ')[0] || 'there';
   const flatListRef = useRef<FlatList>(null);
-  const swipe = useTabSwipe(3);
+  
 
   // Auto-scroll when messages change or streaming
   useEffect(() => {
@@ -46,7 +46,7 @@ export default function ChatScreen() {
   }, []);
 
   return (
-    <GestureDetector gesture={swipe}>
+    <>
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.flex}
@@ -88,7 +88,7 @@ export default function ChatScreen() {
         />
       </SafeAreaView>
     </KeyboardAvoidingView>
-    </GestureDetector>
+    </>
   );
 }
 

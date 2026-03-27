@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GestureDetector } from 'react-native-gesture-handler';
+
 import { useRouter } from 'expo-router';
 import Card from '../../components/ui/Card';
 import ProfileAvatar from '../../components/ui/ProfileAvatar';
 import ReceiptCard from '../../components/receipts/ReceiptCard';
 import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/typography';
-import { useTabSwipe } from '../../hooks/useTabSwipe';
+
 import { formatCurrency, formatCurrencyChange } from '../../utils/formatCurrency';
 import { useAuthStore } from '../../stores/authStore';
 import { useReceipts } from '../../hooks/useReceipts';
@@ -25,20 +25,25 @@ export default function HomeScreen() {
   const [locationChecked, setLocationChecked] = useState(false);
   const [savings, setSavings] = useState<any>(null);
   const [priceMemories, setPriceMemories] = useState<any[]>([]);
-  const [addedToList, setAddedToList] = useState<Set<string>>(new Set());
+  const [addedToList, setAddedToList] = useState<Map<string, string>>(new Map());
 
-  const addToShoppingList = async (name: string, store: string, price: number) => {
+  const toggleShoppingList = async (name: string, store: string, price: number) => {
     const key = `${name}-${store}`;
-    if (addedToList.has(key)) return;
-    try {
-      await api.post('/shopping-list/add', {
-        product_name: name,
-        store_name: store,
-        unit_price: price,
-        source: 'memory',
-      });
-      setAddedToList(prev => new Set(prev).add(key));
-    } catch {}
+    const existingId = addedToList.get(key);
+    if (existingId) {
+      try {
+        await api.delete(`/shopping-list/${existingId}`);
+        setAddedToList(prev => { const n = new Map(prev); n.delete(key); return n; });
+      } catch {}
+    } else {
+      try {
+        const { data } = await api.post('/shopping-list/add', {
+          product_name: name, store_name: store, unit_price: price, source: 'memory',
+        });
+        const itemId = data.item?.id || 'exists';
+        setAddedToList(prev => new Map(prev).set(key, itemId));
+      } catch {}
+    }
   };
 
   useEffect(() => {
@@ -101,10 +106,10 @@ export default function HomeScreen() {
   const monthTotal = monthReceipts.reduce((s, r) => s + r.total_amount, 0);
   const monthDiscounts = monthReceipts.reduce((s, r) => s + (r.discount_total ?? 0), 0);
 
-  const swipe = useTabSwipe(0);
+  
 
   return (
-    <GestureDetector gesture={swipe}>
+    <>
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* Header */}
@@ -178,7 +183,7 @@ export default function HomeScreen() {
                       <Text style={styles.savingBadgeText}>Save {formatCurrency(m.saving)}</Text>
                     </View>
                     <Pressable
-                      onPress={() => addToShoppingList(m.product_name, m.current_store, m.current_price)}
+                      onPress={() => toggleShoppingList(m.product_name, m.current_store, m.current_price)}
                       style={styles.memoryAddBtn}
                     >
                       <Text style={styles.memoryAddBtnText}>
@@ -220,7 +225,7 @@ export default function HomeScreen() {
       </ScrollView>
 
     </SafeAreaView>
-    </GestureDetector>
+    </>
   );
 }
 
