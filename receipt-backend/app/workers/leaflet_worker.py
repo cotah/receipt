@@ -2025,18 +2025,6 @@ async def scrape_dunnes_promotions() -> None:
     log.error("Dunnes HTML scraper: failed at all levels")
 
 
-TESCO_BASE_URL = (
-    "https://www.tesco.ie/groceries/en-IE/promotions/all"
-)
-TESCO_SESSION_URL = "https://www.tesco.ie/groceries/en-IE/"
-TESCO_PAGE_SIZE = 24
-
-_TESCO_TOTAL_RE = re.compile(
-    r"of\s+([\d,]+)\s+results?", re.IGNORECASE
-)
-_TESCO_PRICE_RE = re.compile(r"[\d]+[.,]\d{2}")
-
-
 # ---------------------------------------------------------------------------
 # SuperValu Ireland (SSR HTML) scraper
 # ---------------------------------------------------------------------------
@@ -2487,187 +2475,6 @@ def _parse_tesco_price(text: str) -> float | None:
     return None
 
 
-async def _scrape_tesco_attempt(
-    db, use_proxy: bool = False
-) -> dict:
-    """One Tesco scrape attempt. Returns success/items_saved/error dict."""
-    now = datetime.now(timezone.utc)
-    expires_at = now + timedelta(days=7)
-    mode = "proxy" if use_proxy else "direct"
-    label = f"Tesco({mode})"
-
-    # Always start from page 1 — checkpoint removed (caused broken resume)
-    start_page = 1
-    total_saved = 0
-
-    tesco_headers = _random_headers(
-        referer="https://www.tesco.ie/",
-        origin="https://www.tesco.ie",
-    )
-    tesco_headers["Accept-Encoding"] = "gzip, deflate, br"
-    tesco_headers["Cache-Control"] = "no-cache"
-
-    client_kwargs = _make_client_kwargs(use_proxy=use_proxy)
-    client_kwargs["headers"] = tesco_headers
-
-    try:
-        async with httpx.AsyncClient(**client_kwargs) as client:
-            try:
-                session_resp = await client.get(TESCO_SESSION_URL)
-                session_resp.raise_for_status()
-                log.info(
-                    "%s: session OK (%d cookies)",
-                    label,
-                    len(client.cookies),
-                )
-            except Exception as e:
-                return {
-                    "success": False, "items_saved": 0, "error": str(e)
-                }
-
-            total_pages = 1
-            page = start_page
-
-            while page <= total_pages:
-                params = {
-                    "sortBy": "relevance",
-                    "page": page,
-                    "count": TESCO_PAGE_SIZE,
-                }
-                try:
-                    resp = await client.get(
-                        TESCO_BASE_URL, params=params
-                    )
-                    resp.raise_for_status()
-                    html = resp.text
-                except Exception as e:
-                    log.warning(
-                        "%s: page %d failed (%s)", label, page, e
-                    )
-                    await _page_delay()
-                    page += 1
-                    continue
-
-                soup = BeautifulSoup(html, "html.parser")
-
-                if page == 1:
-                    results_text = soup.get_text()
-                    m = _TESCO_TOTAL_RE.search(results_text)
-                    if m:
-                        total_items_count = int(
-                            m.group(1).replace(",", "")
-                        )
-                        total_pages = (
-                            total_items_count + TESCO_PAGE_SIZE - 1
-                        ) // TESCO_PAGE_SIZE
-                        log.info(
-                            "%s: %d products across %d pages",
-                            label,
-                            total_items_count,
-                            total_pages,
-                        )
-
-                product_links = soup.select(
-                    "a[href*='/groceries/en-IE/products/']"
-                )
-                for link in product_links:
-                    try:
-                        name = link.get_text(strip=True)
-                        if not name:
-                            continue
-
-                        container = link
-                        for _ in range(8):
-                            if container.parent is None:
-                                break
-                            container = container.parent
-                            price_el = container.select_one(
-                                "[class*='product-tile-price__text'],"
-                                "[class*='price-text'],"
-                                "[class*='value']"
-                            )
-                            if price_el:
-                                break
-
-                        price = None
-                        price_el = container.select_one(
-                            "[class*='product-tile-price__text'],"
-                            "[class*='price-text'],"
-                            "[class*='price-per-sellable-unit']"
-                        )
-                        if price_el:
-                            price = _parse_tesco_price(
-                                price_el.get_text()
-                            )
-
-                        if price is None:
-                            for el in container.find_all(
-                                string=re.compile(r"€")
-                            ):
-                                price = _parse_tesco_price(str(el))
-                                if price is not None:
-                                    break
-
-                        if price is None:
-                            continue
-
-                        promo_el = container.select_one(
-                            "[class*='value-bar__content-text'],"
-                            "[class*='promo'],"
-                            "[class*='offer']"
-                        )
-                        is_on_offer = promo_el is not None
-                        product_key = generate_product_key(name)
-
-                        db.table("collective_prices").upsert(
-                            {
-                                "product_key": product_key,
-                                "product_name": name,
-                                "category": "Other",
-                                "store_name": "Tesco",
-                                "unit_price": price,
-                                "is_on_offer": is_on_offer,
-                                "source": "leaflet",
-                                "observed_at": now.isoformat(),
-                                "expires_at": expires_at.isoformat(),
-                            },
-                            on_conflict="product_key,store_name,source",
-                        ).execute()
-                        total_saved += 1
-
-                    except Exception as e:
-                        log.warning(
-                            "%s: item error on page %d: %s",
-                            label, page, e,
-                        )
-
-                if page % 10 == 0:
-                    log.info(
-                        "%s: %d/%d pages (%d items)",
-                        label, page, total_pages, total_saved,
-                    )
-
-                await _page_delay()
-                page += 1
-
-        if total_saved >= 50:
-            # Less than 50 items = likely blocked (session page only)
-            return {
-                "success": True, "items_saved": total_saved, "error": None
-            }
-        return {
-            "success": False,
-            "items_saved": total_saved,
-            "error": (
-                f"Only {total_saved} items saved (threshold=50) — "
-                "likely blocked, falling back to Apify"
-            ),
-        }
-
-    except Exception as e:
-        return {"success": False, "items_saved": total_saved, "error": str(e)}
-
-
 def _save_tesco_apify_items(db, items: list) -> int:
     """Save items from Apify actor pasquetto/my-actor.
 
@@ -2735,97 +2542,35 @@ def _save_tesco_apify_items(db, items: list) -> int:
 
 
 async def scrape_tesco_promotions() -> None:
-    """Scrape Tesco Ireland with full fallback chain."""
+    """Scrape Tesco Ireland via Apify actor."""
     db = get_service_client()
     run_id = _start_run(db, "Tesco")
 
-    log.info("Tesco scraper: starting with fallback chain...")
-    await asyncio.sleep(random.uniform(8, 15))
+    log.info("Tesco scraper: starting via Apify...")
 
-    # Fallback 0: direct
-    result = await _scrape_tesco_attempt(db, use_proxy=False)
-    if result["success"]:
-        _finish_run(
-            db, run_id, status="success", fallback_level=0,
-            items_saved=result["items_saved"],
-        )
-        log.info(
-            "Tesco scraper: success direct (%d items)",
-            result["items_saved"],
-        )
+    if not (settings.APIFY_API_TOKEN and settings.APIFY_ACTOR_TESCO):
+        log.error("Tesco scraper: APIFY_API_TOKEN or APIFY_ACTOR_TESCO not set")
+        _finish_run(db, run_id, status="failed", fallback_level=0, items_saved=0)
         return
-    log.warning(
-        "Tesco scraper: fallback 0 failed — %s", result.get("error")
-    )
 
-    # Fallback 1: Webshare proxy
-    if not settings.WEBSHARE_PROXY_URL:
-        log.info("Tesco scraper: WEBSHARE_PROXY_URL not set — skipping")
-    else:
-        log.info("Tesco scraper: trying via Webshare proxy...")
-        result = await _scrape_tesco_attempt(db, use_proxy=True)
-        if result["success"]:
-            _finish_run(
-                db, run_id, status="success", fallback_level=1,
-                items_saved=result["items_saved"],
-            )
-            log.info(
-                "Tesco scraper: success via proxy (%d items)",
-                result["items_saved"],
-            )
-            return
-        log.warning(
-            "Tesco scraper: fallback 1 failed — %s", result.get("error")
-        )
-
-    # Fallback 2: Apify
-    if settings.APIFY_API_TOKEN and settings.APIFY_ACTOR_TESCO:
-        log.info(
-            "Tesco scraper: trying Apify actor %s...",
-            settings.APIFY_ACTOR_TESCO,
-        )
+    try:
         items = await _run_apify_actor(
             settings.APIFY_ACTOR_TESCO,
-            {
-                "maxPages": 24,
-            },
+            {"maxPages": 24},
         )
         if items:
             saved = _save_tesco_apify_items(db, items)
             _finish_run(
-                db, run_id, status="success", fallback_level=2,
+                db, run_id, status="success", fallback_level=0,
                 items_saved=saved,
             )
-            log.info(
-                "Tesco scraper: success via Apify (%d items)", saved
-            )
-            return
-        log.warning("Tesco scraper: fallback 2 (Apify) returned 0 items")
-    else:
-        log.info("Tesco scraper: Apify not configured — skipping")
-
-    # Fallback 3: Auto-Fix AI
-    log.warning(
-        "Tesco scraper: all fallbacks failed — activating Auto-Fix AI"
-    )
-    confidence, fix = await _autofix_scraper_ai(
-        "Tesco",
-        f"TESCO_BASE_URL ({TESCO_BASE_URL}) returns 403. "
-        f"Session at {TESCO_SESSION_URL} works (200). "
-        f"Last error: {result.get('error', 'unknown')}",
-    )
-    _finish_run(
-        db, run_id,
-        status="failed",
-        fallback_level=3,
-        items_saved=0,
-        error_detail=(
-            f"All fallbacks failed. AutoFix: {confidence:.0%}"
-        ),
-        autofix_confidence=confidence,
-        autofix_applied=fix is not None,
-    )
-    log.warning("Tesco scraper: failed at all levels")
+            log.info("Tesco scraper: success (%d items)", saved)
+        else:
+            log.warning("Tesco scraper: Apify returned 0 items")
+            _finish_run(db, run_id, status="failed", fallback_level=0, items_saved=0)
+    except Exception as e:
+        log.error("Tesco scraper failed: %s", e)
+        _finish_run(db, run_id, status="failed", fallback_level=0, items_saved=0)
 
 
 # ---------------------------------------------------------------------------
