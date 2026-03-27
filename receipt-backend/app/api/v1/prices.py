@@ -1045,6 +1045,7 @@ async def _run_categorization_batch(batch_size: int = 50) -> int:
     """Categorize a batch of 'Other' products using GPT."""
     import json as json_mod
     import logging
+    import re
     from openai import AsyncOpenAI
 
     log = logging.getLogger(__name__)
@@ -1069,14 +1070,28 @@ async def _run_categorization_batch(batch_size: int = 50) -> int:
         f"{i+1}. {p['product_name']}" for i, p in enumerate(products)
     )
 
-    prompt = f"""Categorize each product into exactly ONE of these categories:
-Fruit & Veg, Dairy, Meat & Fish, Bakery, Frozen, Drinks,
-Snacks & Confectionery, Household, Personal Care, Baby & Kids, Pet Food, Alcohol, Other
+    prompt = f"""Categorize each grocery product into exactly ONE category.
 
-Respond with ONLY the number and category, one per line:
-1. Dairy
-2. Drinks
-etc.
+Categories:
+- Fruit & Veg (fresh produce, salads, herbs)
+- Dairy (milk, cheese, yogurt, butter, cream, eggs)
+- Meat & Fish (fresh/frozen meat, poultry, fish, seafood)
+- Bakery (bread, rolls, cakes, pastries, biscuits, crackers)
+- Frozen (frozen meals, frozen veg, ice cream, frozen pizza)
+- Drinks (water, juice, soft drinks, tea, coffee, energy drinks)
+- Snacks & Confectionery (chocolate, sweets, crisps, nuts, bars, cereal bars)
+- Household (cleaning, detergent, bleach, kitchen rolls, bin bags, foil)
+- Personal Care (shampoo, soap, toothpaste, deodorant, skincare, haircare)
+- Baby & Kids (baby food, nappies, baby care, kids snacks)
+- Pet Food (dog food, cat food, pet treats)
+- Alcohol (beer, wine, spirits, cider)
+- Pantry (canned goods, pasta, rice, sauce, soup, oil, spices, spreads, cereal, condiments)
+
+IMPORTANT: Almost nothing should be "Other". Use "Pantry" for canned/jarred/packaged staples.
+
+Reply with ONLY number and category per line:
+1. Snacks & Confectionery
+2. Personal Care
 
 Products:
 {product_list}"""
@@ -1084,7 +1099,7 @@ Products:
     try:
         response = await client.chat.completions.create(
             model="gpt-4.1-nano",
-            max_completion_tokens=batch_size * 10,
+            max_completion_tokens=batch_size * 15,
             messages=[{"role": "user", "content": prompt}],
         )
         answer = response.choices[0].message.content.strip()
@@ -1092,7 +1107,7 @@ Products:
         valid_categories = {
             "fruit & veg", "dairy", "meat & fish", "bakery", "frozen",
             "drinks", "snacks & confectionery", "household", "personal care",
-            "baby & kids", "pet food", "alcohol", "other",
+            "baby & kids", "pet food", "alcohol", "pantry", "other",
         }
 
         updated = 0
@@ -1100,18 +1115,20 @@ Products:
             line = line.strip()
             if not line:
                 continue
-            parts = line.split(".", 1)
-            if len(parts) != 2:
+            # Flexible parse: "1. Dairy" or "1 - Dairy" or "1) Dairy"
+            m = re.match(r"^(\d+)[.\-)\s]+(.+)$", line)
+            if not m:
                 continue
             try:
-                idx = int(parts[0].strip()) - 1
-                category = parts[1].strip()
+                idx = int(m.group(1)) - 1
+                category = m.group(2).strip().rstrip(".")
                 if 0 <= idx < len(products) and category.lower() in valid_categories:
-                    if category.lower() != "other":
-                        db.table("collective_prices").update(
-                            {"category": category}
-                        ).eq("id", products[idx]["id"]).execute()
-                        updated += 1
+                    # If GPT says "Other", mark as "Uncategorized" so it won't loop
+                    final_cat = "Uncategorized" if category.lower() == "other" else category
+                    db.table("collective_prices").update(
+                        {"category": final_cat}
+                    ).eq("id", products[idx]["id"]).execute()
+                    updated += 1
             except (ValueError, IndexError):
                 pass
 
