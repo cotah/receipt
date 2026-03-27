@@ -54,7 +54,6 @@ class Settings(BaseSettings):
     RECEIPT_IMAGES_BUCKET: str = "receipt-images"
     MAX_IMAGE_SIZE_MB: int = 10
     ADMIN_KEY: str = ""  # Required for debug endpoints
-    ALLOWED_ORIGINS: str = "http://localhost:8081,http://localhost:19006,exp://localhost:8081"
 
     @property
     def allowed_origins_list(self) -> List[str]:
