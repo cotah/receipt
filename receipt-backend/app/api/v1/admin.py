@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.database import get_service_client
@@ -18,19 +18,37 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 # ---------------------------------------------------------------------------
 
 
-async def require_admin(user_id: str = Depends(get_current_user)) -> str:
-    """Dependency that ensures the caller has is_admin == True."""
-    db = get_service_client()
-    row = (
-        db.table("profiles")
-        .select("is_admin")
-        .eq("id", user_id)
-        .single()
-        .execute()
-    )
-    if not row.data or not row.data.get("is_admin"):
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return user_id
+async def require_admin(request: Request) -> str:
+    """Allow admin access via JWT (is_admin=true) or X-Admin-Key header."""
+    from app.config import settings
+
+    # Option 1: X-Admin-Key header
+    admin_key = request.headers.get("X-Admin-Key", "")
+    if admin_key and settings.ADMIN_KEY and admin_key == settings.ADMIN_KEY:
+        return "admin-key-user"
+
+    # Option 2: Bearer token (Supabase JWT)
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        token = auth[7:]
+        try:
+            db = get_service_client()
+            user_response = db.auth.get_user(token)
+            if user_response and user_response.user:
+                user_id = str(user_response.user.id)
+                row = (
+                    db.table("profiles")
+                    .select("is_admin")
+                    .eq("id", user_id)
+                    .single()
+                    .execute()
+                )
+                if row.data and row.data.get("is_admin"):
+                    return user_id
+        except Exception:
+            pass
+
+    raise HTTPException(status_code=403, detail="Admin access required")
 
 
 # ---------------------------------------------------------------------------
