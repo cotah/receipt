@@ -626,6 +626,16 @@ async def generate_all_deals() -> dict:
                 except Exception as e:
                     log.warning("Deals engine: golden deal insert failed: %s", e)
 
+            # Send push notification for golden deals
+            if golden:
+                try:
+                    from app.services.push_service import send_golden_deal_alerts
+                    sent = await send_golden_deal_alerts(db, golden, user_id)
+                    if sent:
+                        log.info("Golden alert sent to %s", user_id[:8])
+                except Exception as e:
+                    log.debug("Golden alert failed for %s: %s", user_id[:8], e)
+
     log.info(
         "Deals engine complete: %d trending, %d personal, %d golden for %d users",
         stats["trending"], stats["personal"], stats["golden"], stats["users"],
