@@ -472,7 +472,7 @@ async def admin_product_search(
         .eq("source", "leaflet")
     )
     if q:
-        query = query.filter("product_name", "ilike", f"%{q}%")
+        query = query.ilike("product_name", f"%{q}%")
     if store:
         query = query.eq("store_name", store)
     if category:
