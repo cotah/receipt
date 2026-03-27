@@ -419,8 +419,6 @@ async def admin_activity(_admin: str = Depends(require_admin)):
 async def admin_product_categories(_admin: str = Depends(require_admin)):
     """Product count by category."""
     db = get_service_client()
-    result = db.rpc("", {}).execute()  # Can't do GROUP BY easily, use raw
-    # Use a workaround: count per known category
     categories = [
         "Snacks & Confectionery", "Pantry", "Drinks", "Meat & Fish",
         "Personal Care", "Dairy", "Frozen", "Household", "Bakery",
