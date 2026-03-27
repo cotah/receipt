@@ -429,6 +429,76 @@ async def get_price_memory(
     else:
         verified = []
 
+    verified_keys = {(v["user_product"], v["match_name"]) for v in verified}
+
+    # LAYER 5 — Store uncertain candidates for user confirmation
+    # (candidates that passed rules but AI didn't verify or AI failed)
+    uncertain = [
+        c for c in candidates
+        if (c["user_product"], c["match_name"]) not in verified_keys
+    ]
+    if uncertain:
+        for uc in uncertain:
+            try:
+                # Check if already asked
+                existing = (
+                    db.table("price_match_confirmations")
+                    .select("id")
+                    .eq("user_id", user_id)
+                    .eq("receipt_item_name", uc["user_product"])
+                    .eq("matched_product_name", uc["match_name"])
+                    .limit(1)
+                    .execute()
+                )
+                if not existing.data:
+                    db.table("price_match_confirmations").insert({
+                        "user_id": user_id,
+                        "receipt_item_name": uc["user_product"],
+                        "receipt_item_price": uc["user_price"],
+                        "receipt_store": uc["user_store"],
+                        "matched_product_name": uc["match_name"],
+                        "matched_product_price": uc["match_price"],
+                        "matched_store": uc["match_store"],
+                    }).execute()
+            except Exception:
+                pass
+
+    # Include previously user-confirmed matches too
+    try:
+        confirmed_matches = (
+            db.table("price_match_confirmations")
+            .select("receipt_item_name, receipt_item_price, receipt_store, matched_product_name, matched_product_price, matched_store")
+            .eq("user_id", user_id)
+            .eq("confirmed", True)
+            .execute()
+        )
+        for cm in confirmed_matches.data or []:
+            # Check if this match is still valid (product still in offers)
+            current_check = (
+                db.table("collective_prices")
+                .select("unit_price")
+                .eq("product_name", cm["matched_product_name"])
+                .eq("store_name", cm["matched_store"])
+                .gte("expires_at", now.isoformat())
+                .limit(1)
+                .execute()
+            )
+            if current_check.data:
+                current_price = float(current_check.data[0]["unit_price"])
+                paid_price = float(cm["receipt_item_price"])
+                saving = round(paid_price - current_price, 2)
+                if saving > 0.10:
+                    verified.append({
+                        "user_product": cm["receipt_item_name"],
+                        "user_price": paid_price,
+                        "user_store": cm["receipt_store"],
+                        "match_price": current_price,
+                        "match_store": cm["matched_store"],
+                        "is_on_offer": False,
+                    })
+    except Exception:
+        pass
+
     for v in verified:
         saving = round(v["user_price"] - v["match_price"], 2)
         if saving > 0.10:
