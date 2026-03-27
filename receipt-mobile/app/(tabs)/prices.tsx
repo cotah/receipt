@@ -24,6 +24,24 @@ export default function PricesScreen() {
   const [searchText, setSearchText] = useState('');
   const [eligibleAlerts, setEligibleAlerts] = useState<EligibleAlert[]>([]);
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
+  const [addedToList, setAddedToList] = useState<Set<string>>(new Set());
+
+  const addToShoppingList = useCallback(async (name: string, store: string, price: number, category?: string) => {
+    const key = `${name}-${store}`;
+    if (addedToList.has(key)) return;
+    try {
+      await api.post('/shopping-list/add', {
+        product_name: name,
+        store_name: store,
+        unit_price: price,
+        category: category || 'Other',
+        source: 'deal',
+      });
+      setAddedToList(prev => new Set(prev).add(key));
+    } catch {
+      Alert.alert('Error', 'Could not add to list');
+    }
+  }, [addedToList]);
 
   const {
     isLoading,
@@ -313,6 +331,14 @@ export default function PricesScreen() {
                             {deal.discount_pct && (
                               <Badge text={`-${deal.discount_pct}%`} variant="success" size="sm" />
                             )}
+                            <Pressable
+                              onPress={() => addToShoppingList(deal.product_name, deal.store_name, deal.current_price, deal.category)}
+                              style={styles.addBtn}
+                            >
+                              <Text style={styles.addBtnText}>
+                                {addedToList.has(`${deal.product_name}-${deal.store_name}`) ? '✓' : '+'}
+                              </Text>
+                            </Pressable>
                           </View>
                         </View>
                       </Card>
@@ -340,6 +366,14 @@ export default function PricesScreen() {
                             {deal.discount_pct && (
                               <Badge text={`-${deal.discount_pct}%`} variant="success" size="sm" />
                             )}
+                            <Pressable
+                              onPress={() => addToShoppingList(deal.product_name, deal.store_name, deal.current_price, deal.category)}
+                              style={styles.addBtn}
+                            >
+                              <Text style={styles.addBtnText}>
+                                {addedToList.has(`${deal.product_name}-${deal.store_name}`) ? '✓' : '+'}
+                              </Text>
+                            </Pressable>
                           </View>
                         </View>
                       </Card>
@@ -367,6 +401,14 @@ export default function PricesScreen() {
                             {deal.discount_pct && (
                               <Badge text={`-${deal.discount_pct}%`} variant="success" size="sm" />
                             )}
+                            <Pressable
+                              onPress={() => addToShoppingList(deal.product_name, deal.store_name, deal.current_price, deal.category)}
+                              style={styles.addBtn}
+                            >
+                              <Text style={styles.addBtnText}>
+                                {addedToList.has(`${deal.product_name}-${deal.store_name}`) ? '✓' : '+'}
+                              </Text>
+                            </Pressable>
                           </View>
                         </View>
                       </Card>
@@ -500,6 +542,15 @@ const styles = StyleSheet.create({
   goldenWas: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, textDecorationLine: 'line-through' },
 
   refreshInfo: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, textAlign: 'center', marginTop: Spacing.md, marginBottom: Spacing.lg },
+
+  // Add to list button
+  addBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: Colors.primary.default,
+    alignItems: 'center', justifyContent: 'center',
+    marginTop: 4,
+  },
+  addBtnText: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: '#fff', lineHeight: 20 },
 
   // Savings banner
   savingsBanner: {

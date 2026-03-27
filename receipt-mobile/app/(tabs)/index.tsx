@@ -25,6 +25,21 @@ export default function HomeScreen() {
   const [locationChecked, setLocationChecked] = useState(false);
   const [savings, setSavings] = useState<any>(null);
   const [priceMemories, setPriceMemories] = useState<any[]>([]);
+  const [addedToList, setAddedToList] = useState<Set<string>>(new Set());
+
+  const addToShoppingList = async (name: string, store: string, price: number) => {
+    const key = `${name}-${store}`;
+    if (addedToList.has(key)) return;
+    try {
+      await api.post('/shopping-list/add', {
+        product_name: name,
+        store_name: store,
+        unit_price: price,
+        source: 'memory',
+      });
+      setAddedToList(prev => new Set(prev).add(key));
+    } catch {}
+  };
 
   useEffect(() => {
     fetchReceipts(1);
@@ -158,8 +173,18 @@ export default function HomeScreen() {
                   <Text style={styles.memoryNow}>
                     Now {formatCurrency(m.current_price)} at {m.current_store}
                   </Text>
-                  <View style={styles.savingBadge}>
-                    <Text style={styles.savingBadgeText}>Save {formatCurrency(m.saving)}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={styles.savingBadge}>
+                      <Text style={styles.savingBadgeText}>Save {formatCurrency(m.saving)}</Text>
+                    </View>
+                    <Pressable
+                      onPress={() => addToShoppingList(m.product_name, m.current_store, m.current_price)}
+                      style={styles.memoryAddBtn}
+                    >
+                      <Text style={styles.memoryAddBtnText}>
+                        {addedToList.has(`${m.product_name}-${m.current_store}`) ? '✓' : '+'}
+                      </Text>
+                    </Pressable>
                   </View>
                 </View>
               </Card>
@@ -227,6 +252,8 @@ const styles = StyleSheet.create({
   memoryNow: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.primary },
   savingBadge: { backgroundColor: '#E8F5EE', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   savingBadgeText: { fontFamily: 'DMSans_600SemiBold', fontSize: 12, color: Colors.accent.green },
+  memoryAddBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.primary.default, alignItems: 'center', justifyContent: 'center' },
+  memoryAddBtnText: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#fff', lineHeight: 18 },
   seeAll: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.accent.blue, marginTop: Spacing.xs, textAlign: 'center' },
   bestSavingCard: { marginBottom: Spacing.lg, padding: Spacing.md, borderWidth: 1, borderColor: '#A8D5B8', borderRadius: 12, backgroundColor: '#F0F9F4' },
   bestSavingTitle: { fontFamily: 'DMSans_700Bold', fontSize: 15, color: Colors.text.primary, marginBottom: 4 },
