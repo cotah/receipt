@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Query
 from app.utils.auth_utils import get_current_user
 from app.utils.text_utils import generate_product_key
 from app.database import get_service_client
+from app.config import settings
 from app.services.cache_service import get_cache, set_cache
 from app.models.price import (
     PriceCompareResponse,
@@ -335,15 +336,18 @@ async def get_price_memory(
     )
     receipt_map = {r["id"]: r for r in (receipts.data or [])}
 
-    # For each user product, find current offers
+    # For each user product, find current offers with STRICT matching
     memories = []
     seen_products: set[str] = set()
+
+    # Collect candidates first, then AI-verify the best ones
+    candidates: list[dict] = []
 
     for item in receipt_items.data:
         name = item["normalized_name"]
         if not name or name.lower() in seen_products:
             continue
-        if len(name) < 3 or name.lower() in {"deposit", "bag", "carrier bag"}:
+        if len(name) < 3 or name.lower() in {"deposit", "bag", "carrier bag", "bags"}:
             continue
 
         receipt_info = receipt_map.get(item["receipt_id"], {})
@@ -352,7 +356,6 @@ async def get_price_memory(
         paid_date = receipt_info.get("purchased_at", "")
         item_category = item.get("category", "Other")
 
-        # Use ALL significant words for search (not just 3)
         words = [w for w in name.lower().split() if len(w) > 2][:5]
         if not words:
             continue
@@ -361,7 +364,7 @@ async def get_price_memory(
         try:
             matches = (
                 db.table("collective_prices")
-                .select("product_name, store_name, unit_price, is_on_offer")
+                .select("product_name, store_name, unit_price, is_on_offer, category")
                 .eq("source", "leaflet")
                 .gte("expires_at", now.isoformat())
                 .ilike("product_name", pattern)
@@ -372,36 +375,79 @@ async def get_price_memory(
 
             for m in matches.data or []:
                 current_price = float(m["unit_price"])
-                # High similarity threshold — must be the SAME product
+
+                # RULE 1: Price sanity — reject if prices are wildly different
+                # A €10 chicken is NOT the same as a €3 chicken fillet
+                if paid_price > 0 and current_price > 0:
+                    ratio = max(paid_price, current_price) / min(paid_price, current_price)
+                    if ratio > 3.0:  # More than 3x price difference = different product
+                        continue
+
+                # RULE 2: Substring trap — "apple" must not match "apple juice"
+                name_lower = name.lower().strip()
+                match_lower = m["product_name"].lower().strip()
+                # If one is much shorter and is contained in the other, reject
+                if len(name_lower) < len(match_lower) * 0.5:
+                    # User product is much shorter — likely a substring match
+                    # e.g. "Apple" matching "Apple Juice 1L"
+                    if name_lower in match_lower and len(name_lower.split()) <= 2:
+                        continue
+                if len(match_lower) < len(name_lower) * 0.5:
+                    if match_lower in name_lower and len(match_lower.split()) <= 2:
+                        continue
+
+                # RULE 3: Core noun must match
+                # "egg" ≠ "easter egg", "onion rings" ≠ "red onions"
                 norm_user = _normalize_for_grouping(name)
                 norm_match = _normalize_for_grouping(m["product_name"])
                 similarity = _token_similarity(norm_user, norm_match)
                 if similarity < 0.6:
                     continue
 
-                saving = round(paid_price - current_price, 2)
-                if saving > 0.10:  # At least 10c saving
-                    memories.append({
-                        "product_name": name,
-                        "paid_price": paid_price,
-                        "paid_store": paid_store,
-                        "paid_date": paid_date[:10] if paid_date else None,
-                        "current_price": current_price,
-                        "current_store": m["store_name"],
-                        "is_on_offer": m.get("is_on_offer", False),
-                        "saving": saving,
-                        "saving_pct": round(saving / paid_price * 100),
-                        "similarity": round(similarity, 2),
-                        "message": (
-                            f"You paid €{paid_price:.2f} at {paid_store}"
-                            f" — now €{current_price:.2f} at {m['store_name']}"
-                            f" (save €{saving:.2f})"
-                        ),
-                    })
-                    seen_products.add(name.lower())
-                    break  # One match per user product
+                candidates.append({
+                    "user_product": name,
+                    "user_price": paid_price,
+                    "user_store": paid_store,
+                    "user_date": paid_date[:10] if paid_date else None,
+                    "user_category": item_category,
+                    "match_name": m["product_name"],
+                    "match_price": current_price,
+                    "match_store": m["store_name"],
+                    "match_category": m.get("category", "Other"),
+                    "is_on_offer": m.get("is_on_offer", False),
+                    "similarity": similarity,
+                })
+                seen_products.add(name.lower())
+                break  # One candidate per user product
         except Exception:
             pass
+
+    # AI VERIFICATION — ask GPT to confirm matches are the same product
+    # One API call for all candidates (cheap: ~200 tokens)
+    if candidates:
+        verified = await _ai_verify_price_matches(candidates)
+    else:
+        verified = []
+
+    for v in verified:
+        saving = round(v["user_price"] - v["match_price"], 2)
+        if saving > 0.10:
+            memories.append({
+                "product_name": v["user_product"],
+                "paid_price": v["user_price"],
+                "paid_store": v["user_store"],
+                "paid_date": v.get("user_date"),
+                "current_price": v["match_price"],
+                "current_store": v["match_store"],
+                "is_on_offer": v.get("is_on_offer", False),
+                "saving": saving,
+                "saving_pct": round(saving / v["user_price"] * 100),
+                "message": (
+                    f"You paid €{v['user_price']:.2f} at {v['user_store']}"
+                    f" — now €{v['match_price']:.2f} at {v['match_store']}"
+                    f" (save €{saving:.2f})"
+                ),
+            })
 
     # Sort by saving descending
     memories.sort(key=lambda x: -x["saving"])
@@ -472,16 +518,22 @@ async def get_savings_summary(
     best_saving = None
     seen: set[str] = set()
 
+    from app.services.search_service import _normalize_for_grouping, _token_similarity
+
     for item in receipt_items.data:
         name = item["normalized_name"]
         if not name or name.lower() in seen:
+            continue
+        if len(name) < 3 or name.lower() in {"deposit", "bag", "carrier bag", "bags"}:
             continue
         seen.add(name.lower())
 
         paid = float(item["unit_price"])
         paid_store = receipt_map.get(item["receipt_id"], "")
 
-        words = name.lower().split()[:3]
+        words = [w for w in name.lower().split() if len(w) > 2][:5]
+        if not words:
+            continue
         pattern = "%" + "%".join(words) + "%"
 
         try:
@@ -492,11 +544,25 @@ async def get_savings_summary(
                 .gte("expires_at", now.isoformat())
                 .ilike("product_name", pattern)
                 .order("unit_price")
-                .limit(1)
+                .limit(5)
                 .execute()
             )
-            if matches.data:
-                current = float(matches.data[0]["unit_price"])
+            for m in (matches.data or []):
+                current = float(m["unit_price"])
+                # Same strict rules as price-memory
+                if paid > 0 and current > 0:
+                    ratio = max(paid, current) / min(paid, current)
+                    if ratio > 3.0:
+                        continue
+                name_l = name.lower().strip()
+                match_l = m["product_name"].lower().strip()
+                if len(name_l) < len(match_l) * 0.5 and name_l in match_l and len(name_l.split()) <= 2:
+                    continue
+                norm_u = _normalize_for_grouping(name)
+                norm_m = _normalize_for_grouping(m["product_name"])
+                if _token_similarity(norm_u, norm_m) < 0.6:
+                    continue
+
                 saving = paid - current
                 if saving > 0.05:
                     total_savings += saving
@@ -507,9 +573,10 @@ async def get_savings_summary(
                             "paid": paid,
                             "paid_store": paid_store,
                             "now": current,
-                            "now_store": matches.data[0]["store_name"],
+                            "now_store": m["store_name"],
                             "saving": round(saving, 2),
                         }
+                    break  # One match per product
         except Exception:
             pass
 
@@ -521,6 +588,90 @@ async def get_savings_summary(
     }
     set_cache(cache_key, result, ttl_seconds=1800)
     return result
+
+
+async def _ai_verify_price_matches(candidates: list[dict]) -> list[dict]:
+    """Use GPT to verify that product matches are truly the same product.
+
+    This is the critical brain that prevents:
+    - "Egg" matching "Easter Egg"
+    - "Apple" matching "Apple Juice"
+    - "Chicken" at €10 matching "Chicken Fillets" at €3
+    - "Onion Rings" matching "Red Onions"
+    - "Butter" matching "Peanut Butter"
+
+    One cheap API call verifies all candidates at once.
+    """
+    if not candidates:
+        return []
+
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+
+    # Build verification prompt
+    pairs = []
+    for i, c in enumerate(candidates):
+        pairs.append(
+            f"{i+1}. \"{c['user_product']}\" (€{c['user_price']:.2f}) "
+            f"vs \"{c['match_name']}\" (€{c['match_price']:.2f})"
+        )
+
+    prompt = f"""You are a grocery product matching expert. For each pair below,
+determine if they are the EXACT SAME product (just different naming/branding).
+
+STRICT RULES:
+- "Egg" and "Easter Egg" = DIFFERENT (one is food, other is chocolate)
+- "Apple" and "Apple Juice" = DIFFERENT (one is fruit, other is drink)
+- "Chicken" and "Chicken Fillets" = COULD BE same IF similar price/weight
+- "Butter" and "Peanut Butter" = DIFFERENT
+- "Onion Rings" and "Red Onions" = DIFFERENT (one is snack, other is vegetable)
+- "Bread" and "Garlic Bread" = DIFFERENT
+- "Milk 2L" and "Milk 1L" = DIFFERENT size (but note: could still compare per-unit)
+- "Coca-Cola 500ml" and "Coca-Cola 2L" = DIFFERENT size
+- If prices differ by more than 3x AND no obvious size difference, likely DIFFERENT products
+
+For each pair respond with ONLY the number and YES or NO:
+1. YES
+2. NO
+etc.
+
+Pairs:
+{chr(10).join(pairs)}"""
+
+    try:
+        response = await client.chat.completions.create(
+            model="gpt-4.1-nano",
+            max_completion_tokens=200,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        answer = response.choices[0].message.content.strip()
+
+        # Parse YES/NO responses
+        verified = []
+        for line in answer.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            # Parse "1. YES" or "1. NO"
+            parts = line.split(".", 1)
+            if len(parts) == 2:
+                try:
+                    idx = int(parts[0].strip()) - 1
+                    is_yes = "YES" in parts[1].upper()
+                    if is_yes and 0 <= idx < len(candidates):
+                        verified.append(candidates[idx])
+                except (ValueError, IndexError):
+                    pass
+
+        return verified
+
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"AI verify failed: {e}")
+        # On AI failure, return EMPTY — better to show nothing than wrong matches
+        # The rule-based checks already filtered obvious mismatches, but
+        # without AI confirmation we can't be sure about edge cases
+        return []
 
 
 @router.get("/smart-timing")
