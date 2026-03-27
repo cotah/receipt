@@ -395,3 +395,104 @@ async def admin_activity(_admin: str = Depends(require_admin)):
             "scans": q.count or 0,
         })
     return {"days": days}
+
+
+@router.get("/products/categories")
+async def admin_product_categories(_admin: str = Depends(require_admin)):
+    """Product count by category."""
+    db = get_service_client()
+    result = db.rpc("", {}).execute()  # Can't do GROUP BY easily, use raw
+    # Use a workaround: count per known category
+    categories = [
+        "Snacks & Confectionery", "Pantry", "Drinks", "Meat & Fish",
+        "Personal Care", "Dairy", "Frozen", "Household", "Bakery",
+        "Alcohol", "Fruit & Veg", "Baby & Kids", "Pet Food",
+        "Cleaning & Household", "Other", "Uncategorized",
+    ]
+    counts = []
+    for cat in categories:
+        q = (
+            db.table("collective_prices")
+            .select("id", count="exact")
+            .eq("source", "leaflet")
+            .eq("category", cat)
+            .execute()
+        )
+        if q.count and q.count > 0:
+            counts.append({"category": cat, "count": q.count})
+    counts.sort(key=lambda x: -x["count"])
+    total = sum(c["count"] for c in counts)
+    return {"categories": counts, "total": total}
+
+
+@router.get("/products/search")
+async def admin_product_search(
+    q: str = "",
+    store: str = "",
+    category: str = "",
+    page: int = 1,
+    per_page: int = 25,
+    _admin: str = Depends(require_admin),
+):
+    """Search products in collective_prices."""
+    db = get_service_client()
+    query = (
+        db.table("collective_prices")
+        .select(
+            "id, product_name, store_name, unit_price, category, "
+            "is_on_offer, source, expires_at",
+            count="exact",
+        )
+        .eq("source", "leaflet")
+        .order("product_name")
+    )
+    if q:
+        query = query.ilike("product_name", f"%{q}%")
+    if store:
+        query = query.eq("store_name", store)
+    if category:
+        query = query.eq("category", category)
+
+    offset = (page - 1) * per_page
+    query = query.range(offset, offset + per_page - 1)
+    result = query.execute()
+
+    return {
+        "products": result.data or [],
+        "total": result.count or 0,
+        "page": page,
+        "per_page": per_page,
+    }
+
+
+@router.post("/products/{product_id}/category")
+async def admin_update_category(
+    product_id: str,
+    category: str,
+    _admin: str = Depends(require_admin),
+):
+    """Update a product's category."""
+    db = get_service_client()
+    db.table("collective_prices").update(
+        {"category": category}
+    ).eq("id", product_id).execute()
+    return {"status": "updated", "id": product_id, "category": category}
+
+
+@router.get("/db/stats")
+async def admin_db_stats(_admin: str = Depends(require_admin)):
+    """Row counts for key tables."""
+    db = get_service_client()
+    tables = [
+        "profiles", "receipts", "receipt_items", "collective_prices",
+        "price_history", "weekly_deals", "shopping_list_items",
+        "scraper_runs", "chat_messages",
+    ]
+    stats = []
+    for t in tables:
+        try:
+            q = db.table(t).select("id", count="exact").execute()
+            stats.append({"table": t, "rows": q.count or 0})
+        except Exception:
+            stats.append({"table": t, "rows": -1})
+    return {"tables": stats}
