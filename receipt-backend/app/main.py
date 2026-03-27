@@ -60,9 +60,15 @@ async def lifespan(app: FastAPI):
     setup_intelligence_scheduler(scheduler)
 
     # Deals engine — every 2 days at 04:00 UTC (after scrapers)
-    from app.workers.deals_worker import generate_all_deals
+    from app.workers.deals_worker import generate_all_deals, snapshot_prices_to_history
+
+    async def _deals_and_snapshot():
+        """Run deals engine + price snapshot (for Smart Timing)."""
+        await snapshot_prices_to_history()
+        await generate_all_deals()
+
     scheduler.add_job(
-        generate_all_deals,
+        _deals_and_snapshot,
         "cron",
         hour=4,
         minute=0,

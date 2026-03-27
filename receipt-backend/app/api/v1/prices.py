@@ -497,3 +497,271 @@ async def get_savings_summary(
     }
     set_cache(cache_key, result, ttl_seconds=1800)
     return result
+
+
+@router.get("/smart-timing")
+async def get_smart_timing(
+    product_name: str | None = Query(None, description="Product to check timing for"),
+    user_id: str = Depends(get_current_user),
+):
+    """Smart Timing — predict when products go on sale.
+
+    With enough history (4+ weeks): detects price cycles and predicts
+    next sale date for specific products.
+
+    Always available: shows store refresh schedule and when current
+    offers expire, so users know the best time to shop.
+    """
+    from datetime import timedelta
+
+    cache_key = f"smart_timing:{user_id}:{product_name or 'general'}"
+    cached = get_cache(cache_key)
+    if cached:
+        return cached
+
+    db = get_service_client()
+    now = datetime.now(timezone.utc)
+
+    # Store schedule info (always available)
+    store_schedules = [
+        {
+            "store": "SuperValu",
+            "refresh_day": "Every other day",
+            "refresh_detail": "Odd calendar days at 06:00",
+            "next_refresh": _next_odd_day(now).isoformat(),
+        },
+        {
+            "store": "Tesco",
+            "refresh_day": "Every other day",
+            "refresh_detail": "Even calendar days at 07:00",
+            "next_refresh": _next_even_day(now).isoformat(),
+        },
+        {
+            "store": "Lidl",
+            "refresh_day": "Thursday",
+            "refresh_detail": "New leaflet every Thursday at 07:00",
+            "next_refresh": _next_weekday(now, 3).isoformat(),  # Thursday=3
+        },
+        {
+            "store": "Aldi",
+            "refresh_day": "Thursday",
+            "refresh_detail": "New leaflet every Thursday (scrape Friday 08:00)",
+            "next_refresh": _next_weekday(now, 3).isoformat(),
+        },
+    ]
+
+    # Current offers expiry info
+    expiry_data = (
+        db.table("collective_prices")
+        .select("store_name, expires_at")
+        .eq("source", "leaflet")
+        .gte("expires_at", now.isoformat())
+        .execute()
+    )
+    store_expiry: dict[str, str] = {}
+    for row in expiry_data.data or []:
+        store = row["store_name"]
+        exp = row["expires_at"]
+        if store not in store_expiry or exp > store_expiry[store]:
+            store_expiry[store] = exp
+
+    for sched in store_schedules:
+        exp = store_expiry.get(sched["store"])
+        if exp:
+            sched["offers_valid_until"] = exp[:10]
+            days_left = (datetime.fromisoformat(exp.replace("Z", "+00:00")) - now).days
+            sched["days_until_expiry"] = max(days_left, 0)
+        else:
+            sched["offers_valid_until"] = None
+            sched["days_until_expiry"] = None
+
+    # Product-specific timing (if requested and enough history)
+    product_timing = None
+    if product_name:
+        product_timing = await _analyze_product_timing(db, product_name, now)
+
+    # User's top products timing
+    user_insights = []
+    try:
+        patterns = (
+            db.table("user_product_patterns")
+            .select("normalized_name, purchase_count, avg_days_between_purchases, last_purchased_at")
+            .eq("user_id", user_id)
+            .order("purchase_count", desc=True)
+            .limit(5)
+            .execute()
+        )
+        for p in patterns.data or []:
+            name = p["normalized_name"]
+            avg_days = p.get("avg_days_between_purchases")
+            last = p.get("last_purchased_at")
+            insight = {"product": name, "purchase_count": p["purchase_count"]}
+
+            if avg_days and last:
+                try:
+                    last_dt = datetime.fromisoformat(last.replace("Z", "+00:00"))
+                    next_buy = last_dt + timedelta(days=int(avg_days))
+                    days_until = (next_buy - now).days
+                    insight["avg_days_between"] = int(avg_days)
+                    insight["next_expected_purchase"] = next_buy.date().isoformat()
+                    insight["days_until_restock"] = max(days_until, 0)
+                    if days_until <= 0:
+                        insight["status"] = "due"
+                    elif days_until <= 3:
+                        insight["status"] = "soon"
+                    else:
+                        insight["status"] = "ok"
+                except (ValueError, TypeError):
+                    insight["status"] = "unknown"
+            else:
+                insight["status"] = "unknown"
+
+            user_insights.append(insight)
+    except Exception:
+        pass
+
+    result = {
+        "store_schedules": store_schedules,
+        "product_timing": product_timing,
+        "user_restock_insights": user_insights,
+        "data_weeks": 1,  # Will grow as scrapers run
+        "needs_more_data": True,  # Will be False once we have 4+ weeks
+    }
+
+    set_cache(cache_key, result, ttl_seconds=3600)
+    return result
+
+
+async def _analyze_product_timing(db, product_name: str, now: datetime) -> dict:
+    """Analyze price history for a product to detect cycles."""
+    from app.services.search_service import _normalize_for_grouping, _token_similarity
+
+    words = product_name.lower().split()[:3]
+    pattern = "%" + "%".join(words) + "%"
+
+    # Get price history
+    history = (
+        db.table("price_history")
+        .select("store_name, unit_price, observed_at, week_number, year_number")
+        .ilike("product_name", pattern)
+        .order("observed_at")
+        .limit(200)
+        .execute()
+    )
+
+    if not history.data or len(history.data) < 2:
+        # Not enough data — show current status
+        current = (
+            db.table("collective_prices")
+            .select("product_name, store_name, unit_price, is_on_offer, expires_at")
+            .eq("source", "leaflet")
+            .gte("expires_at", now.isoformat())
+            .ilike("product_name", pattern)
+            .order("unit_price")
+            .limit(5)
+            .execute()
+        )
+        return {
+            "product": product_name,
+            "has_cycle_data": False,
+            "message": "Not enough history yet — check back after 4 weeks of tracking",
+            "current_offers": [
+                {
+                    "store": r["store_name"],
+                    "price": float(r["unit_price"]),
+                    "on_offer": r.get("is_on_offer", False),
+                    "expires": r.get("expires_at", "")[:10],
+                }
+                for r in (current.data or [])
+            ],
+        }
+
+    # Group by store and week
+    by_store: dict[str, list[dict]] = {}
+    for row in history.data:
+        store = row["store_name"]
+        if store not in by_store:
+            by_store[store] = []
+        by_store[store].append(row)
+
+    store_analysis = []
+    for store, records in by_store.items():
+        prices = [float(r["unit_price"]) for r in records]
+        weeks = sorted(set(r["week_number"] for r in records))
+        avg_price = sum(prices) / len(prices)
+        min_price = min(prices)
+        max_price = max(prices)
+
+        analysis = {
+            "store": store,
+            "avg_price": round(avg_price, 2),
+            "min_price": round(min_price, 2),
+            "max_price": round(max_price, 2),
+            "weeks_tracked": len(weeks),
+            "price_variance": round(max_price - min_price, 2),
+        }
+
+        # Detect cycle if 4+ weeks
+        if len(weeks) >= 4:
+            # Find weeks where price was below average (on sale)
+            sale_weeks = [
+                r["week_number"]
+                for r in records
+                if float(r["unit_price"]) < avg_price * 0.9
+            ]
+            if len(sale_weeks) >= 2:
+                # Calculate average gap between sales
+                gaps = [
+                    sale_weeks[i + 1] - sale_weeks[i]
+                    for i in range(len(sale_weeks) - 1)
+                    if sale_weeks[i + 1] > sale_weeks[i]
+                ]
+                if gaps:
+                    avg_gap = sum(gaps) / len(gaps)
+                    last_sale_week = max(sale_weeks)
+                    current_week = now.isocalendar()[1]
+                    weeks_since_sale = current_week - last_sale_week
+                    weeks_until_sale = max(0, int(avg_gap) - weeks_since_sale)
+
+                    analysis["cycle_weeks"] = round(avg_gap, 1)
+                    analysis["weeks_until_predicted_sale"] = weeks_until_sale
+                    analysis["predicted_sale_price"] = round(min_price, 2)
+
+        store_analysis.append(analysis)
+
+    return {
+        "product": product_name,
+        "has_cycle_data": any(
+            a.get("weeks_tracked", 0) >= 4 for a in store_analysis
+        ),
+        "stores": store_analysis,
+    }
+
+
+def _next_weekday(now: datetime, weekday: int) -> datetime:
+    """Next occurrence of a weekday (0=Mon, 3=Thu, etc)."""
+    from datetime import timedelta
+    days_ahead = weekday - now.weekday()
+    if days_ahead <= 0:
+        days_ahead += 7
+    return (now + timedelta(days=days_ahead)).replace(
+        hour=7, minute=0, second=0, microsecond=0,
+    )
+
+
+def _next_odd_day(now: datetime) -> datetime:
+    """Next odd calendar day."""
+    from datetime import timedelta
+    d = now + timedelta(days=1)
+    while d.day % 2 == 0:
+        d += timedelta(days=1)
+    return d.replace(hour=6, minute=0, second=0, microsecond=0)
+
+
+def _next_even_day(now: datetime) -> datetime:
+    """Next even calendar day."""
+    from datetime import timedelta
+    d = now + timedelta(days=1)
+    while d.day % 2 != 0:
+        d += timedelta(days=1)
+    return d.replace(hour=7, minute=0, second=0, microsecond=0)

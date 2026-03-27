@@ -25,6 +25,7 @@ export default function PricesScreen() {
   const [eligibleAlerts, setEligibleAlerts] = useState<EligibleAlert[]>([]);
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [addedToList, setAddedToList] = useState<Set<string>>(new Set());
+  const [timing, setTiming] = useState<any>(null);
 
   const addToShoppingList = useCallback(async (name: string, store: string, price: number, category?: string) => {
     const key = `${name}-${store}`;
@@ -52,7 +53,10 @@ export default function PricesScreen() {
   } = usePrices();
 
   useEffect(() => {
-    if (tab === 'offers') fetchWeeklyDeals();
+    if (tab === 'offers') {
+      fetchWeeklyDeals();
+      api.get('/prices/smart-timing').then(({ data }) => setTiming(data)).catch(() => {});
+    }
   }, [tab]);
 
   // Fetch savings confirmation alerts
@@ -422,6 +426,49 @@ export default function PricesScreen() {
                   {weeklyDeals.plan === 'free' ? ' · Upgrade to Pro for more deals and Golden Offers' : ''}
                 </Text>
 
+                {/* Smart Timing — store schedules */}
+                {timing?.store_schedules && (
+                  <View style={styles.dealSection}>
+                    <Text style={styles.dealSectionTitle}>⏰ Store Schedules</Text>
+                    <Text style={styles.dealSectionSub}>When new offers drop at each store</Text>
+                    {timing.store_schedules.map((s: any) => (
+                      <Card key={s.store} style={styles.timingCard}>
+                        <View style={styles.timingRow}>
+                          <View style={styles.timingLeft}>
+                            <StoreTag storeName={s.store} />
+                            <Text style={styles.timingDetail}>{s.refresh_detail}</Text>
+                          </View>
+                          <View style={styles.timingRight}>
+                            {s.days_until_expiry != null && s.days_until_expiry <= 2 ? (
+                              <Text style={styles.timingUrgent}>Expires {s.days_until_expiry === 0 ? 'today' : `in ${s.days_until_expiry}d`}</Text>
+                            ) : s.offers_valid_until ? (
+                              <Text style={styles.timingValid}>Valid until {s.offers_valid_until}</Text>
+                            ) : null}
+                          </View>
+                        </View>
+                      </Card>
+                    ))}
+                  </View>
+                )}
+
+                {/* Restock insights */}
+                {timing?.user_restock_insights?.length > 0 && (
+                  <View style={styles.dealSection}>
+                    <Text style={styles.dealSectionTitle}>🔄 Restock Reminders</Text>
+                    <Text style={styles.dealSectionSub}>Based on your purchase patterns</Text>
+                    {timing.user_restock_insights.filter((i: any) => i.status === 'due' || i.status === 'soon').map((item: any, idx: number) => (
+                      <Card key={idx} style={styles.timingCard}>
+                        <Text style={styles.timingProduct}>{item.product}</Text>
+                        <Text style={item.status === 'due' ? styles.timingUrgent : styles.timingDetail}>
+                          {item.status === 'due'
+                            ? `Overdue — you usually buy every ${item.avg_days_between} days`
+                            : `Due in ${item.days_until_restock} days`}
+                        </Text>
+                      </Card>
+                    ))}
+                  </View>
+                )}
+
                 {/* Empty state */}
                 {weeklyDeals.total === 0 && (
                   <View style={styles.emptyState}>
@@ -551,6 +598,16 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   addBtnText: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: '#fff', lineHeight: 20 },
+
+  // Smart Timing
+  timingCard: { marginBottom: Spacing.xs, padding: Spacing.sm },
+  timingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  timingLeft: { flex: 1, gap: 4 },
+  timingRight: { alignItems: 'flex-end', marginLeft: Spacing.sm },
+  timingDetail: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.secondary },
+  timingValid: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.text.tertiary },
+  timingUrgent: { fontFamily: 'DMSans_600SemiBold', fontSize: 12, color: '#E85D3A' },
+  timingProduct: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.primary, marginBottom: 2 },
 
   // Savings banner
   savingsBanner: {
