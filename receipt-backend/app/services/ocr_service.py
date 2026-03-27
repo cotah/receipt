@@ -113,7 +113,7 @@ async def _openai_ocr(prompt: str, image_bytes: bytes, mime_type: str = "image/j
     data_url = f"data:{mime_type};base64,{b64}"
     response = await asyncio.wait_for(
         openai_client.chat.completions.create(
-            model="gpt-5.4",
+            model="gpt-4.1",
             messages=[
                 {
                     "role": "user",

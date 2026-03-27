@@ -189,6 +189,26 @@ async def debug_generate_deals(request: Request):
     return {"status": "started", "message": "Deal generation triggered"}
 
 
+@app.post("/api/v1/debug/categorize")
+async def debug_categorize(request: Request):
+    """Categorize all 'Other' products — requires X-Admin-Key header."""
+    _verify_admin_key(request)
+    from app.api.v1.prices import _run_categorization_batch
+
+    async def _run_all():
+        total = 0
+        for _ in range(100):  # Max 100 batches (5000 products)
+            count = await _run_categorization_batch(50)
+            if count == 0:
+                break
+            total += count
+        import logging
+        logging.getLogger(__name__).info(f"Categorization complete: {total} products")
+
+    asyncio.create_task(_run_all())
+    return {"status": "started", "message": "Categorization running in background"}
+
+
 def _verify_admin_key(request: Request):
     """Check X-Admin-Key header matches ADMIN_KEY env var."""
     if not settings.ADMIN_KEY:

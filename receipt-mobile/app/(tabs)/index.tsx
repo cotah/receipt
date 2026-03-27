@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useRouter } from 'expo-router';
 import Card from '../../components/ui/Card';
+import Badge from '../../components/ui/Badge';
 import { Feather } from '@expo/vector-icons';
 import ProfileAvatar from '../../components/ui/ProfileAvatar';
 import ReceiptCard from '../../components/receipts/ReceiptCard';

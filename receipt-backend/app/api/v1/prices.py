@@ -107,12 +107,26 @@ async def calculate_basket(
         product_key = generate_product_key(item_name)
         result = (
             db.table("collective_prices")
-            .select("store_name, unit_price")
+            .select("store_name, unit_price, product_name")
             .eq("product_key", product_key)
             .gte("expires_at", now.isoformat())
             .order("unit_price")
             .execute()
         )
+        # ILIKE fallback if exact key fails
+        if not result.data:
+            words = [w for w in item_name.lower().split() if len(w) > 2][:4]
+            if words:
+                pattern = "%" + "%".join(words) + "%"
+                result = (
+                    db.table("collective_prices")
+                    .select("store_name, unit_price, product_name")
+                    .ilike("product_name", pattern)
+                    .gte("expires_at", now.isoformat())
+                    .order("unit_price")
+                    .limit(20)
+                    .execute()
+                )
         store_prices: dict[str, float] = {}
         for row in result.data or []:
             s = row["store_name"]
@@ -1010,3 +1024,100 @@ def _next_even_day(now: datetime) -> datetime:
     while d.day % 2 != 0:
         d += timedelta(days=1)
     return d.replace(hour=7, minute=0, second=0, microsecond=0)
+
+
+@router.post("/categorize-batch")
+async def categorize_batch(
+    batch_size: int = Query(50, ge=10, le=100),
+    user_id: str = Depends(get_current_user),
+):
+    """Categorize products that have category='Other' using GPT.
+
+    Processes a batch at a time. Run repeatedly to categorize all.
+    Uses gpt-4.1-nano for cost efficiency (~$0.001 per 50 products).
+    """
+    import asyncio
+    count = await _run_categorization_batch(batch_size)
+    return {"categorized": count, "batch_size": batch_size}
+
+
+async def _run_categorization_batch(batch_size: int = 50) -> int:
+    """Categorize a batch of 'Other' products using GPT."""
+    import json as json_mod
+    import logging
+    from openai import AsyncOpenAI
+
+    log = logging.getLogger(__name__)
+    db = get_service_client()
+    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+
+    # Get uncategorized products
+    result = (
+        db.table("collective_prices")
+        .select("id, product_name")
+        .eq("category", "Other")
+        .eq("source", "leaflet")
+        .limit(batch_size)
+        .execute()
+    )
+
+    if not result.data:
+        return 0
+
+    products = result.data
+    product_list = "\n".join(
+        f"{i+1}. {p['product_name']}" for i, p in enumerate(products)
+    )
+
+    prompt = f"""Categorize each product into exactly ONE of these categories:
+Fruit & Veg, Dairy, Meat & Fish, Bakery, Frozen, Drinks,
+Snacks & Confectionery, Household, Personal Care, Baby & Kids, Pet Food, Alcohol, Other
+
+Respond with ONLY the number and category, one per line:
+1. Dairy
+2. Drinks
+etc.
+
+Products:
+{product_list}"""
+
+    try:
+        response = await client.chat.completions.create(
+            model="gpt-4.1-nano",
+            max_completion_tokens=batch_size * 10,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        answer = response.choices[0].message.content.strip()
+
+        valid_categories = {
+            "fruit & veg", "dairy", "meat & fish", "bakery", "frozen",
+            "drinks", "snacks & confectionery", "household", "personal care",
+            "baby & kids", "pet food", "alcohol", "other",
+        }
+
+        updated = 0
+        for line in answer.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split(".", 1)
+            if len(parts) != 2:
+                continue
+            try:
+                idx = int(parts[0].strip()) - 1
+                category = parts[1].strip()
+                if 0 <= idx < len(products) and category.lower() in valid_categories:
+                    if category.lower() != "other":
+                        db.table("collective_prices").update(
+                            {"category": category}
+                        ).eq("id", products[idx]["id"]).execute()
+                        updated += 1
+            except (ValueError, IndexError):
+                pass
+
+        log.info(f"Categorized {updated}/{len(products)} products")
+        return updated
+
+    except Exception as e:
+        log.warning(f"Categorization batch failed: {e}")
+        return 0

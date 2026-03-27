@@ -191,7 +191,7 @@ export default function PricesScreen() {
                 )}
 
                 {selectedProduct.stores.map((store, i) => (
-                  <Card key={store.store_name} style={[styles.storeRow, i === 0 && styles.storeRowCheapest]}>
+                  <Card key={store.store_name} style={[styles.storeRow, i === 0 && styles.storeRowCheapest] as any}>
                     <View style={styles.storeRowInner}>
                       <View style={styles.storeRowLeft}>
                         <StoreTag storeName={store.store_name} size="md" />

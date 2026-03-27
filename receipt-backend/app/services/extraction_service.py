@@ -137,7 +137,7 @@ RAW TEXT:
 async def extract_receipt_data(raw_text: str) -> dict:
     """Extract structured receipt data from raw OCR text using GPT."""
     response = await client.chat.completions.create(
-        model="gpt-5.4-nano",
+        model="gpt-4.1-nano",
         messages=[
             {"role": "user", "content": EXTRACTION_PROMPT.format(raw_text=raw_text)}
         ],
@@ -151,7 +151,7 @@ async def extract_receipt_data(raw_text: str) -> dict:
 async def extract_leaflet_products(raw_text: str, store_name: str) -> list[dict]:
     """Extract products from leaflet OCR text."""
     response = await client.chat.completions.create(
-        model="gpt-5.4-nano",
+        model="gpt-4.1-nano",
         messages=[
             {
                 "role": "user",

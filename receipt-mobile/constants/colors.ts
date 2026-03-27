@@ -9,6 +9,7 @@ export const Colors = {
     background: '#F7F5F0',
     card: '#FFFFFF',
     alt: '#F0EDE8',
+    border: '#E5E2DC',
   },
   accent: {
     green: '#3CB371',

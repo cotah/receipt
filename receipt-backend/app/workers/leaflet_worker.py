@@ -507,11 +507,11 @@ Rules:
 
     try:
         response = await ai.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4.1-nano",
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
             temperature=0.1,
-            max_tokens=400,
+            max_completion_tokens=400,
         )
         data = _json.loads(response.choices[0].message.content or "{}")
         confidence = float(data.get("confidence", 0.0))

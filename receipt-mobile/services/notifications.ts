@@ -8,7 +8,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
-  }),
+    priority: Notifications.AndroidNotificationPriority.HIGH,
+  } as Notifications.NotificationBehavior),
 });
 
 export async function registerForPushNotifications(): Promise<string | null> {

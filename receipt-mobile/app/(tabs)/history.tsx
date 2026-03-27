@@ -87,7 +87,7 @@ export default function HistoryScreen() {
           <Text style={styles.emptyText}>Scan your first receipt to get started!</Text>
         </View>
       ) : (
-        <FlashList
+        <FlatList
           data={receipts}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
@@ -95,7 +95,6 @@ export default function HistoryScreen() {
               <ReceiptCard {...item} onPress={() => router.push(`/receipt/${item.id}`)} />
             </View>
           )}
-          estimatedItemSize={90}
           onEndReached={loadMore}
           onEndReachedThreshold={0.5}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary.default} />}

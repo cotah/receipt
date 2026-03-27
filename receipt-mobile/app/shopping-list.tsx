@@ -130,11 +130,16 @@ export default function ShoppingListScreen() {
           <Text style={styles.summaryText}>
             {totalItems} item{totalItems !== 1 ? 's' : ''} · est. {formatCurrency(estimatedTotal)}
           </Text>
-          {checkedCount > 0 && (
-            <Pressable onPress={clearChecked}>
-              <Text style={styles.clearText}>Clear {checkedCount} bought</Text>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            {checkedCount > 0 && (
+              <Pressable onPress={clearChecked}>
+                <Text style={styles.clearText}>Clear {checkedCount} bought</Text>
+              </Pressable>
+            )}
+            <Pressable onPress={() => router.push('/basket')}>
+              <Text style={[styles.clearText, { color: Colors.accent.green }]}>⚡ Optimize</Text>
             </Pressable>
-          )}
+          </View>
         </View>
       )}
 

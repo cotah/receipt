@@ -52,7 +52,7 @@ export default function MonthlyReportScreen() {
           vs_previous={report.summary.vs_previous_month}
         />
 
-        <SpendingChart data={report.by_category} period={report.period} />
+        <SpendingChart data={report.by_category as any} period={report.period} />
         <StoreBreakdown data={report.by_store} />
 
         {/* Insights */}
