@@ -144,7 +144,7 @@ async def chat_stream(
 
     # 4. Stream
     stream = await client.chat.completions.create(
-        model="gpt-5.4-mini",
+        model="gpt-5.4-nano",
         messages=messages,
         stream=True,
         max_completion_tokens=800,
