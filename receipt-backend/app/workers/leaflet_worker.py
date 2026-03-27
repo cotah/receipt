@@ -1322,13 +1322,92 @@ async def scrape_lidl_leaflet() -> None:
         # The API only returns ~33% of products (those with interactive links).
         # The PDF has ALL products on every page.
         # ------------------------------------------------------------------
-        pdf_url = (
-            flyer_data.get("hiResPdfUrl") or flyer_data.get("pdfUrl")
-        ) if isinstance(flyer_data, dict) else None
-
-        if pdf_url and total_saved < 80:  # Only if we got <80 from API
+        pdf_url = None
+        if isinstance(flyer_data, dict):
+            pdf_url = (
+                flyer_data.get("hiResPdfUrl")
+                or flyer_data.get("pdfUrl")
+                or flyer_data.get("pdf_url")
+                or flyer_data.get("hirespdfurl")
+            )
             log.info(
-                "Lidl scraper: pass 2 — OCR PDF for additional products (%s)",
+                "Lidl pass 2: flyer_data keys=%s, pdf_url=%s",
+                list(flyer_data.keys())[:10],
+                pdf_url[:80] if pdf_url else "NONE",
+            )
+
+        # Try page images from API first (each page may have imageUrl)
+        if not pdf_url and pages:
+            log.info("Lidl pass 2: no PDF URL — trying page images instead")
+            from app.services.ocr_service import direct_extract_products_from_image
+            ocr_new = 0
+            for pg_idx, pg in enumerate(pages[:14]):
+                img_url = (
+                    pg.get("imageUrl")
+                    or pg.get("image")
+                    or pg.get("hiResImageUrl")
+                    or pg.get("thumbnailUrl")
+                )
+                if not img_url:
+                    if pg_idx == 0:
+                        log.info(
+                            "Lidl pass 2: page keys=%s — no image URLs",
+                            list(pg.keys())[:10],
+                        )
+                    continue
+                try:
+                    img_resp = await client.get(img_url, timeout=30)
+                    img_resp.raise_for_status()
+                    products_ocr = await direct_extract_products_from_image(
+                        img_resp.content, "Lidl",
+                    )
+                    for prod in products_ocr:
+                        name = prod.get("product_name", "")
+                        price = prod.get("unit_price")
+                        if not name or price is None:
+                            continue
+                        try:
+                            price = float(price)
+                        except (ValueError, TypeError):
+                            continue
+                        if price <= 0:
+                            continue
+                        name_lower = name.lower()
+                        is_non_grocery = any(
+                            b in name_lower for b in _LIDL_NON_GROCERY_BRANDS
+                        ) or any(
+                            k in name_lower for k in _LIDL_NON_GROCERY_KEYWORDS
+                        )
+                        if is_non_grocery:
+                            continue
+                        product_key = generate_product_key(name)
+                        try:
+                            db.table("collective_prices").upsert(
+                                {
+                                    "product_key": product_key,
+                                    "product_name": name,
+                                    "category": prod.get("category", "Other"),
+                                    "store_name": "Lidl",
+                                    "unit_price": price,
+                                    "is_on_offer": True,
+                                    "source": "leaflet",
+                                    "observed_at": now.isoformat(),
+                                    "expires_at": flyer_end.isoformat(),
+                                },
+                                on_conflict="product_key,store_name,source",
+                            ).execute()
+                            ocr_new += 1
+                        except Exception:
+                            pass
+                except Exception as e:
+                    log.debug("Lidl pass 2: page %d image failed: %s", pg_idx, e)
+            if ocr_new > 0:
+                total_saved += ocr_new
+                log.info("Lidl pass 2 (page images): added %d products", ocr_new)
+
+        elif pdf_url and total_saved < 80:
+            log.info(
+                "Lidl pass 2: OCR PDF for additional products (%s)",
                 pdf_url[:60],
             )
             try:
@@ -1337,11 +1416,15 @@ async def scrape_lidl_leaflet() -> None:
 
                 pdf_resp = await client.get(pdf_url, timeout=60)
                 pdf_resp.raise_for_status()
+                log.info(
+                    "Lidl pass 2: PDF downloaded (%d bytes)",
+                    len(pdf_resp.content),
+                )
 
                 doc = fitz.open(stream=pdf_resp.content, filetype="pdf")
                 ocr_new = 0
 
-                for pg_num in range(min(len(doc), 14)):  # First 14 pages (grocery)
+                for pg_num in range(min(len(doc), 14)):
                     page = doc[pg_num]
                     mat = fitz.Matrix(2, 2)
                     pix = page.get_pixmap(matrix=mat)
@@ -1366,22 +1449,14 @@ async def scrape_lidl_leaflet() -> None:
                             continue
                         if price <= 0:
                             continue
-
-                        # Apply same non-grocery filter
                         name_lower = name.lower()
-                        is_non_grocery = False
-                        for brand in _LIDL_NON_GROCERY_BRANDS:
-                            if brand in name_lower:
-                                is_non_grocery = True
-                                break
-                        if not is_non_grocery:
-                            for kw in _LIDL_NON_GROCERY_KEYWORDS:
-                                if kw in name_lower:
-                                    is_non_grocery = True
-                                    break
+                        is_non_grocery = any(
+                            b in name_lower for b in _LIDL_NON_GROCERY_BRANDS
+                        ) or any(
+                            k in name_lower for k in _LIDL_NON_GROCERY_KEYWORDS
+                        )
                         if is_non_grocery:
                             continue
-
                         product_key = generate_product_key(name)
                         try:
                             db.table("collective_prices").upsert(
@@ -1404,11 +1479,9 @@ async def scrape_lidl_leaflet() -> None:
 
                 doc.close()
                 total_saved += ocr_new
-                log.info(
-                    "Lidl scraper: pass 2 (OCR) added %d products", ocr_new,
-                )
+                log.info("Lidl pass 2 (PDF OCR): added %d products", ocr_new)
             except Exception as e:
-                log.warning("Lidl scraper: PDF OCR pass 2 failed: %s", e)
+                log.warning("Lidl pass 2: PDF OCR failed: %s", e)
 
     _finish_run(
         db, run_id,
@@ -2810,6 +2883,26 @@ async def scrape_aldi_leaflet() -> None:
     log.info("Aldi scraper: processing %d page images...", len(items))
 
     import base64
+    import re as _re
+
+    # Dedup: same product can appear on multiple pages
+    _seen_names: set[str] = set()
+
+    def _normalize_aldi_name(name: str) -> str:
+        n = name.lower().strip()
+        n = _re.sub(r'\s+\d+\s*x\s*\d+ml', '', n)
+        n = _re.sub(r'\s+\d+cl', '', n)
+        n = _re.sub(r'\s+\d+g', '', n)
+        n = _re.sub(r'\s+\d+ml', '', n)
+        n = _re.sub(r'\s+\d+kg', '', n)
+        n = _re.sub(r'\s+(each|unit|pack|tub|can|bottle)', '', n)
+        n = _re.sub(r'\s+large\s+(easter\s+)?egg', ' large egg', n)
+        n = _re.sub(r'\s+original.*', '', n)
+        n = _re.sub(r'\s+or\s+.*', '', n)
+        n = _re.sub(r'\s+delle\s+venezie.*', '', n)
+        n = _re.sub(r'[/]', ' ', n)
+        n = _re.sub(r'\s+', ' ', n).strip()
+        return n
 
     for item in items:
         page_num = item.get("page", 0)
@@ -2840,6 +2933,12 @@ async def scrape_aldi_leaflet() -> None:
                     price = product.get("unit_price")
                     if not name or price is None or float(price) <= 0:
                         continue
+
+                    # Dedup: skip if we already saved this product
+                    norm_name = _normalize_aldi_name(name)
+                    if norm_name in _seen_names:
+                        continue
+                    _seen_names.add(norm_name)
 
                     from app.utils.price_utils import get_ttl_days
                     category = product.get("category", "Other")
