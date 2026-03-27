@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useRouter } from 'expo-router';
 import Card from '../../components/ui/Card';
+import { Feather } from '@expo/vector-icons';
 import ProfileAvatar from '../../components/ui/ProfileAvatar';
 import ReceiptCard from '../../components/receipts/ReceiptCard';
 import { Colors } from '../../constants/colors';
@@ -211,6 +212,15 @@ export default function HomeScreen() {
           </Card>
         )}
 
+        {/* Shopping List shortcut */}
+        <Pressable style={styles.shoppingListBar} onPress={() => router.push('/shopping-list')}>
+          <View style={styles.shoppingListLeft}>
+            <Feather name="shopping-cart" size={18} color={Colors.primary.default} />
+            <Text style={styles.shoppingListText}>Shopping List</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={Colors.text.tertiary} />
+        </Pressable>
+
         {/* Recent Receipts */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Receipts</Text>
@@ -263,4 +273,13 @@ const styles = StyleSheet.create({
   bestSavingCard: { marginBottom: Spacing.lg, padding: Spacing.md, borderWidth: 1, borderColor: '#A8D5B8', borderRadius: 12, backgroundColor: '#F0F9F4' },
   bestSavingTitle: { fontFamily: 'DMSans_700Bold', fontSize: 15, color: Colors.text.primary, marginBottom: 4 },
   bestSavingText: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary, lineHeight: 18 },
+
+  // Shopping list shortcut
+  shoppingListBar: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: Colors.surface.card, borderRadius: 12, padding: Spacing.md,
+    marginBottom: Spacing.lg, borderWidth: 1, borderColor: Colors.surface.border,
+  },
+  shoppingListLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  shoppingListText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: Colors.text.primary },
 });

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 
 
 import Input from '../../components/ui/Input';
@@ -26,6 +28,7 @@ export default function PricesScreen() {
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [addedToList, setAddedToList] = useState<Map<string, string>>(new Map());
   const [timing, setTiming] = useState<any>(null);
+  const router = useRouter();
 
   const toggleShoppingList = useCallback(async (name: string, store: string, price: number, category?: string) => {
     const key = `${name}-${store}`;
@@ -431,6 +434,16 @@ export default function PricesScreen() {
                   {weeklyDeals.plan === 'free' ? ' · Upgrade to Pro for more deals and Golden Offers' : ''}
                 </Text>
 
+                {/* Shopping List shortcut */}
+                {addedToList.size > 0 && (
+                  <Pressable style={styles.shoppingListBtn} onPress={() => router.push('/shopping-list')}>
+                    <Feather name="shopping-cart" size={16} color="#fff" />
+                    <Text style={styles.shoppingListBtnText}>
+                      View Shopping List ({addedToList.size})
+                    </Text>
+                  </Pressable>
+                )}
+
                 {/* Smart Timing — store schedules */}
                 {timing?.store_schedules && (
                   <View style={styles.dealSection}>
@@ -606,6 +619,14 @@ const styles = StyleSheet.create({
 
   // Smart Timing
   timingCard: { marginBottom: Spacing.xs, padding: Spacing.sm },
+
+  // Shopping list button
+  shoppingListBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: Colors.primary.default, borderRadius: 12,
+    paddingVertical: 12, marginBottom: Spacing.md,
+  },
+  shoppingListBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#fff' },
   timingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   timingLeft: { flex: 1, gap: 4 },
   timingRight: { alignItems: 'flex-end', marginLeft: Spacing.sm },
