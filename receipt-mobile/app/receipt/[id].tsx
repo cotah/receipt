@@ -64,10 +64,7 @@ export default function ReceiptDetailScreen() {
         </Pressable>
 
         <View style={styles.header}>
-          <View style={styles.headerRow}>
-            <Text style={styles.storeName}>{r.store_name}</Text>
-            <StoreTag storeName={r.store_name} size="md" />
-          </View>
+          <StoreTag storeName={r.store_name} size="lg" />
           <Text style={styles.date}>{formatReceiptDate(r.purchased_at)}</Text>
         </View>
 

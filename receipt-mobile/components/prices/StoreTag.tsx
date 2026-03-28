@@ -25,10 +25,10 @@ export default function StoreTag({ storeName, size = 'sm' }: StoreTagProps) {
   };
 
   const logo = STORE_LOGOS[storeName] || null;
-  const logoSize = size === 'lg' ? 24 : size === 'md' ? 18 : 14;
-  const fontSize = size === 'lg' ? 15 : size === 'md' ? 13 : 11;
-  const padV = size === 'lg' ? 6 : size === 'md' ? 4 : 2;
-  const padH = size === 'lg' ? 14 : size === 'md' ? 12 : 8;
+  const logoSize = size === 'lg' ? 32 : size === 'md' ? 18 : 14;
+  const fontSize = size === 'lg' ? 20 : size === 'md' ? 13 : 11;
+  const padV = size === 'lg' ? 10 : size === 'md' ? 4 : 2;
+  const padH = size === 'lg' ? 18 : size === 'md' ? 12 : 8;
 
   return (
     <View style={[styles.tag, { backgroundColor: colors.light, paddingVertical: padV, paddingHorizontal: padH }]}>
