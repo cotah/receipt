@@ -11,75 +11,93 @@ Return ONLY valid JSON. No explanation, no markdown fences.
 
 CRITICAL RULES FOR IRISH RECEIPT FORMATS:
 
-1. QUANTITY LINES: When you see a line like "2 x 1.79" or "3 x 0.99",
+1. MULTI-LINE PRODUCT NAMES: Product names often wrap to 2 or 3 lines.
+   These MUST be combined into ONE product. Example:
+     1 Tesco Slievenamon Irish Still  €1.59
+       Spring Water 5l
+   This is ONE product: "Tesco Slievenamon Irish Still Spring Water 5l" at €1.59.
+   The second line has NO PRICE — that's how you know it's a continuation.
+   NEVER split a wrapped name into two separate products.
+
+2. QUANTITY LINES: When you see "2 x 1.79" or "3 x 0.99",
    it refers to the product on the PREVIOUS line. It means:
    - quantity = 2 (or 3)
    - unit_price = 1.79 (or 0.99)
    - total_price = the amount shown on the PREVIOUS product line
-   Example:
-     STRAIGHT CUT CHIPS    1.55 E    ← total_price is 1.55 (deal price for 2)
-     2 x                   1.79      ← quantity=2, unit_price=1.79 (original each)
-   This means: 2 chips, unit_price €1.79 each, but total is €1.55 (multi-buy deal)
-   The "2 x 1.79" line is NOT a separate product.
+   The quantity line is NOT a separate product.
 
-2. ALDI format:
+3. DISCOUNT LINES: Lines starting with "Cc", "Clubcard", "Saving",
+   "Promotional", "Meal Deal", "Multibuy" are discounts.
+   They are NOT products. Example:
+     1 Cheez-it Snap'd Double Cheese 120g  €3.50
+       Cc €1.75                            -€1.75
+   The "Cc €1.75" line is a Clubcard discount: the product cost €3.50,
+   discount is €1.75, so total_price = €1.75 (3.50 - 1.75).
+   Another example:
+     1 Dr. Oetker Ristorante Pollo Pizza 355g  €4.25
+       Cc Any 2 For €6                         -€1.25
+   Discount is €1.25, total_price = €3.00 (4.25 - 1.25).
+
+4. DEPOSIT LINES: "Deposit charged €0.15" are NOT products. Skip them.
+
+5. TESCO format:
+   - "1" at line start = quantity 1
+   - Product name wraps to next line (join them!)
+   - "Cc" lines = Clubcard discount for previous product
+   - Subtotal/Savings/Promotions at the bottom
+
+6. ALDI format:
    - Product code + NAME + PRICE + E (E=VAT exempt)
-   - "2 x PRICE" on next line = quantity/unit for PREVIOUS item
-   - Total line at bottom
-   - Date at bottom (DD/MM/YY format)
+   - "2 x PRICE" on next line = quantity for PREVIOUS item
 
-3. TESCO format:
-   - NAME + PRICE on each line
-   - "Qty X @ PRICE" or "X x PRICE" = quantity for previous item
-   - "Clubcard Price" or "Promotional Saving" lines = discounts
-   - "Meal Deal" lines = bundle discounts
-
-4. LIDL format:
+7. LIDL format:
    - Similar to Aldi: code + NAME + PRICE
    - Quantity lines below
-   - Deposit lines for bottles
 
-5. SUPERVALU format:
+8. SUPERVALU format:
    - NAME + PRICE
    - "X @ PRICE" = quantity lines
    - "Multibuy Save" = discount
 
-6. PRICE RULES:
-   - unit_price = price PER SINGLE UNIT (before multi-buy deals)
-   - total_price = actual amount charged for this line item
-   - If "2 x 1.79" and line shows 3.58: unit_price=1.79, quantity=2, total_price=3.58
-   - If "2 x 1.79" and line shows 1.55: unit_price=1.79, quantity=2, total_price=1.55 (deal)
-   - discount_amount = difference if deal applies
+9. PRICE RULES:
+   - unit_price = price PER SINGLE UNIT (the number shown on the receipt for that line)
+   - total_price = actual amount charged (unit_price minus any discount)
+   - If there's a "Cc" discount line with -€X.XX, then:
+     total_price = unit_price - discount_amount
+   - discount_amount = the absolute value of the negative number
 
-7. VALIDATION: Sum of all total_price values should equal or be close to the receipt total.
-   If your extraction doesn't add up, re-check the quantities and prices.
+10. VALIDATION: 
+    - Count actual products carefully. A 12-item receipt must have 12 items.
+    - Sum of all total_price values should be close to the receipt subtotal.
+    - If your count seems low, re-read the text — you probably missed wrapped names.
 
-8. NORMALIZE product names: "STRGHT CT CHIPS" → "Straight Cut Chips"
-   Keep brand names when visible. Include weight/size if shown.
+11. NORMALIZE product names: "STRGHT CT CHIPS" → "Straight Cut Chips"
+    Keep brand names. Include weight/size if shown.
 
 Categories: Fruit & Veg, Dairy, Meat & Fish, Bakery, Frozen,
-Drinks, Snacks & Confectionery, Household, Personal Care, Baby & Kids, Other.
+Drinks, Snacks & Confectionery, Household, Personal Care, Baby & Kids,
+Pantry, Alcohol, Pet Food, Other.
 
 Return this exact JSON structure:
 {{
-  "store_name": "Aldi",
-  "store_branch": "Aldi Rathmines",
-  "purchased_at": "2026-03-26T19:31:00",
-  "subtotal": 6.62,
-  "discount_total": 0,
-  "total_amount": 6.62,
+  "store_name": "Tesco",
+  "store_branch": "Tesco Rathmines Metro",
+  "purchased_at": "2026-03-26T19:07:00",
+  "subtotal": 39.67,
+  "discount_total": 8.55,
+  "total_amount": 28.77,
   "items": [
     {{
-      "raw_name": "STRAIGHT CUT CHIPS",
-      "normalized_name": "Straight Cut Chips",
-      "category": "Frozen",
-      "brand": null,
-      "quantity": 2,
-      "unit": "pack",
-      "unit_price": 1.79,
-      "total_price": 1.55,
-      "discount_amount": 2.03,
-      "is_on_offer": true
+      "raw_name": "Tesco Slievenamon Irish Still Spring Water 5l",
+      "normalized_name": "Tesco Slievenamon Irish Still Spring Water 5L",
+      "category": "Drinks",
+      "brand": "Tesco",
+      "quantity": 1,
+      "unit": null,
+      "unit_price": 1.59,
+      "total_price": 1.59,
+      "discount_amount": 0,
+      "is_on_offer": false
     }}
   ]
 }}
@@ -136,6 +154,13 @@ RAW TEXT:
 
 async def extract_receipt_data(raw_text: str) -> dict:
     """Extract structured receipt data from raw OCR text using GPT."""
+    import re
+    import logging
+    log = logging.getLogger(__name__)
+
+    # Count expected items by looking for price patterns (€X.XX) in the text
+    price_lines = len(re.findall(r'€\d+\.\d{2}\s*$', raw_text, re.MULTILINE))
+
     response = await client.chat.completions.create(
         model="gpt-4.1-nano",
         messages=[
@@ -145,7 +170,37 @@ async def extract_receipt_data(raw_text: str) -> dict:
         temperature=0,
         max_completion_tokens=4000,
     )
-    return json.loads(response.choices[0].message.content)
+
+    data = json.loads(response.choices[0].message.content)
+    items = data.get("items", [])
+
+    # Validation: if extracted items seem way too few, retry with higher tokens
+    if len(items) < 3 and price_lines > 5:
+        log.warning(
+            "Extraction got %d items but text has ~%d price lines — retrying",
+            len(items), price_lines,
+        )
+        response = await client.chat.completions.create(
+            model="gpt-4.1-nano",
+            messages=[
+                {"role": "user", "content": EXTRACTION_PROMPT.format(raw_text=raw_text)},
+                {"role": "assistant", "content": response.choices[0].message.content},
+                {"role": "user", "content": (
+                    f"You only extracted {len(items)} items but this receipt has "
+                    f"approximately {price_lines} products. Please re-extract ALL "
+                    f"products from the receipt. Return the complete JSON."
+                )},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0,
+            max_completion_tokens=6000,
+        )
+        retry_data = json.loads(response.choices[0].message.content)
+        if len(retry_data.get("items", [])) > len(items):
+            log.info("Retry got %d items (was %d)", len(retry_data["items"]), len(items))
+            data = retry_data
+
+    return data
 
 
 async def extract_leaflet_products(raw_text: str, store_name: str) -> list[dict]:
