@@ -785,26 +785,26 @@ async def get_smart_timing(
     store_schedules = [
         {
             "store": "SuperValu",
-            "refresh_day": "Every other day",
-            "refresh_detail": "Odd calendar days at 06:00",
+            "refresh_day": "Every 2 days",
+            "refresh_detail": "Prices updated every 2 days",
             "next_refresh": _next_odd_day(now).isoformat(),
         },
         {
             "store": "Tesco",
-            "refresh_day": "Every other day",
-            "refresh_detail": "Even calendar days at 07:00",
+            "refresh_day": "Every 2 days",
+            "refresh_detail": "Prices updated every 2 days",
             "next_refresh": _next_even_day(now).isoformat(),
         },
         {
             "store": "Lidl",
             "refresh_day": "Thursday",
-            "refresh_detail": "New leaflet every Thursday at 07:00",
+            "refresh_detail": "New offers every Thursday",
             "next_refresh": _next_weekday(now, 3).isoformat(),  # Thursday=3
         },
         {
             "store": "Aldi",
             "refresh_day": "Thursday",
-            "refresh_detail": "New leaflet every Thursday (scrape Friday 08:00)",
+            "refresh_detail": "New offers every Thursday",
             "next_refresh": _next_weekday(now, 3).isoformat(),
         },
     ]
