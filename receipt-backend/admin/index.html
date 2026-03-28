@@ -3,11 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SD Admin">
+<meta name="theme-color" content="#1A4D35">
+<link rel="manifest" href="/admin/manifest.json">
+<link rel="apple-touch-icon" href="/admin/icon-192.png">
 <title>SmartDocket Admin</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--primary:#1A4D35;--light:#2E7D52;--accent:#3CB371;--amber:#E8A020;--bg:#F7F5F0;--card:#FFF;--text:#1A1A1A;--sec:#6B7280;--border:#E5E7EB;--danger:#DC3545;--blue:#3B82F6}
+
+/* ===== LOGIN SCREEN ===== */
+.login-overlay{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center}
+.login-overlay.hidden{display:none}
+.login-box{background:var(--card);border-radius:20px;padding:40px 32px;width:100%;max-width:380px;box-shadow:0 12px 40px rgba(13,43,29,.12);text-align:center}
+.login-logo{width:64px;height:64px;border-radius:16px;margin:0 auto 16px}
+.login-title{font-size:22px;font-weight:700;color:var(--primary);margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--sec);margin-bottom:28px}
+.login-field{width:100%;padding:12px 16px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;margin-bottom:12px;outline:none;transition:border-color .2s}
+.login-field:focus{border-color:var(--primary)}
+.login-btn{width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .2s}
+.login-btn:hover{opacity:.9}
+.login-btn:disabled{opacity:.5;cursor:not-allowed}
+.login-error{color:var(--danger);font-size:12px;margin-top:8px;display:none}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh}
 .sidebar{width:220px;background:var(--primary);color:#fff;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;transition:transform .3s}
 .sidebar-header{padding:20px 16px;border-bottom:1px solid rgba(255,255,255,.1)}
@@ -72,6 +92,19 @@ tr:hover td{background:#F9FAFB}
 </style>
 </head>
 <body>
+
+<!-- LOGIN SCREEN -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <img src="/admin/icon-192.png" class="login-logo" alt="SmartDocket">
+    <div class="login-title">SmartDocket Admin</div>
+    <div class="login-sub">Sign in to manage your app</div>
+    <input type="email" id="login-email" class="login-field" placeholder="Email" autocomplete="email">
+    <input type="password" id="login-password" class="login-field" placeholder="Admin Key" autocomplete="current-password">
+    <button class="login-btn" id="login-btn" onclick="adminLogin()">Sign In</button>
+    <div class="login-error" id="login-error">Invalid credentials. Please try again.</div>
+  </div>
+</div>
 <button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">&#9776;</button>
 <aside class="sidebar">
   <div class="sidebar-header"><h1>SmartDocket</h1><span>Admin Dashboard</span></div>
@@ -90,7 +123,7 @@ tr:hover td{background:#F9FAFB}
 <div class="main">
   <div class="topbar">
     <h2 id="page-title">Overview</h2>
-    <div class="token-input"><input type="password" id="token" placeholder="Admin Key"><button onclick="saveToken()">Connect</button></div>
+    <button onclick="adminLogout()" style="background:transparent;color:var(--sec);font-size:12px;border:1px solid var(--border);padding:6px 14px;border-radius:8px;cursor:pointer">Sign out</button>
   </div>
   <div class="section active" id="sec-overview">
     <div class="kpi-row" id="kpi-row"></div>
@@ -170,12 +203,44 @@ tr:hover td{background:#F9FAFB}
 <script>
 const B='/api/v1/admin',DB='/api/v1/debug';
 let sc=null,ac=null,up=1,pp=1,uc=[];
-function gT(){return localStorage.getItem('admin_token')||document.getElementById('token').value}
-function saveToken(){localStorage.setItem('admin_token',document.getElementById('token').value);location.reload()}
+
+function gT(){return localStorage.getItem('admin_token')||''}
 function toast(m,ms){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),ms||3000)}
-window.addEventListener('DOMContentLoaded',()=>{const s=localStorage.getItem('admin_token');if(s)document.getElementById('token').value=s;loadOverview()});
-async function api(p,m,b){const o={method:m||'GET',headers:{'X-Admin-Key':gT(),'Content-Type':'application/json'}};if(b)o.body=JSON.stringify(b);const r=await fetch(B+'/'+p,o);if(!r.ok)throw new Error(await r.text());return r.json()}
-async function dApi(p){const r=await fetch(DB+'/'+p,{method:'POST',headers:{'X-Admin-Key':'9NlZWpkxkgrCzTW8vFbL6KrUEkWXy7unv-NIfELzCDI'}});if(!r.ok)throw new Error(await r.text());return r.json()}
+
+// Login / Auth
+async function adminLogin(){
+  const email=document.getElementById('login-email').value.trim();
+  const key=document.getElementById('login-password').value.trim();
+  const err=document.getElementById('login-error');
+  const btn=document.getElementById('login-btn');
+  if(!email||!key){err.textContent='Please fill in both fields.';err.style.display='block';return}
+  btn.disabled=true;btn.textContent='Signing in...';err.style.display='none';
+  try{
+    const r=await fetch(B+'/stats',{headers:{'X-Admin-Key':key}});
+    if(!r.ok)throw new Error('Invalid');
+    localStorage.setItem('admin_token',key);
+    localStorage.setItem('admin_email',email);
+    document.getElementById('loginOverlay').classList.add('hidden');
+    loadOverview();
+  }catch(e){
+    err.textContent='Invalid admin key. Please try again.';err.style.display='block';
+  }finally{btn.disabled=false;btn.textContent='Sign In'}
+}
+function adminLogout(){localStorage.removeItem('admin_token');localStorage.removeItem('admin_email');location.reload()}
+
+// Enter key on login fields
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&!document.getElementById('loginOverlay').classList.contains('hidden'))adminLogin()});
+
+window.addEventListener('DOMContentLoaded',()=>{
+  const token=localStorage.getItem('admin_token');
+  if(token){
+    document.getElementById('loginOverlay').classList.add('hidden');
+    loadOverview();
+  }
+});
+
+async function api(p,m,b){const o={method:m||'GET',headers:{'X-Admin-Key':gT(),'Content-Type':'application/json'}};if(b)o.body=JSON.stringify(b);const r=await fetch(B+'/'+p,o);if(!r.ok){if(r.status===401||r.status===403){adminLogout()}throw new Error(await r.text())}return r.json()}
+async function dApi(p){const r=await fetch(DB+'/'+p,{method:'POST',headers:{'X-Admin-Key':gT()}});if(!r.ok)throw new Error(await r.text());return r.json()}
 function showSection(id,el){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById('sec-'+id).classList.add('active');document.querySelectorAll('.sidebar nav a').forEach(a=>a.classList.remove('active'));if(el)el.classList.add('active');document.getElementById('page-title').textContent=el?el.textContent.trim():id;document.querySelector('.sidebar').classList.remove('open');({users:loadUsers,scrapers:loadScrapers,activity:loadActivity,errors:loadErrors,overview:loadOverview,products:loadProductsSec,database:loadDbStats})[id]?.()}
 async function loadOverview(){try{const[s,sc2,e,a]=await Promise.all([api('stats'),api('scrapers'),api('errors'),api('activity')]);document.getElementById('kpi-row').innerHTML=`<div class="kpi primary"><div class="label">Users</div><div class="value">${s.total_users}</div><div class="sub">${s.pro_users} pro / ${s.free_users} free</div></div><div class="kpi green"><div class="label">MRR</div><div class="value">&euro;${s.mrr.toFixed(2)}</div><div class="sub">${s.pro_users} x &euro;4.99</div></div><div class="kpi amber"><div class="label">Scans today</div><div class="value">${s.scans_today}</div><div class="sub">${s.scans_week} this week</div></div><div class="kpi blue"><div class="label">Products</div><div class="value">${s.total_prices_in_db.toLocaleString()}</div><div class="sub">5 stores</div></div>`;const cx=document.getElementById('scansChart').getContext('2d');if(sc)sc.destroy();sc=new Chart(cx,{type:'bar',data:{labels:a.days.map(d=>d.date),datasets:[{label:'Scans',data:a.days.map(d=>d.scans),backgroundColor:'#2E7D52',borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});document.getElementById('overview-scrapers').innerHTML=sc2.scrapers.map(x=>{const d={ok:'dot-ok',fallback:'dot-warn',failed:'dot-fail'}[x.status]||'dot-unknown';return`<tr><td><span class="status-dot ${d}"></span>${x.name}</td><td>${x.items_count.toLocaleString()}</td><td><span class="badge badge-${x.status}">${x.status}</span></td><td><button class="btn btn-primary btn-sm" onclick="runAction('scrapers/${x.name}/run','POST')">Run</button></td></tr>`}).join('');const er=e.errors.slice(0,5);document.getElementById('overview-errors').innerHTML=er.length?er.map(x=>`<div class="error-item"><strong>${x.store_name||'?'}</strong> &mdash; ${x.id.slice(0,8)}<div class="meta">${new Date(x.created_at).toLocaleString()}</div></div>`).join(''):'<p style="color:var(--sec);padding:12px">No errors</p>'}catch(e){console.error(e)}}
 async function loadUsers(){const q=document.getElementById('user-search').value,pl=document.getElementById('user-plan-filter').value;try{const d=await api(`users?page=${up}&per_page=15&search=${encodeURIComponent(q)}&plan=${pl}`);uc=d.users;document.getElementById('users-body').innerHTML=d.users.map(u=>`<tr><td>${u.full_name||'<em>-</em>'}</td><td style="font-size:12px">${u.email||''}</td><td><span class="badge badge-${u.plan}">${u.plan}</span></td><td>${u.scans_this_month}</td><td>${u.chat_queries_today}</td><td>${u.points}</td><td style="font-size:11px;color:var(--sec)">${u.created_at?new Date(u.created_at).toLocaleDateString():''}</td><td>${u.plan!=='pro'?`<button class="btn btn-accent btn-sm" onclick="upgradeUser('${u.id}')">Upgrade</button>`:''}</td></tr>`).join('');const tp=Math.ceil(d.total/d.per_page);let p='';for(let i=1;i<=tp&&i<=10;i++)p+=`<button class="${i===up?'current':''}" onclick="up=${i};loadUsers()">${i}</button>`;document.getElementById('users-pagination').innerHTML=p}catch(e){console.error(e)}}
