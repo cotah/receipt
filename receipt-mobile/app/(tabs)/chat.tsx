@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { View, Text, FlatList, Image, StyleSheet, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 
@@ -77,6 +77,10 @@ export default function ChatScreen() {
           }}
           ListEmptyComponent={
             <View style={styles.empty}>
+              <Image
+                source={require('../../assets/ai-avatar.png')}
+                style={styles.aiAvatar}
+              />
               <Text style={styles.emptyTitle}>{`${chatGreeting}, ${firstName}! 👋`}</Text>
               <Text style={styles.emptyText}>How can I help you save on groceries today? Ask me anything about prices, deals, or your spending.</Text>
             </View>
@@ -101,7 +105,8 @@ const styles = StyleSheet.create({
   title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: Colors.primary.dark },
   subtitle: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary },
   messagesList: { paddingVertical: Spacing.md, flexGrow: 1 },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xxl, marginTop: 80 },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xxl, marginTop: 40 },
+  aiAvatar: { width: 100, height: 100, borderRadius: 50, marginBottom: Spacing.md, borderWidth: 2, borderColor: Colors.surface.alt },
   emptyTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm },
   emptyText: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.secondary, textAlign: 'center', lineHeight: 22 },
 });
