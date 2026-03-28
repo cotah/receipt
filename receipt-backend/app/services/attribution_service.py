@@ -21,23 +21,56 @@ async def check_attribution(
 
     Called after a successful scan.  Returns a list of created
     attribution records (may be empty).
+
+    IMPORTANT: Uses the receipt's purchased_at time (printed on receipt),
+    NOT the upload time. This way if someone bought at 16:00 after an
+    alert at 14:00, but uploaded the receipt 2 days later, we still
+    correctly attribute the saving (16:00 - 14:00 = 2h < 5h window).
     """
     now = datetime.now(timezone.utc)
-    window_start = now - timedelta(hours=MANUAL_WINDOW_HOURS)
 
-    # 1. Fetch recent alerts sent to this user
+    # 1. Get the receipt's actual purchase time
+    receipt_resp = (
+        db.table("receipts")
+        .select("store_name, purchased_at, created_at")
+        .eq("id", receipt_id)
+        .single()
+        .execute()
+    )
+    receipt_data = receipt_resp.data or {}
+    receipt_store = (receipt_data.get("store_name") or "").lower()
+    scanned_at = receipt_data.get("created_at") or now.isoformat()
+
+    # Use purchased_at (time on receipt) for attribution, not upload time
+    purchase_time = now
+    try:
+        from dateutil import parser as dateutil_parser
+        raw_purchased = receipt_data.get("purchased_at")
+        if raw_purchased:
+            purchase_time = dateutil_parser.isoparse(raw_purchased)
+            if purchase_time.tzinfo is None:
+                purchase_time = purchase_time.replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        pass  # fallback to now
+
+    # Look for alerts in a wider window around the PURCHASE time
+    # (not around upload time)
+    window_start = purchase_time - timedelta(hours=MANUAL_WINDOW_HOURS)
+
+    # 2. Fetch alerts sent to this user around the purchase time
     alerts_resp = (
         db.table("alerts")
         .select("id, type, title, message, metadata, created_at")
         .eq("user_id", user_id)
         .gte("created_at", window_start.isoformat())
+        .lte("created_at", purchase_time.isoformat())
         .execute()
     )
     alerts = alerts_resp.data or []
     if not alerts:
         return []
 
-    # 2. Fetch receipt items for this receipt
+    # 3. Fetch receipt items
     items_resp = (
         db.table("receipt_items")
         .select(
@@ -49,18 +82,6 @@ async def check_attribution(
     items = items_resp.data or []
     if not items:
         return []
-
-    # 3. Fetch receipt store
-    receipt_resp = (
-        db.table("receipts")
-        .select("store_name, created_at")
-        .eq("id", receipt_id)
-        .single()
-        .execute()
-    )
-    receipt_data = receipt_resp.data or {}
-    receipt_store = (receipt_data.get("store_name") or "").lower()
-    scanned_at = receipt_data.get("created_at") or now.isoformat()
 
     # Build a lookup of item names in the receipt (lowercased)
     item_lookup: dict[str, dict] = {}
@@ -103,16 +124,18 @@ async def check_attribution(
             ):
                 continue
 
-        # Calculate time difference
+        # Calculate time between ALERT and PURCHASE (not upload)
         try:
-            from dateutil import parser as dateutil_parser
-
             alert_dt = dateutil_parser.isoparse(alerted_at)
             if alert_dt.tzinfo is None:
                 alert_dt = alert_dt.replace(tzinfo=timezone.utc)
-            hours_since = (now - alert_dt).total_seconds() / 3600
+            hours_since = (purchase_time - alert_dt).total_seconds() / 3600
         except (ValueError, TypeError):
             hours_since = MANUAL_WINDOW_HOURS  # fallback
+
+        # Only count if alert was BEFORE purchase (not after)
+        if hours_since < 0:
+            continue
 
         # Determine attribution type
         if hours_since <= AUTO_WINDOW_HOURS:
