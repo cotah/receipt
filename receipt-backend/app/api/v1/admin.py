@@ -202,9 +202,9 @@ async def admin_users(
 
 
 SCRAPER_INFO = [
-    {"name": "dunnes", "schedule": "Odd days at 05:00", "store": "Dunnes"},
-    {"name": "supervalu", "schedule": "Odd days at 06:00", "store": "SuperValu"},
-    {"name": "tesco", "schedule": "Even days at 07:00", "store": "Tesco"},
+    {"name": "dunnes", "schedule": "Via user receipts", "store": "Dunnes"},
+    {"name": "supervalu", "schedule": "Every 2 days at 06:00", "store": "SuperValu"},
+    {"name": "tesco", "schedule": "Every 2 days at 07:00", "store": "Tesco"},
     {"name": "lidl", "schedule": "Thu at 07:00", "store": "Lidl"},
     {"name": "aldi", "schedule": "Thu at 08:00", "store": "Aldi"},
 ]

@@ -111,7 +111,7 @@ tr:hover td{background:#F9FAFB}
   <nav>
     <a href="#" class="active" onclick="showSection('overview',this)"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>Overview</a>
     <a href="#" onclick="showSection('users',this)"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>Users</a>
-    <a href="#" onclick="showSection('scrapers',this)"><svg viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>Scrapers</a>
+    <a href="#" onclick="showSection('scrapers',this)"><svg viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>Store Updates</a>
     <a href="#" onclick="showSection('products',this)"><svg viewBox="0 0 24 24"><path d="M18 6h-2c0-2.21-1.79-4-4-4S8 3.79 8 6H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6-2c1.1 0 2 .9 2 2h-4c0-1.1.9-2 2-2z"/></svg>Products</a>
     <a href="#" onclick="showSection('activity',this)"><svg viewBox="0 0 24 24"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>Activity</a>
     <a href="#" onclick="showSection('errors',this)"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>Errors</a>
@@ -129,7 +129,7 @@ tr:hover td{background:#F9FAFB}
     <div class="kpi-row" id="kpi-row"></div>
     <div class="card"><h3>Scans per day (14 days)</h3><div class="chart-wrap"><canvas id="scansChart"></canvas></div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-      <div class="card"><h3>Scraper status</h3><table><thead><tr><th>Store</th><th>Items</th><th>Status</th><th></th></tr></thead><tbody id="overview-scrapers"></tbody></table></div>
+      <div class="card"><h3>Store update status</h3><table><thead><tr><th>Store</th><th>Items</th><th>Status</th><th></th></tr></thead><tbody id="overview-scrapers"></tbody></table></div>
       <div class="card"><h3>Recent errors</h3><div id="overview-errors" style="max-height:250px;overflow-y:auto"></div></div>
     </div>
   </div>
@@ -143,7 +143,7 @@ tr:hover td{background:#F9FAFB}
     <div class="card"><table><thead><tr><th>Name</th><th>Email</th><th>Plan</th><th>Scans</th><th>Chat</th><th>Pts</th><th>Joined</th><th></th></tr></thead><tbody id="users-body"></tbody></table><div class="pagination" id="users-pagination"></div></div>
   </div>
   <div class="section" id="sec-scrapers">
-    <div style="margin-bottom:14px"><button class="btn btn-accent" onclick="runAction('scrapers/run-all','POST')">Run All Scrapers</button></div>
+    <div style="margin-bottom:14px"><button class="btn btn-accent" onclick="runAction('scrapers/run-all','POST')">Update All Stores</button></div>
     <div class="card"><table><thead><tr><th>Store</th><th>Schedule</th><th>Items</th><th>Status</th><th>Fallback</th><th>Last run</th><th></th></tr></thead><tbody id="scrapers-body"></tbody></table></div>
   </div>
   <div class="section" id="sec-products">
@@ -160,13 +160,13 @@ tr:hover td{background:#F9FAFB}
   <div class="section" id="sec-errors"><div class="card"><h3>Failed receipts</h3><div id="errors-list"></div></div></div>
   <div class="section" id="sec-database"><div class="card"><h3>Table row counts</h3><div id="db-tables"></div></div></div>
   <div class="section" id="sec-actions">
-    <div class="card"><h3>Scrapers</h3><div class="actions-grid">
-      <div class="action-card" onclick="runAction('scrapers/run-all','POST')"><div class="icon">&#x1F680;</div><div class="title">Run All</div><div class="desc">All 5 scrapers</div></div>
-      <div class="action-card" onclick="runAction('scrapers/supervalu/run','POST')"><div class="icon">&#x1F534;</div><div class="title">SuperValu</div><div class="desc">Apify</div></div>
-      <div class="action-card" onclick="runAction('scrapers/tesco/run','POST')"><div class="icon">&#x1F535;</div><div class="title">Tesco</div><div class="desc">Apify</div></div>
-      <div class="action-card" onclick="runAction('scrapers/lidl/run','POST')"><div class="icon">&#x1F7E1;</div><div class="title">Lidl</div><div class="desc">API + PDF</div></div>
-      <div class="action-card" onclick="runAction('scrapers/aldi/run','POST')"><div class="icon">&#x1F7E0;</div><div class="title">Aldi</div><div class="desc">Apify + OCR</div></div>
-      <div class="action-card" onclick="runAction('scrapers/dunnes/run','POST')"><div class="icon">&#x26AB;</div><div class="title">Dunnes</div><div class="desc">Disabled</div></div>
+    <div class="card"><h3>Store Updates</h3><div class="actions-grid">
+      <div class="action-card" onclick="runAction('scrapers/run-all','POST')"><div class="icon">&#x1F680;</div><div class="title">Update All</div><div class="desc">All 5 stores</div></div>
+      <div class="action-card" onclick="runAction('scrapers/supervalu/run','POST')"><div class="icon">&#x1F534;</div><div class="title">SuperValu</div><div class="desc">Auto</div></div>
+      <div class="action-card" onclick="runAction('scrapers/tesco/run','POST')"><div class="icon">&#x1F535;</div><div class="title">Tesco</div><div class="desc">Auto</div></div>
+      <div class="action-card" onclick="runAction('scrapers/lidl/run','POST')"><div class="icon">&#x1F7E1;</div><div class="title">Lidl</div><div class="desc">Weekly</div></div>
+      <div class="action-card" onclick="runAction('scrapers/aldi/run','POST')"><div class="icon">&#x1F7E0;</div><div class="title">Aldi</div><div class="desc">Weekly</div></div>
+      <div class="action-card" onclick="runAction('scrapers/dunnes/run','POST')"><div class="icon">&#x26AB;</div><div class="title">Dunnes</div><div class="desc">Via receipts</div></div>
     </div></div>
     <div class="card"><h3>AI Processing</h3><div class="actions-grid">
       <div class="action-card" onclick="runDebug('categorize')"><div class="icon">&#x1F3F7;&#xFE0F;</div><div class="title">Categorize</div><div class="desc">GPT batch</div></div>

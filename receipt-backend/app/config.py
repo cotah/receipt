@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # Workers
     LEAFLET_CRON_HOUR: int = 8
-    LEAFLET_CRON_DAY: int = 4
+    LEAFLET_CRON_DAY: int = 3
     ALERT_CHECK_INTERVAL_MINUTES: int = 60
     PRICE_CLEANUP_INTERVAL_HOURS: int = 6
     REPORT_CRON_DAY: int = 1
