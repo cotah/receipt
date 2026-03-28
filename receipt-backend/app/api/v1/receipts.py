@@ -346,7 +346,10 @@ async def process_receipt_async(
     except Exception as e:
         log.error(f"[{receipt_id}] FAILED: {e}\n{traceback.format_exc()}")
         try:
-            db.table("receipts").update({"status": "failed"}).eq("id", receipt_id).execute()
+            db.table("receipts").update({
+                "status": "failed",
+                "error_reason": str(e)[:500],
+            }).eq("id", receipt_id).execute()
         except Exception:
             pass
 
@@ -585,7 +588,10 @@ async def _process_from_text(
     except Exception as e:
         log.error(f"[{receipt_id}] FAILED: {e}\n{traceback.format_exc()}")
         try:
-            db.table("receipts").update({"status": "failed"}).eq("id", receipt_id).execute()
+            db.table("receipts").update({
+                "status": "failed",
+                "error_reason": str(e)[:500],
+            }).eq("id", receipt_id).execute()
         except Exception as db_err:
             log.error(f"[{receipt_id}] Could not update status to failed: {db_err}")
 

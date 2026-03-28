@@ -108,12 +108,12 @@ async def _gemini_ocr(prompt: str, image_bytes: bytes, mime_type: str = "image/j
 
 
 async def _openai_ocr(prompt: str, image_bytes: bytes, mime_type: str = "image/jpeg") -> str:
-    """OCR using OpenAI gpt-5.4 Vision."""
+    """OCR using OpenAI gpt-4.1-mini Vision (fallback when Gemini unavailable)."""
     b64 = base64.b64encode(image_bytes).decode("utf-8")
     data_url = f"data:{mime_type};base64,{b64}"
     response = await asyncio.wait_for(
         openai_client.chat.completions.create(
-            model="gpt-4.1",
+            model="gpt-4.1-mini",
             messages=[
                 {
                     "role": "user",
@@ -145,11 +145,15 @@ async def extract_text_from_image(image_bytes: bytes) -> str:
         except Exception as e:
             log.warning(f"OCR: Gemini failed ({type(e).__name__}: {e}), falling back to OpenAI Vision")
 
-    # Fallback / primary: OpenAI Vision
-    log.info("OCR: calling OpenAI Vision (gpt-5.4)...")
-    text = await _openai_ocr(OCR_PROMPT, image_bytes)
-    log.info(f"OCR: OpenAI Vision succeeded ({len(text)} chars)")
-    return text
+    # Fallback: OpenAI Vision
+    try:
+        log.info("OCR: calling OpenAI Vision (gpt-4.1-mini)...")
+        text = await _openai_ocr(OCR_PROMPT, image_bytes)
+        log.info(f"OCR: OpenAI Vision succeeded ({len(text)} chars)")
+        return text
+    except Exception as e:
+        log.error(f"OCR: OpenAI Vision also failed: {type(e).__name__}: {e}")
+        raise RuntimeError(f"OCR failed — both Gemini and OpenAI Vision unavailable: {e}")
 
 
 async def extract_text_from_pdf_page(page_image_bytes: bytes) -> str:
