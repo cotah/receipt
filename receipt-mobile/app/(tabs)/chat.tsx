@@ -23,6 +23,8 @@ export default function ChatScreen() {
   const { messages, isStreaming, sendMessage } = useChat();
   const profile = useAuthStore((s) => s.profile);
   const firstName = profile?.full_name?.split(' ')[0] || 'there';
+  const chatHour = new Date().getHours();
+  const chatGreeting = chatHour < 12 ? 'Good morning' : chatHour < 18 ? 'Good afternoon' : 'Good evening';
   const flatListRef = useRef<FlatList>(null);
   
 
@@ -75,8 +77,8 @@ export default function ChatScreen() {
           }}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>{`Hello, ${firstName}! 👋`}</Text>
-              <Text style={styles.emptyText}>How can I help you today? Ask me anything about your grocery spending.</Text>
+              <Text style={styles.emptyTitle}>{`${chatGreeting}, ${firstName}! 👋`}</Text>
+              <Text style={styles.emptyText}>How can I help you save on groceries today? Ask me anything about prices, deals, or your spending.</Text>
             </View>
           }
           ListFooterComponent={isStreaming ? <TypingIndicator /> : null}

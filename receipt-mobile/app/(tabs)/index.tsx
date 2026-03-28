@@ -98,8 +98,6 @@ export default function HomeScreen() {
     return () => clearTimeout(timer);
   }, [profile?.id, profile?.home_area]);
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const name = profile?.full_name?.split(' ')[0] ?? '';
 
   // Calculate month total from receipts
@@ -119,7 +117,7 @@ export default function HomeScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* Header */}
         <View style={styles.headerRow}>
-          <Text style={styles.greeting}>{greeting}, {name}</Text>
+          <Text style={styles.greeting}>Hi, {name}</Text>
           <View style={styles.headerRight}>
             <Pressable onPress={() => router.push('/alerts')} style={styles.bellWrap}>
               <Feather name="bell" size={22} color={Colors.text.primary} />
