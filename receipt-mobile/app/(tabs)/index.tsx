@@ -253,7 +253,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface.background },
-  scroll: { padding: Spacing.md, paddingBottom: 120 },
+  scroll: { padding: Spacing.md, paddingBottom: 100 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   bellWrap: { position: 'relative', padding: 6, backgroundColor: 'rgba(26,77,53,0.06)', borderRadius: 14 },

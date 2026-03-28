@@ -151,6 +151,12 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Back button */}
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Feather name="arrow-left" size={24} color={Colors.text.primary} />
+          <Text style={styles.backText}>Profile</Text>
+        </Pressable>
+
         {/* Profile header */}
         <View style={styles.profileHeader}>
           <Pressable onPress={handlePickAvatar} style={styles.avatarWrap}>
@@ -434,6 +440,8 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface.background },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.md, paddingVertical: 4 },
+  backText: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: Colors.primary.dark },
   scroll: { paddingHorizontal: Spacing.md, paddingBottom: 40 },
 
   // Profile header

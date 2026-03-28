@@ -68,28 +68,24 @@ export default function TabLayout() {
         }}
       />
       {/* Profile accessible via Home header icon, not tab bar */}
-      <Tabs.Screen name="profile" options={{ href: null }} />
-      <Tabs.Screen name="settings" options={{ href: null }} />
+      <Tabs.Screen name="profile" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="settings" options={{ href: null, tabBarStyle: { display: 'none' } }} />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: Colors.surface.card,
     borderTopWidth: 0,
     height: 85,
     paddingBottom: 22,
     paddingTop: 4,
-    marginHorizontal: 12,
-    marginBottom: 10,
-    borderRadius: 24,
-    position: 'absolute',
     shadowColor: '#0D2B1D',
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 6,
   },
   tabLabel: { fontFamily: 'DMSans_600SemiBold', fontSize: 10, marginTop: 2 },
   scanBtn: {
