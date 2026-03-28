@@ -26,11 +26,30 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const [useMagicLink, setUseMagicLink] = useState(false);
   const [error, setError] = useState('');
 
   const signInMagic = useAuthStore((s) => s.signInWithMagicLink);
   const signInPassword = useAuthStore((s) => s.signInWithPassword);
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setError('Enter your email first, then tap Forgot Password');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: 'receipt://auth/callback',
+    });
+    setLoading(false);
+    if (resetError) {
+      setError(resetError.message);
+    } else {
+      setResetSent(true);
+    }
+  };
 
   const handlePasswordLogin = async () => {
     if (!email.trim() || !password.trim()) return;
@@ -105,6 +124,18 @@ export default function LoginScreen() {
               <Text style={styles.backBtnText}>Back to sign in</Text>
             </Pressable>
           </View>
+        ) : resetSent ? (
+          <View style={styles.sentBox}>
+            <Feather name="mail" size={48} color={Colors.primary.default} />
+            <Text style={styles.sentTitle}>Password reset sent!</Text>
+            <Text style={styles.sentText}>
+              We sent a reset link to {email}.{'\n\n'}
+              Open the email, tap the link, and set a new password.
+            </Text>
+            <Pressable style={styles.backBtn} onPress={() => { setResetSent(false); }}>
+              <Text style={styles.backBtnText}>Back to sign in</Text>
+            </Pressable>
+          </View>
         ) : (
           <View style={styles.form}>
             {/* OAuth buttons */}
@@ -160,6 +191,9 @@ export default function LoginScreen() {
                   secureTextEntry
                   leftIcon="lock"
                 />
+                <Pressable onPress={handleForgotPassword}>
+                  <Text style={styles.forgotText}>Forgot password?</Text>
+                </Pressable>
                 <Button title="Sign In" onPress={handlePasswordLogin} loading={loading} fullWidth icon="log-in" />
                 <Pressable onPress={() => { setUseMagicLink(true); setError(''); }}>
                   <Text style={styles.toggleText}>Use magic link instead</Text>
@@ -203,6 +237,10 @@ const styles = StyleSheet.create({
   toggleText: {
     fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.tertiary,
     textAlign: 'center', textDecorationLine: 'underline',
+  },
+  forgotText: {
+    fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.primary.default,
+    textAlign: 'right', marginTop: -4, marginBottom: 4,
   },
   link: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.primary.default, textAlign: 'center', marginTop: Spacing.sm },
   sentBox: { alignItems: 'center', padding: Spacing.lg },
