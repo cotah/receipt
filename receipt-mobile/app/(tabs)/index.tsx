@@ -9,7 +9,7 @@ import Badge from '../../components/ui/Badge';
 import { Feather } from '@expo/vector-icons';
 import ProfileAvatar from '../../components/ui/ProfileAvatar';
 import ReceiptCard from '../../components/receipts/ReceiptCard';
-import { Colors } from '../../constants/colors';
+import { Colors, Shadows } from '../../constants/colors';
 import { Spacing } from '../../constants/typography';
 
 import { formatCurrency, formatCurrencyChange } from '../../utils/formatCurrency';
