@@ -77,7 +77,7 @@ tr:hover td{background:#F9FAFB}
 .pagination{display:flex;gap:6px;justify-content:center;margin-top:12px}
 .pagination button{padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:12px}
 .pagination button.current{background:var(--primary);color:#fff;border-color:var(--primary)}
-.hamburger{display:none;position:fixed;top:10px;left:10px;z-index:200;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:8px 10px;cursor:pointer;font-size:16px}
+.hamburger{display:none;position:fixed;top:12px;left:12px;z-index:200;background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 12px;cursor:pointer;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 .error-item{padding:10px;border-bottom:1px solid var(--border)}.error-item .meta{font-size:11px;color:var(--sec)}
 .cat-bar{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)}
 .cat-bar .name{font-size:13px;font-weight:500;width:180px}.cat-bar .bar{flex:1;height:20px;background:#F3F4F6;border-radius:4px;overflow:hidden}
@@ -88,7 +88,39 @@ tr:hover td{background:#F9FAFB}
 .dot-ok{background:#22C55E}.dot-fail{background:#EF4444}.dot-warn{background:#F59E0B}.dot-unknown{background:#D1D5DB}
 .toast{position:fixed;bottom:24px;right:24px;background:var(--primary);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:500;z-index:999;opacity:0;transform:translateY(20px);transition:all .3s;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}
-@media(max-width:768px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.hamburger{display:block}.main{margin-left:0;padding:12px}}
+
+/* ===== MOBILE ===== */
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%);width:260px}
+  .sidebar.open{transform:translateX(0)}
+  .hamburger{display:block}
+  .main{margin-left:0;padding:14px 12px}
+  .topbar{margin-bottom:14px;padding-top:44px}
+  .topbar h2{font-size:18px}
+  .kpi-row{grid-template-columns:repeat(2,1fr);gap:10px}
+  .kpi .value{font-size:22px}
+  .card{padding:14px;border-radius:10px;margin-bottom:12px;overflow-x:auto}
+  table{font-size:12px;min-width:400px}
+  th,td{padding:8px 6px !important}
+  .actions-grid{grid-template-columns:repeat(2,1fr) !important;gap:8px}
+  .action-card{padding:14px !important}
+  .action-card .icon{font-size:22px !important}
+  .action-card .title{font-size:12px !important}
+  .action-card .desc{font-size:10px !important}
+  .chart-wrap{height:200px !important}
+  .btn{padding:6px 10px;font-size:11px}
+  .pagination button{min-width:28px;padding:4px 8px;font-size:11px}
+  .login-box{margin:16px;padding:28px 20px}
+  .cat-bar .name{width:120px;font-size:12px}
+}
+@media(max-width:480px){
+  .kpi-row{grid-template-columns:1fr 1fr;gap:8px}
+  .kpi{padding:12px}
+  .kpi .value{font-size:20px}
+  .kpi .label{font-size:10px}
+  .topbar{flex-direction:column;align-items:flex-start;gap:8px}
+  .cat-bar .name{width:100px;font-size:11px}
+}
 </style>
 </head>
 <body>
