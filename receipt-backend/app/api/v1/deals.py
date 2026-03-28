@@ -18,8 +18,8 @@ router = APIRouter(prefix="/deals", tags=["deals"])
 async def get_weekly_deals(user_id: str = Depends(get_current_user)):
     """Returns smart weekly deals: trending + personalised + golden (PRO).
 
-    Free: 4 trending + 2 personal = 6 deals, refreshes every 4 days
-    Pro:  4 trending + 6 personal + 3 golden = 13 deals, refreshes every 2 days
+    Free: 8 trending + 2 personal + 0 golden = 10 deals
+    Pro:  6 trending + 4 personal + 2 golden + seasonal = 12+ deals
     """
     cache_key = f"weekly_deals:{user_id}"
     cached = get_cache(cache_key)
@@ -27,41 +27,47 @@ async def get_weekly_deals(user_id: str = Depends(get_current_user)):
         return cached
 
     db = get_service_client()
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
 
     # Get user plan
     try:
         profile = (
             db.table("profiles")
-            .select("plan")
+            .select("plan, plan_expires_at")
             .eq("id", user_id)
             .single()
             .execute()
         )
-        plan = (profile.data or {}).get("plan", "free")
+        from app.utils.plan_utils import is_pro
+        plan = "pro" if is_pro(profile.data or {}) else "free"
     except Exception:
         plan = "free"
 
-    # Trending deals (global, same for everyone)
+    # Deal counts based on plan
+    trending_limit = 6 if plan == "pro" else 8
+    personal_limit = 4 if plan == "pro" else 2
+    golden_limit = 2 if plan == "pro" else 0
+
+    # Trending deals (global)
     trending = (
         db.table("weekly_deals")
         .select("*")
         .is_("user_id", "null")
         .eq("deal_type", "global")
-        .gte("valid_until", now)
+        .gte("valid_until", now_iso)
         .order("rank")
-        .limit(4)
+        .limit(trending_limit)
         .execute()
     )
 
     # Personal deals (for this user)
-    personal_limit = 6 if plan == "pro" else 2
     personal = (
         db.table("weekly_deals")
         .select("*")
         .eq("user_id", user_id)
         .eq("deal_type", "personalised")
-        .gte("valid_until", now)
+        .gte("valid_until", now_iso)
         .order("rank")
         .limit(personal_limit)
         .execute()
@@ -69,35 +75,110 @@ async def get_weekly_deals(user_id: str = Depends(get_current_user)):
 
     # Golden deals (PRO only)
     golden_data = []
-    if plan == "pro":
+    if golden_limit > 0:
         golden = (
             db.table("weekly_deals")
             .select("*")
             .eq("user_id", user_id)
             .eq("deal_type", "golden")
-            .gte("valid_until", now)
+            .gte("valid_until", now_iso)
             .order("rank")
-            .limit(3)
+            .limit(golden_limit)
             .execute()
         )
         golden_data = golden.data or []
+
+    # Seasonal deals (PRO only — Easter, Christmas, Halloween, etc)
+    seasonal_data = []
+    if plan == "pro":
+        seasonal_data = _get_seasonal_deals(db, now)
 
     response = {
         "plan": plan,
         "trending": trending.data or [],
         "personalised": personal.data or [],
         "golden": golden_data,
+        "seasonal": seasonal_data,
         "total": (
             len(trending.data or [])
             + len(personal.data or [])
             + len(golden_data)
+            + len(seasonal_data)
         ),
         "refresh_days": 2 if plan == "pro" else 4,
     }
 
-    # Cache for 1 hour
     set_cache(cache_key, response, ttl_seconds=3600)
     return response
+
+
+def _get_seasonal_deals(db, now: datetime) -> list[dict]:
+    """Find seasonal deals based on current date (Easter, Christmas, etc)."""
+    month, day = now.month, now.day
+    keywords = []
+    season_name = None
+
+    # Easter: March 15 - April 25
+    if (month == 3 and day >= 15) or (month == 4 and day <= 25):
+        keywords = ["easter", "egg", "chocolate egg", "hot cross", "lamb"]
+        season_name = "Easter Specials"
+    # Halloween: October 10 - November 2
+    elif (month == 10 and day >= 10) or (month == 11 and day <= 2):
+        keywords = ["halloween", "pumpkin", "trick", "sweets", "candy", "toffee"]
+        season_name = "Halloween Treats"
+    # Christmas: November 20 - December 31
+    elif (month == 11 and day >= 20) or month == 12:
+        keywords = ["christmas", "mince pie", "turkey", "stuffing", "cranberry", "prosecco", "champagne", "selection box"]
+        season_name = "Christmas Deals"
+    # Valentine's: February 7 - February 15
+    elif month == 2 and 7 <= day <= 15:
+        keywords = ["chocolate", "wine", "prosecco", "champagne", "heart"]
+        season_name = "Valentine's Picks"
+    # Summer BBQ: June - August
+    elif month in (6, 7, 8):
+        keywords = ["bbq", "burger", "sausage", "charcoal", "marinade", "coleslaw", "bun"]
+        season_name = "BBQ Season"
+    # Back to School: August 20 - September 15
+    elif (month == 8 and day >= 20) or (month == 9 and day <= 15):
+        keywords = ["lunch box", "snack bar", "juice box", "sandwich", "wrap"]
+        season_name = "Back to School"
+
+    if not keywords:
+        return []
+
+    now_iso = now.isoformat()
+    seasonal = []
+    seen = set()
+
+    for kw in keywords[:5]:
+        try:
+            results = (
+                db.table("collective_prices")
+                .select("product_name, store_name, unit_price, category, is_on_offer")
+                .eq("source", "leaflet")
+                .gte("expires_at", now_iso)
+                .ilike("product_name", f"%{kw}%")
+                .order("unit_price")
+                .limit(2)
+                .execute()
+            )
+            for r in results.data or []:
+                key = r["product_name"].lower()
+                if key not in seen:
+                    seen.add(key)
+                    seasonal.append({
+                        "product_name": r["product_name"],
+                        "store_name": r["store_name"],
+                        "current_price": float(r["unit_price"]),
+                        "category": r.get("category", "Other"),
+                        "deal_type": "seasonal",
+                        "season": season_name,
+                        "promotion_text": f"{season_name} — {r['product_name']} at €{r['unit_price']:.2f}",
+                    })
+        except Exception:
+            continue
+
+    return seasonal[:3]
 
 
 @router.post("/generate")
