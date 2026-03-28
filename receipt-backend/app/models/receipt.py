@@ -61,6 +61,7 @@ class ReceiptResponse(BaseModel):
 
 class ReceiptDetailResponse(ReceiptResponse):
     items: list[ReceiptItemResponse] = []
+    image_urls: list[str] = []
     raw_text: Optional[str] = None
 
 

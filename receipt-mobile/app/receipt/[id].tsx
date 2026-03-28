@@ -93,32 +93,61 @@ export default function ReceiptDetailScreen() {
         <Text style={styles.sectionTitle}>Products ({r.items.length})</Text>
         <ProductList items={r.items} showComparison />
 
-        {/* Receipt image */}
-        {r.image_url && (
+        {/* Receipt images (swipe for multi-photo) */}
+        {(r.image_urls?.length > 0 || r.image_url) && (
           <View style={styles.imageSection}>
-            <Text style={styles.sectionTitle}>Receipt Image</Text>
-            <Pressable onPress={() => setImageModalVisible(true)}>
-              <Image source={{ uri: r.image_url }} style={styles.receiptImage} resizeMode="contain" />
-              <View style={styles.expandHint}>
-                <Feather name="maximize-2" size={14} color="#FFF" />
-                <Text style={styles.expandHintText}>Tap to expand</Text>
-              </View>
-            </Pressable>
+            <Text style={styles.sectionTitle}>
+              Receipt Image{r.image_urls?.length > 1 ? `s (${r.image_urls.length})` : ''}
+            </Text>
+            {r.image_urls?.length > 1 ? (
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                style={styles.imageScroll}
+              >
+                {r.image_urls.map((url: string, idx: number) => (
+                  <Pressable key={idx} onPress={() => setImageModalVisible(true)}>
+                    <Image
+                      source={{ uri: url }}
+                      style={[styles.receiptImage, { width: Dimensions.get('window').width - 32 }]}
+                      resizeMode="contain"
+                    />
+                    <View style={styles.imageCounter}>
+                      <Text style={styles.imageCounterText}>{idx + 1}/{r.image_urls.length}</Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            ) : (
+              <Pressable onPress={() => setImageModalVisible(true)}>
+                <Image source={{ uri: r.image_url }} style={styles.receiptImage} resizeMode="contain" />
+                <View style={styles.expandHint}>
+                  <Feather name="maximize-2" size={14} color="#FFF" />
+                  <Text style={styles.expandHintText}>Tap to expand</Text>
+                </View>
+              </Pressable>
+            )}
           </View>
         )}
 
         {/* Fullscreen image modal */}
-        {r.image_url && (
+        {(r.image_urls?.length > 0 || r.image_url) && (
           <Modal visible={imageModalVisible} transparent animationType="fade" onRequestClose={() => setImageModalVisible(false)}>
             <View style={styles.imageModal}>
               <Pressable style={styles.imageModalClose} onPress={() => setImageModalVisible(false)}>
                 <Feather name="x" size={28} color="#FFF" />
               </Pressable>
-              <Image
-                source={{ uri: r.image_url }}
-                style={styles.imageModalImg}
-                resizeMode="contain"
-              />
+              <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
+                {(r.image_urls?.length > 0 ? r.image_urls : [r.image_url]).map((url: string, idx: number) => (
+                  <Image
+                    key={idx}
+                    source={{ uri: url }}
+                    style={styles.imageModalImg}
+                    resizeMode="contain"
+                  />
+                ))}
+              </ScrollView>
             </View>
           </Modal>
         )}
@@ -150,7 +179,13 @@ const styles = StyleSheet.create({
   breakdownValue: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 14, color: Colors.text.primary },
   sectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm, marginTop: Spacing.md },
   imageSection: { marginTop: Spacing.lg },
+  imageScroll: { marginHorizontal: -Spacing.md },
   receiptImage: { width: '100%', height: 400, borderRadius: 12, backgroundColor: Colors.surface.alt },
+  imageCounter: {
+    position: 'absolute', top: 12, right: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
+  },
+  imageCounterText: { fontFamily: 'DMSans_600SemiBold', fontSize: 12, color: '#FFF' },
   expandHint: {
     position: 'absolute', bottom: 12, right: 12,
     flexDirection: 'row', alignItems: 'center', gap: 4,

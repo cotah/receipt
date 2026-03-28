@@ -700,25 +700,28 @@ async def get_receipt_detail(
 
     items = []
     for item in items_resp.data or []:
-        # Get collective comparison
+        # Get collective comparison (may fail if vector column causes issues)
         collective = None
-        product_key = generate_product_key(item["normalized_name"], item.get("unit"))
-        best = (
-            db.table("collective_prices")
-            .select("store_name, unit_price")
-            .eq("product_key", product_key)
-            .gte("expires_at", datetime.now(timezone.utc).isoformat())
-            .order("unit_price")
-            .limit(1)
-            .execute()
-        )
-        if best.data and best.data[0]["store_name"] != r["store_name"]:
-            diff = best.data[0]["unit_price"] - item["unit_price"]
-            collective = CollectiveComparison(
-                cheapest_store=best.data[0]["store_name"],
-                cheapest_price=best.data[0]["unit_price"],
-                difference=round(diff, 2),
+        try:
+            product_key = generate_product_key(item["normalized_name"], item.get("unit"))
+            best = (
+                db.table("collective_prices")
+                .select("store_name, unit_price")
+                .eq("product_key", product_key)
+                .gte("expires_at", datetime.now(timezone.utc).isoformat())
+                .order("unit_price")
+                .limit(1)
+                .execute()
             )
+            if best.data and best.data[0]["store_name"] != r["store_name"]:
+                diff = best.data[0]["unit_price"] - item["unit_price"]
+                collective = CollectiveComparison(
+                    cheapest_store=best.data[0]["store_name"],
+                    cheapest_price=best.data[0]["unit_price"],
+                    difference=round(diff, 2),
+                )
+        except Exception as e:
+            log.debug("Collective lookup failed for '%s': %s", item.get("normalized_name"), e)
 
         items.append(ReceiptItemResponse(
             id=item["id"],
@@ -737,6 +740,30 @@ async def get_receipt_detail(
             collective_price=collective,
         ))
 
+    # Build image_urls list (main + _part2, _part3, etc)
+    image_urls = []
+    main_url = r.get("image_url")
+    if main_url:
+        image_urls.append(main_url)
+        # Check for multi-photo parts by listing storage
+        try:
+            bucket = settings.RECEIPT_IMAGES_BUCKET
+            prefix = f"{user_id}/{r['id']}"
+            files = db.storage.from_(bucket).list(path=user_id)
+            receipt_id_str = str(r["id"])
+            for f in files or []:
+                fname = f.get("name", "")
+                if fname.startswith(receipt_id_str) and "_part" in fname:
+                    part_url = (
+                        f"{settings.SUPABASE_URL}/storage/v1/object/public/"
+                        f"{bucket}/{user_id}/{fname}"
+                    )
+                    image_urls.append(part_url)
+            # Sort parts in order (part2, part3, etc)
+            image_urls.sort()
+        except Exception:
+            pass  # Single photo receipt, no parts
+
     return ReceiptDetailResponse(
         id=r["id"],
         user_id=r["user_id"],
@@ -751,6 +778,7 @@ async def get_receipt_detail(
         status=r.get("status", "done"),
         source=r.get("source", "photo"),
         items=items,
+        image_urls=image_urls,
         raw_text=r.get("raw_text"),
         created_at=r["created_at"],
     )
