@@ -77,9 +77,25 @@ async def generate_restock_alerts(db: Client, user_id: str) -> None:
 
 
 async def generate_price_drop_alerts(db: Client, user_id: str) -> None:
-    """Detect price drops for products the user regularly buys."""
+    """Detect price drops for products the user regularly buys. Pro only — sends push."""
+    from app.utils.plan_utils import is_pro
     now = datetime.now(timezone.utc)
     cutoff = (now - timedelta(days=60)).isoformat()
+
+    # Check if user is Pro (price drop alerts are Pro-only)
+    try:
+        profile = (
+            db.table("profiles")
+            .select("plan, plan_expires_at, push_token")
+            .eq("id", user_id)
+            .single()
+            .execute()
+        )
+        if not is_pro(profile.data or {}):
+            return  # Free users don't get price drop alerts
+        push_token = (profile.data or {}).get("push_token")
+    except Exception:
+        return
 
     # Products bought in last 60 days with avg price
     try:
@@ -121,17 +137,19 @@ async def generate_price_drop_alerts(db: Client, user_id: str) -> None:
             if existing.data:
                 continue
 
+            message = (
+                f"{product['normalized_name']} is €{best['unit_price']:.2f} "
+                f"at {best['store_name']} — you usually pay €{avg_price:.2f}. "
+                f"Save €{saving:.2f}!"
+            )
+
             db.table("alerts").insert(
                 {
                     "user_id": user_id,
                     "type": "price_drop",
                     "product_name": product["normalized_name"],
                     "store_name": best["store_name"],
-                    "message": (
-                        f"{product['normalized_name']} is €{best['unit_price']:.2f} "
-                        f"at {best['store_name']} — you usually pay €{avg_price:.2f}. "
-                        f"Save €{saving:.2f}!"
-                    ),
+                    "message": message,
                     "data": {
                         "current_price": float(best["unit_price"]),
                         "usual_price": float(avg_price),
@@ -140,6 +158,16 @@ async def generate_price_drop_alerts(db: Client, user_id: str) -> None:
                     },
                 }
             ).execute()
+
+            # Send push notification (Pro only)
+            if push_token:
+                from app.services.push_service import send_push_notification
+                await send_push_notification(
+                    push_token=push_token,
+                    title="📉 Price Drop!",
+                    body=f"{product['normalized_name']} down to €{best['unit_price']:.2f} at {best['store_name']} — save €{saving:.2f}",
+                    data={"screen": "alerts", "type": "price_drop"},
+                )
 
 
 def build_restock_message(pattern: dict, best_price: dict | None, days_since: float) -> str:

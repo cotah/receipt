@@ -1138,3 +1138,65 @@ Products:
     except Exception as e:
         log.warning(f"Categorization batch failed: {e}")
         return 0
+
+
+# ── Product Confirmation (5th Layer) ──────────────────────────────────────
+@router.get("/confirmations/pending")
+async def get_pending_confirmations(
+    user_id: str = Depends(get_current_user),
+):
+    """Get products needing user confirmation — 'Is this the same product?'"""
+    db = get_service_client()
+
+    pending = (
+        db.table("price_match_confirmations")
+        .select("*")
+        .eq("user_id", user_id)
+        .is_("confirmed", "null")
+        .order("created_at", desc=True)
+        .limit(10)
+        .execute()
+    )
+
+    return {
+        "pending": pending.data or [],
+        "count": len(pending.data or []),
+    }
+
+
+@router.post("/confirmations/{confirmation_id}")
+async def respond_to_confirmation(
+    confirmation_id: str,
+    confirmed: bool = True,
+    user_id: str = Depends(get_current_user),
+):
+    """User confirms or rejects a product match.
+
+    If confirmed=True: the match is trusted, prices comparison improves.
+    If confirmed=False: the match is rejected, won't be shown again.
+    """
+    from datetime import datetime, timezone
+
+    db = get_service_client()
+
+    # Verify ownership
+    record = (
+        db.table("price_match_confirmations")
+        .select("id, user_id")
+        .eq("id", confirmation_id)
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+    if not record.data:
+        raise HTTPException(status_code=404, detail="Confirmation not found")
+
+    db.table("price_match_confirmations").update({
+        "confirmed": confirmed,
+        "responded_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", confirmation_id).execute()
+
+    return {
+        "status": "confirmed" if confirmed else "rejected",
+        "id": confirmation_id,
+    }
