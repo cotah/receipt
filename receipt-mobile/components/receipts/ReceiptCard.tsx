@@ -40,14 +40,15 @@ export default function ReceiptCard({
   total_amount, discount_total, items_count, status, error_reason, onPress,
 }: ReceiptCardProps) {
   const dotColor = STATUS_COLORS[status] ?? Colors.text.tertiary;
+  const nStore = normalizeStore(store_name);
 
   return (
-    <Card onPress={onPress} style={[styles.card, { borderLeftColor: STORE_COLORS[store_name] || Colors.primary.default }]}>
+    <Card onPress={onPress} style={[styles.card, { borderLeftColor: STORE_COLORS[nStore] || Colors.primary.default }]}>
       <View style={styles.row}>
         <View style={styles.left}>
           <View style={[styles.dot, { backgroundColor: dotColor }]} />
           <View>
-            <Text style={styles.storeName}>{store_name}</Text>
+            <Text style={styles.storeName}>{nStore}</Text>
             {store_branch && <Text style={styles.branch}>{store_branch}</Text>}
           </View>
         </View>
@@ -75,6 +76,16 @@ const STORE_COLORS: Record<string, string> = {
   SuperValu: '#C8102E',
   Dunnes: '#1A4D35',
 };
+
+function normalizeStore(name: string): string {
+  const l = name.toLowerCase().trim();
+  if (l.includes('lidl')) return 'Lidl';
+  if (l.includes('tesco')) return 'Tesco';
+  if (l.includes('aldi')) return 'Aldi';
+  if (l.includes('supervalu') || l.includes('super valu')) return 'SuperValu';
+  if (l.includes('dunnes')) return 'Dunnes';
+  return name;
+}
 
 const styles = StyleSheet.create({
   card: { marginBottom: Spacing.sm, borderLeftWidth: 4, borderLeftColor: Colors.accent.green },
