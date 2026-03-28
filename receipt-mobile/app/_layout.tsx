@@ -7,6 +7,7 @@ import * as Sentry from '@sentry/react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '../stores/authStore';
+import { registerForPushNotifications } from '../services/notifications';
 
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN ?? '';
 
@@ -74,6 +75,13 @@ export default function RootLayout() {
       router.replace('/(tabs)');
     }
   }, [isAuthenticated, isLoading, fontsLoaded, segments]);
+
+  // Register for push notifications when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      registerForPushNotifications().catch(() => {});
+    }
+  }, [isAuthenticated]);
 
   if (!fontsLoaded || isLoading) return null;
 

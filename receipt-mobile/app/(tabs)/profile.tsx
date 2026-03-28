@@ -337,35 +337,41 @@ export default function ProfileScreen() {
             <View style={styles.divider} />
 
             {/* Points */}
-            <View style={styles.row}>
+            <Pressable style={styles.row} onPress={() => router.push('/rewards')}>
               <View style={styles.rowLeft}>
                 <View style={styles.iconCircle}>
                   <Feather name="star" size={16} color={Colors.accent.amber} />
                 </View>
                 <Text style={styles.rowLabel}>Points</Text>
               </View>
-              <Text style={styles.rowValueBold}>{points}</Text>
-            </View>
+              <View style={styles.rowRight}>
+                <Text style={styles.rowValueBold}>{points}</Text>
+                <Feather name="chevron-right" size={16} color={Colors.text.tertiary} />
+              </View>
+            </Pressable>
 
             <View style={styles.divider} />
 
             {/* Level */}
-            <View style={styles.row}>
+            <Pressable style={styles.row} onPress={() => router.push('/rewards')}>
               <View style={styles.rowLeft}>
                 <View style={styles.iconCircle}>
                   <Feather name="award" size={16} color={Colors.accent.amber} />
                 </View>
                 <Text style={styles.rowLabel}>Level</Text>
               </View>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{level.label} {level.emoji}</Text>
+              <View style={styles.rowRight}>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{level.label} {level.emoji}</Text>
+                </View>
+                <Feather name="chevron-right" size={16} color={Colors.text.tertiary} />
               </View>
-            </View>
+            </Pressable>
 
             <View style={styles.divider} />
 
             {/* Refer */}
-            <Pressable style={styles.row} onPress={handleReferFriend}>
+            <Pressable style={styles.row} onPress={() => router.push('/rewards')}>
               <View style={styles.rowLeft}>
                 <View style={styles.iconCircle}>
                   <Feather name="gift" size={16} color={Colors.primary.default} />
