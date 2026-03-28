@@ -12,10 +12,10 @@ interface BadgeProps {
 }
 
 const COLORS: Record<Variant, { bg: string; text: string }> = {
-  success: { bg: Colors.accent.green, text: '#FFFFFF' },
-  warning: { bg: Colors.accent.amber, text: '#FFFFFF' },
-  danger: { bg: Colors.accent.red, text: '#FFFFFF' },
-  info: { bg: Colors.accent.blue, text: '#FFFFFF' },
+  success: { bg: 'rgba(60,179,113,0.12)', text: '#22A95B' },
+  warning: { bg: 'rgba(232,160,32,0.12)', text: '#C28716' },
+  danger: { bg: 'rgba(217,79,79,0.10)', text: '#C74343' },
+  info: { bg: 'rgba(45,110,168,0.10)', text: '#2567A0' },
   neutral: { bg: Colors.surface.alt, text: Colors.text.secondary },
 };
 

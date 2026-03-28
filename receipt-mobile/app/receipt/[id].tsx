@@ -82,8 +82,8 @@ export default function ReceiptDetailScreen() {
                 <Text style={styles.breakdownValue}>{formatCurrency(r.subtotal)}</Text>
               </View>
               <View style={styles.breakdownRow}>
-                <Text style={[styles.breakdownLabel, { color: Colors.accent.green }]}>Discount</Text>
-                <Text style={[styles.breakdownValue, { color: Colors.accent.green }]}>-{formatCurrency(r.discount_total)}</Text>
+                <Text style={[styles.breakdownLabel, { color: '#34D399' }]}>Discount</Text>
+                <Text style={[styles.breakdownValue, { color: '#34D399' }]}>-{formatCurrency(r.discount_total)}</Text>
               </View>
             </View>
           )}
@@ -170,13 +170,13 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   storeName: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: Colors.primary.dark },
   date: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.secondary, marginTop: 4 },
-  totalCard: { alignItems: 'center', marginBottom: Spacing.lg },
-  totalLabel: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.text.secondary },
-  totalAmount: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 36, color: Colors.accent.amber },
-  breakdown: { marginTop: Spacing.sm, width: '100%' },
-  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2 },
-  breakdownLabel: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.secondary },
-  breakdownValue: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 14, color: Colors.text.primary },
+  totalCard: { alignItems: 'center', marginBottom: Spacing.lg, backgroundColor: Colors.primary.dark, borderRadius: 24, paddingVertical: 28 },
+  totalLabel: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: 'rgba(255,255,255,0.65)' },
+  totalAmount: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 40, color: Colors.accent.amber },
+  breakdown: { marginTop: Spacing.sm, width: '100%', paddingHorizontal: 20 },
+  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
+  breakdownLabel: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.5)' },
+  breakdownValue: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 14, color: 'rgba(255,255,255,0.9)' },
   sectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm, marginTop: Spacing.md },
   imageSection: { marginTop: Spacing.lg },
   imageScroll: { marginHorizontal: -Spacing.md },

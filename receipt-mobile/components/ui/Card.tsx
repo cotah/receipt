@@ -7,20 +7,24 @@ interface CardProps {
   children: React.ReactNode;
   style?: ViewStyle;
   onPress?: () => void;
-  variant?: 'default' | 'elevated';
+  variant?: 'default' | 'elevated' | 'glass';
 }
 
 export default function Card({ children, style, onPress, variant = 'default' }: CardProps) {
   const shadow = variant === 'elevated' ? Shadows.float : Shadows.card;
+  const bg = variant === 'glass'
+    ? Colors.surface.cardGlass
+    : Colors.surface.card;
+
   const content = (
-    <View style={[styles.card, shadow, style]}>
+    <View style={[styles.card, shadow, { backgroundColor: bg }, style]}>
       {children}
     </View>
   );
 
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.95 : 1 })}>
+      <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.95 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
         {content}
       </Pressable>
     );
@@ -31,7 +35,9 @@ export default function Card({ children, style, onPress, variant = 'default' }: 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.surface.card,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.xl,
     padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.7)',
   },
 });

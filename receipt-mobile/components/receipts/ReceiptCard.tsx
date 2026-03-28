@@ -42,7 +42,7 @@ export default function ReceiptCard({
   const dotColor = STATUS_COLORS[status] ?? Colors.text.tertiary;
 
   return (
-    <Card onPress={onPress} style={styles.card}>
+    <Card onPress={onPress} style={[styles.card, { borderLeftColor: STORE_COLORS[store_name] || Colors.primary.default }]}>
       <View style={styles.row}>
         <View style={styles.left}>
           <View style={[styles.dot, { backgroundColor: dotColor }]} />
@@ -68,16 +68,24 @@ export default function ReceiptCard({
   );
 }
 
+const STORE_COLORS: Record<string, string> = {
+  Tesco: '#00539F',
+  Lidl: '#0050AA',
+  Aldi: '#F47B20',
+  SuperValu: '#C8102E',
+  Dunnes: '#1A4D35',
+};
+
 const styles = StyleSheet.create({
-  card: { marginBottom: Spacing.sm },
+  card: { marginBottom: Spacing.sm, borderLeftWidth: 4, borderLeftColor: Colors.accent.green },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   left: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: Spacing.sm },
   storeName: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: Colors.text.primary },
   branch: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary },
   right: { alignItems: 'flex-end' },
-  amount: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 16, color: Colors.accent.amber },
-  itemsCount: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary },
+  amount: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 17, color: Colors.accent.amber },
+  itemsCount: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.text.tertiary },
   footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.sm },
   date: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary },
   badges: { flexDirection: 'row', gap: Spacing.xs },

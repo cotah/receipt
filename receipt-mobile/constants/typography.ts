@@ -37,9 +37,9 @@ export const Spacing = {
 } as const;
 
 export const BorderRadius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
+  sm: 10,
+  md: 14,
+  lg: 18,
   xl: 24,
   full: 9999,
 } as const;
