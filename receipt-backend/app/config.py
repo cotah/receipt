@@ -48,7 +48,7 @@ class Settings(BaseSettings):
 
     # Email (Resend)
     RESEND_API_KEY: str = ""
-    FROM_EMAIL: str = "SmartDocket <reports@smartdocket.app>"
+    FROM_EMAIL: str = "SmartDocket <reports@smartdocket.ie>"
 
     # Storage
     RECEIPT_IMAGES_BUCKET: str = "receipt-images"
