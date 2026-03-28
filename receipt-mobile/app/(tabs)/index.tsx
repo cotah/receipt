@@ -16,6 +16,7 @@ import { formatCurrency, formatCurrencyChange } from '../../utils/formatCurrency
 import { useAuthStore } from '../../stores/authStore';
 import { useReceipts } from '../../hooks/useReceipts';
 import { useProducts } from '../../hooks/useProducts';
+import { useAlertStore } from '../../stores/alertStore';
 import api from '../../services/api';
 
 export default function HomeScreen() {
@@ -24,6 +25,7 @@ export default function HomeScreen() {
   const setProfile = useAuthStore((s) => s.setProfile);
   const { receipts, fetchReceipts } = useReceipts();
   const { runningLow, fetchRunningLow } = useProducts();
+  const { unreadCount, fetchAlerts } = useAlertStore();
   const [locationChecked, setLocationChecked] = useState(false);
   const [savings, setSavings] = useState<any>(null);
   const [priceMemories, setPriceMemories] = useState<any[]>([]);
@@ -51,6 +53,7 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchReceipts(1);
     fetchRunningLow();
+    fetchAlerts();
     // Fetch savings + price memory
     api.get('/prices/savings-summary').then(({ data }) => setSavings(data)).catch(() => {});
     api.get('/prices/price-memory?limit=3').then(({ data }) => setPriceMemories(data.memories || [])).catch(() => {});
@@ -117,7 +120,17 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.headerRow}>
           <Text style={styles.greeting}>{greeting}, {name}</Text>
-          <ProfileAvatar size={32} />
+          <View style={styles.headerRight}>
+            <Pressable onPress={() => router.push('/alerts')} style={styles.bellWrap}>
+              <Feather name="bell" size={22} color={Colors.text.primary} />
+              {unreadCount > 0 && (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              )}
+            </Pressable>
+            <ProfileAvatar size={32} />
+          </View>
         </View>
 
         {/* Main card */}
@@ -244,6 +257,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface.background },
   scroll: { padding: Spacing.md, paddingBottom: 100 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  bellWrap: { position: 'relative', padding: 4 },
+  bellBadge: {
+    position: 'absolute', top: 0, right: -2,
+    minWidth: 16, height: 16, borderRadius: 8,
+    backgroundColor: '#E53E3E',
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  bellBadgeText: { fontFamily: 'DMSans_700Bold', fontSize: 9, color: '#FFF' },
   greeting: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: Colors.primary.dark },
   mainCard: { marginBottom: Spacing.md, alignItems: 'center', paddingVertical: Spacing.lg },
   mainLabel: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.text.secondary },
