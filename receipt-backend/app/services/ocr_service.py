@@ -236,3 +236,69 @@ async def direct_extract_products_from_image(
     except _json.JSONDecodeError as e:
         log.warning("Direct extraction: JSON parse failed: %s", e)
         return []
+
+
+SHELF_PRICE_PROMPT = """
+You are reading Irish supermarket shelf price labels/tags from a photo.
+
+CRITICAL: Extract EVERY visible price tag/label in the image.
+
+For each product you can see a price for, output one line:
+PRODUCT_NAME | PRICE | CATEGORY
+
+Rules:
+- PRODUCT_NAME: Full name as shown on the label (brand + product + size/weight)
+- PRICE: Numeric price in EUR (e.g. 1.49). Look for the CURRENT price, not crossed-out old price.
+- CATEGORY: One of: Fruit & Veg, Dairy, Meat & Fish, Bakery, Frozen, Drinks, 
+  Snacks & Confectionery, Personal Care, Cleaning & Household, Baby & Toddler, 
+  Pet Food, Pantry, Alcohol, Other
+
+If a product has a promotional/sale price AND a regular price, use the CURRENT price shown.
+If you see "per kg" or "per 100g" prices, skip those — only extract the actual unit price.
+Include weight/size when visible (e.g. "500g", "1L", "6 pack").
+
+If no price labels are visible, output nothing.
+"""
+
+
+async def extract_shelf_prices(image_bytes: bytes) -> list[dict]:
+    """Extract product prices from a shelf/price tag photo."""
+    import json as _json
+    
+    raw_text = None
+    if _gemini_model is not None:
+        try:
+            log.info("Shelf OCR: calling Gemini Vision...")
+            raw_text = await _gemini_ocr(SHELF_PRICE_PROMPT, image_bytes)
+        except Exception as e:
+            log.warning("Shelf OCR: Gemini failed: %s", e)
+
+    if raw_text is None:
+        raw_text = await _openai_ocr(SHELF_PRICE_PROMPT, image_bytes)
+
+    if not raw_text:
+        return []
+
+    # Parse the pipe-delimited output
+    products = []
+    for line in raw_text.strip().split("\n"):
+        line = line.strip()
+        if not line or "|" not in line:
+            continue
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) >= 2:
+            name = parts[0]
+            try:
+                price = float(parts[1].replace("€", "").replace(",", ".").strip())
+            except (ValueError, TypeError):
+                continue
+            category = parts[2] if len(parts) >= 3 else "Other"
+            if name and price > 0:
+                products.append({
+                    "product_name": name,
+                    "unit_price": price,
+                    "category": category,
+                })
+
+    log.info("Shelf OCR: extracted %d products", len(products))
+    return products

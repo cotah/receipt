@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from pydantic import BaseModel
 
 from app.database import get_service_client
@@ -577,3 +577,77 @@ async def admin_ocr_test(_admin: str = Depends(require_admin)):
         results["openai_5.4_nano"] = {"status": "error", "response": f"{type(e).__name__}: {str(e)[:100]}"}
 
     return results
+
+
+@router.post("/shelf-scan")
+async def admin_shelf_scan(
+    file: UploadFile = File(...),
+    store_name: str = Form(...),
+    _admin: str = Depends(require_admin),
+):
+    """Upload a shelf photo → OCR extracts products → saves to collective_prices."""
+    from app.services.ocr_service import extract_shelf_prices
+    from app.services.price_service import record_price_history
+    from app.utils.text_utils import generate_product_key
+    from datetime import timedelta
+
+    image_bytes = await file.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    # Extract prices from shelf photo
+    products = await extract_shelf_prices(image_bytes)
+    if not products:
+        return {"status": "no_products", "message": "No prices found in image", "saved": 0}
+
+    db = get_service_client()
+    now = datetime.now(timezone.utc)
+    saved = 0
+    errors = 0
+
+    for p in products:
+        product_key = generate_product_key(p["product_name"])
+        expires_at = now + timedelta(days=30)  # shelf prices valid ~30 days
+
+        try:
+            # Upsert to collective_prices (keeps lower price)
+            db.rpc(
+                "upsert_collective_price",
+                {
+                    "p_product_key": product_key,
+                    "p_product_name": p["product_name"],
+                    "p_category": p["category"],
+                    "p_store_name": store_name,
+                    "p_store_branch": None,
+                    "p_home_area": None,
+                    "p_unit_price": p["unit_price"],
+                    "p_unit": None,
+                    "p_is_on_offer": False,
+                    "p_source": "shelf",
+                    "p_observed_at": now.isoformat(),
+                    "p_expires_at": expires_at.isoformat(),
+                },
+            ).execute()
+
+            # Record in price history
+            await record_price_history(
+                db,
+                product_key=product_key,
+                product_name=p["product_name"],
+                store_name=store_name,
+                unit_price=p["unit_price"],
+                source="shelf",
+                observed_at=now,
+            )
+            saved += 1
+        except Exception as e:
+            log.warning("Shelf scan: failed to save '%s': %s", p["product_name"], e)
+            errors += 1
+
+    return {
+        "status": "ok",
+        "message": f"Extracted {len(products)} products, saved {saved}",
+        "products": products,
+        "saved": saved,
+        "errors": errors,
+    }

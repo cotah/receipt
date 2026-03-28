@@ -146,6 +146,24 @@ tr:hover td{background:#F9FAFB}
       <div class="action-card" onclick="exportCSV()"><div class="icon">&#x1F4CA;</div><div class="title">Export Users</div><div class="desc">CSV download</div></div>
       <div class="action-card" onclick="checkHealth()"><div class="icon">&#x1F49A;</div><div class="title">Health</div><div class="desc">API status</div></div>
     </div></div>
+    <div class="card"><h3>📷 Shelf Price Scanner</h3>
+      <p style="font-size:13px;color:var(--sec);margin-bottom:12px">Take a photo of shelf price tags → AI extracts products → saves to database</p>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <select id="shelf-store" style="padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+          <option value="Tesco">Tesco</option>
+          <option value="Lidl">Lidl</option>
+          <option value="Aldi">Aldi</option>
+          <option value="SuperValu">SuperValu</option>
+          <option value="Dunnes">Dunnes</option>
+        </select>
+        <label style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:var(--primary);color:#fff;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">
+          📸 Upload Photo
+          <input type="file" accept="image/*" capture="environment" id="shelf-file" onchange="uploadShelfPhoto()" style="display:none">
+        </label>
+      </div>
+      <div id="shelf-status" style="display:none;padding:12px;border-radius:8px;font-size:13px;margin-bottom:12px"></div>
+      <div id="shelf-results" style="display:none"></div>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -173,6 +191,7 @@ async function runAction(p,m){try{const r=await api(p,m);toast('OK: '+JSON.strin
 async function runDebug(a){try{const r=await dApi(a);toast('OK: '+JSON.stringify(r).slice(0,80))}catch(e){toast('Error: '+e.message)}}
 async function checkHealth(){try{const r=await fetch('/health');const d=await r.json();toast('API: '+d.status+' v'+d.version)}catch(e){toast('Error: '+e.message)}}
 function exportCSV(){if(!uc.length){toast('Load users first');return}const h=['name','email','plan','scans','chat','points','joined'];const rows=uc.map(u=>[u.full_name||'',u.email||'',u.plan,u.scans_this_month,u.chat_queries_today,u.points,u.created_at||''].join(','));const csv=[h.join(','),...rows].join('\n');const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='smartdocket-users.csv';a.click();toast('Exported')}
+async function uploadShelfPhoto(){const fi=document.getElementById('shelf-file');const store=document.getElementById('shelf-store').value;const st=document.getElementById('shelf-status');const res=document.getElementById('shelf-results');if(!fi.files[0])return toast('No file selected');st.style.display='block';st.style.background='#FEF3C7';st.style.color='#92400E';st.innerHTML='⏳ Processing... AI is reading shelf labels...';res.style.display='none';const fd=new FormData();fd.append('file',fi.files[0]);fd.append('store_name',store);try{const r=await fetch('/api/v1/admin/shelf-scan',{method:'POST',headers:{'X-Admin-Key':gT()},body:fd});const d=await r.json();if(d.saved>0){st.style.background='#DCFCE7';st.style.color='#166534';st.innerHTML='✅ '+d.message;let h='<table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:8px"><tr style="background:#f3f4f6"><th style="padding:6px 8px;text-align:left">Product</th><th style="padding:6px 8px;text-align:right">Price</th><th style="padding:6px 8px">Category</th></tr>';(d.products||[]).forEach(p=>{h+='<tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px">'+p.product_name+'</td><td style="padding:6px 8px;text-align:right;font-weight:600">€'+Number(p.unit_price).toFixed(2)+'</td><td style="padding:6px 8px;font-size:11px;color:#6b7280">'+p.category+'</td></tr>'});h+='</table>';res.innerHTML=h;res.style.display='block'}else{st.style.background='#FEF3C7';st.style.color='#92400E';st.innerHTML='⚠️ No products found. Try a clearer photo with visible price labels.'}}catch(e){st.style.background='#FEE2E2';st.style.color='#991B1B';st.innerHTML='❌ Error: '+e.message}fi.value=''}
 </script>
 </body>
 </html>
