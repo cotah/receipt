@@ -465,7 +465,7 @@ async def _process_from_text(
             except (ValueError, TypeError):
                 pass  # Could not parse date — accept the receipt
 
-        # 3. Update receipt
+        # 3. Update receipt (still processing until items are saved)
         db.table("receipts").update({
             "store_name": store_name,
             "store_branch": data.get("store_branch"),
@@ -475,9 +475,9 @@ async def _process_from_text(
             "discount_total": data.get("discount_total", 0),
             "raw_text": raw_text,
             "data_hash": data_hash,
-            "status": "done",
+            "status": "saving_items",
         }).eq("id", receipt_id).execute()
-        log.info(f"[{receipt_id}] Receipt record updated (status=done)")
+        log.info(f"[{receipt_id}] Receipt record updated (saving items...)")
 
         # 4. Insert items
         profile = db.table("profiles").select("home_area").eq("id", user_id).single().execute()
@@ -577,6 +577,10 @@ async def _process_from_text(
             log.warning(f"[{receipt_id}] Analytics recording failed: {analytics_err}")
 
         log.info(f"[{receipt_id}] Processing complete — {len(items)} items saved")
+
+        # 10. Mark as done — ALL items saved
+        db.table("receipts").update({"status": "done"}).eq("id", receipt_id).execute()
+        log.info(f"[{receipt_id}] Status set to done")
 
     except Exception as e:
         log.error(f"[{receipt_id}] FAILED: {e}\n{traceback.format_exc()}")
@@ -802,10 +806,11 @@ async def get_receipt_status(
         raise HTTPException(status_code=404, detail="Receipt not found")
 
     status = result.data["status"]
-    progress_map = {"pending": 10, "processing": 50, "done": 100, "failed": 0}
+    progress_map = {"pending": 10, "processing": 50, "saving_items": 80, "done": 100, "failed": 0}
     message_map = {
         "pending": "Waiting to process...",
         "processing": "Extracting products...",
+        "saving_items": "Saving products...",
         "done": "Receipt processed successfully!",
         "failed": "Processing failed. Please try again.",
     }

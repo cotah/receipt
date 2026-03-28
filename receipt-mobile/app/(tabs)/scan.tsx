@@ -110,12 +110,24 @@ export default function ScanScreen() {
     setShowCamera(true);
   };
 
-  // Reset everything
-  const handleRetake = () => {
+  // Reset everything — cancel any in-progress processing
+  const handleRetake = async () => {
+    // If there's a receipt being processed, delete it
+    if (currentReceiptIdRef.current) {
+      try {
+        await api.delete(`/receipts/${currentReceiptIdRef.current}`);
+      } catch {
+        // Ignore — might not exist yet or already deleted
+      }
+      currentReceiptIdRef.current = null;
+    }
     setPhotos([]);
     setShowCamera(true);
     stopFakeProgress(0);
   };
+
+  // Track current processing receipt for cancel
+  const currentReceiptIdRef = useRef<string | null>(null);
 
   // Process all photos
   const handleProcess = async () => {
@@ -157,6 +169,7 @@ export default function ScanScreen() {
       }
 
       if (!isMounted.current) return;
+      currentReceiptIdRef.current = receiptId;
       stopFakeProgress(50);
 
       // Poll for completion
@@ -179,6 +192,7 @@ export default function ScanScreen() {
 
               if (data.status === 'done') {
                 stopFakeProgress(100);
+                currentReceiptIdRef.current = null;
                 setTimeout(() => {
                   if (!isMounted.current) return;
                   setPhotos([]);
@@ -191,11 +205,13 @@ export default function ScanScreen() {
 
               if (data.status === 'failed') {
                 stopFakeProgress(0);
+                currentReceiptIdRef.current = null;
                 Alert.alert('Processing failed', data.message || 'Could not process this receipt.');
                 resolve();
                 return;
               }
 
+              // Still processing or saving items — update progress
               const elapsed = (Date.now() - startedAt) / TIMEOUT;
               setFakeProgress(Math.min(50 + Math.floor(elapsed * 40), 90));
               setTimeout(check, 2000);
