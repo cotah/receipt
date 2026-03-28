@@ -518,3 +518,62 @@ async def admin_db_stats(_admin: str = Depends(require_admin)):
         except Exception:
             stats.append({"table": t, "rows": -1})
     return {"tables": stats}
+
+
+@router.get("/ocr-test")
+async def admin_ocr_test(_admin: str = Depends(require_admin)):
+    """Test OCR providers — Gemini + OpenAI fallback."""
+    results = {}
+
+    # Test Gemini
+    try:
+        from app.services.ocr_service import _gemini_model
+        if _gemini_model is not None:
+            response = _gemini_model.generate_content("Respond with only: GEMINI_OK")
+            results["gemini"] = {"status": "ok", "response": response.text.strip()[:50]}
+        else:
+            results["gemini"] = {"status": "unavailable", "response": "Model not loaded"}
+    except Exception as e:
+        results["gemini"] = {"status": "error", "response": f"{type(e).__name__}: {str(e)[:100]}"}
+
+    # Test OpenAI Vision
+    try:
+        from app.services.ocr_service import openai_client
+        response = await openai_client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[{"role": "user", "content": "Respond with only: OPENAI_OK"}],
+            max_completion_tokens=10,
+        )
+        results["openai_vision"] = {"status": "ok", "response": response.choices[0].message.content.strip()[:50]}
+    except Exception as e:
+        results["openai_vision"] = {"status": "error", "response": f"{type(e).__name__}: {str(e)[:100]}"}
+
+    # Test OpenAI extraction (nano)
+    try:
+        from openai import AsyncOpenAI
+        from app.config import settings
+        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        response = await client.chat.completions.create(
+            model="gpt-4.1-nano",
+            messages=[{"role": "user", "content": "Respond with only: NANO_OK"}],
+            max_completion_tokens=10,
+        )
+        results["openai_nano"] = {"status": "ok", "response": response.choices[0].message.content.strip()[:50]}
+    except Exception as e:
+        results["openai_nano"] = {"status": "error", "response": f"{type(e).__name__}: {str(e)[:100]}"}
+
+    # Test OpenAI deals (5.4-nano)
+    try:
+        from openai import AsyncOpenAI
+        from app.config import settings
+        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        response = await client.chat.completions.create(
+            model="gpt-5.4-nano",
+            messages=[{"role": "user", "content": "Respond with only: GPT54_OK"}],
+            max_completion_tokens=10,
+        )
+        results["openai_5.4_nano"] = {"status": "ok", "response": response.choices[0].message.content.strip()[:50]}
+    except Exception as e:
+        results["openai_5.4_nano"] = {"status": "error", "response": f"{type(e).__name__}: {str(e)[:100]}"}
+
+    return results
