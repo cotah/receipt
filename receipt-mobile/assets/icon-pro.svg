@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1B5E3A"/>
+      <stop offset="50%" stop-color="#14472C"/>
+      <stop offset="100%" stop-color="#0D2E1C"/>
+    </linearGradient>
+    <linearGradient id="paperGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E8E4DD"/>
+    </linearGradient>
+    <linearGradient id="paperShine" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.4)"/>
+      <stop offset="40%" stop-color="rgba(255,255,255,0)"/>
+    </linearGradient>
+    <linearGradient id="proBadgeGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F5D060"/>
+      <stop offset="50%" stop-color="#E8A020"/>
+      <stop offset="100%" stop-color="#D4881A"/>
+    </linearGradient>
+    <filter id="receiptShadow" x="-10%" y="-5%" width="130%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="20" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+    <filter id="badgeShadow" x="-15%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- BACKGROUND -->
+  <rect width="1024" height="1024" rx="220" fill="url(#bgGrad)"/>
+  <circle cx="400" cy="350" r="400" fill="rgba(255,255,255,0.04)"/>
+  <circle cx="600" cy="700" r="300" fill="rgba(0,0,0,0.08)"/>
+
+  <!-- RECEIPT -->
+  <g filter="url(#receiptShadow)">
+    <path d="M260 175 C260 158, 274 144, 291 144 H733 C750 144, 764 158, 764 175 V770 
+      L748 750 L732 770 L716 750 L700 770 L684 750 L668 770 
+      L652 750 L636 770 L620 750 L604 770 L588 750 L572 770 
+      L556 750 L540 770 L524 750 L508 770 L492 750 L476 770 
+      L460 750 L444 770 L428 750 L412 770 L396 750 L380 770 
+      L364 750 L348 770 L332 750 L316 770 L300 750 L284 770 
+      L268 750 L260 762 Z" fill="url(#paperGrad)"/>
+    <path d="M260 175 C260 158, 274 144, 291 144 H733 C750 144, 764 158, 764 175 V770 
+      L748 750 L732 770 L716 750 L700 770 L684 750 L668 770 
+      L652 750 L636 770 L620 750 L604 770 L588 750 L572 770 
+      L556 750 L540 770 L524 750 L508 770 L492 750 L476 770 
+      L460 750 L444 770 L428 750 L412 770 L396 750 L380 770 
+      L364 750 L348 770 L332 750 L316 770 L300 750 L284 770 
+      L268 750 L260 762 Z" fill="url(#paperShine)"/>
+  </g>
+
+  <!-- Receipt lines -->
+  <rect x="340" y="225" width="344" height="20" rx="10" fill="#2D5A3E" opacity="0.75"/>
+  <rect x="340" y="295" width="300" height="15" rx="7.5" fill="#3D7A52" opacity="0.45"/>
+  <rect x="680" y="295" width="50" height="15" rx="7.5" fill="#3D7A52" opacity="0.35"/>
+  <rect x="340" y="350" width="260" height="15" rx="7.5" fill="#3D7A52" opacity="0.38"/>
+  <rect x="680" y="350" width="50" height="15" rx="7.5" fill="#3D7A52" opacity="0.30"/>
+  <rect x="340" y="405" width="220" height="15" rx="7.5" fill="#3D7A52" opacity="0.30"/>
+  <rect x="680" y="405" width="50" height="15" rx="7.5" fill="#3D7A52" opacity="0.25"/>
+  <rect x="340" y="460" width="280" height="15" rx="7.5" fill="#3D7A52" opacity="0.35"/>
+  <rect x="680" y="460" width="50" height="15" rx="7.5" fill="#3D7A52" opacity="0.28"/>
+  <line x1="330" y1="520" x2="700" y2="520" stroke="#C5BFB3" stroke-width="2" stroke-dasharray="8 4"/>
+  <rect x="340" y="560" width="160" height="15" rx="7.5" fill="#3D7A52" opacity="0.35"/>
+  <rect x="620" y="555" width="110" height="25" rx="12.5" fill="#22C55E" opacity="0.2"/>
+  <rect x="628" y="562" width="94" height="11" rx="5.5" fill="#22C55E" opacity="0.7"/>
+  <rect x="340" y="620" width="110" height="22" rx="11" fill="#2D5A3E" opacity="0.65"/>
+  <rect x="580" y="615" width="150" height="30" rx="15" fill="#E8A020" opacity="0.9"/>
+  <rect x="592" y="623" width="126" height="14" rx="7" fill="#FFFFFF" opacity="0.9"/>
+  <text x="512" y="440" text-anchor="middle" font-family="Arial,sans-serif" font-size="280" font-weight="bold" fill="#1A4D35" opacity="0.03">€</text>
+
+  <!-- PRO BADGE - bottom right, golden -->
+  <g filter="url(#badgeShadow)">
+    <rect x="620" y="830" width="200" height="72" rx="36" fill="url(#proBadgeGrad)"/>
+    <!-- Inner shine -->
+    <rect x="625" y="833" width="190" height="34" rx="17" fill="rgba(255,255,255,0.2)"/>
+  </g>
+  <text x="720" y="878" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="bold" fill="#FFFFFF" letter-spacing="4">PRO</text>
+</svg>
