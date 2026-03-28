@@ -464,42 +464,21 @@ async def admin_product_search(
     db = get_service_client()
 
     try:
-        # Data query (no count)
-        query = (
-            db.table("collective_prices")
-            .select(
-                "id, product_name, store_name, unit_price, category, "
-                "is_on_offer, source, expires_at"
-            )
-            .eq("source", "leaflet")
-        )
-        if q:
-            query = query.ilike("product_name", f"%{q}%")
-        if store:
-            query = query.eq("store_name", store)
-        if category:
-            query = query.eq("category", category)
+        result = db.rpc("search_products", {
+            "search_term": q or None,
+            "store_filter": store or None,
+            "cat_filter": category or None,
+            "page_num": page,
+            "page_size": per_page,
+        }).execute()
 
-        offset = (page - 1) * per_page
-        result = query.order("product_name").range(offset, offset + per_page - 1).execute()
-
-        # Count query (separate)
-        count_query = (
-            db.table("collective_prices")
-            .select("id", count="exact")
-            .eq("source", "leaflet")
-        )
-        if q:
-            count_query = count_query.ilike("product_name", f"%{q}%")
-        if store:
-            count_query = count_query.eq("store_name", store)
-        if category:
-            count_query = count_query.eq("category", category)
-        count_result = count_query.execute()
+        data = result.data or {}
+        if isinstance(data, list) and data:
+            data = data[0]
 
         return {
-            "products": result.data or [],
-            "total": count_result.count or len(result.data or []),
+            "products": data.get("products", []),
+            "total": data.get("total", 0),
             "page": page,
             "per_page": per_page,
         }
