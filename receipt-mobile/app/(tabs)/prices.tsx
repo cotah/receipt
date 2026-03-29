@@ -220,6 +220,9 @@ export default function PricesScreen() {
                         {store.price_per_unit && (
                           <Text style={styles.perUnitText}>€{(store.price_per_unit / 100).toFixed(2)}/100g</Text>
                         )}
+                        {store.promotion_text && (
+                          <Text style={styles.promoText}>{store.promotion_text}</Text>
+                        )}
                         <View style={styles.storeActions}>
                           {store.is_cheapest && <Badge text="CHEAPEST" variant="success" size="sm" />}
                           {store.is_on_offer && <Badge text="OFFER" variant="warning" size="sm" />}
@@ -599,6 +602,7 @@ const styles = StyleSheet.create({
   storeRowRight: { alignItems: 'flex-end', gap: 4 },
   storePrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 20, color: Colors.accent.amber },
   perUnitText: { fontFamily: 'DMSans_400Regular', fontSize: 10, color: Colors.text.tertiary, marginTop: 1 },
+  promoText: { fontFamily: 'DMSans_500Medium', fontSize: 10, color: Colors.accent.amber, marginTop: 2 },
   storeActions: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   addBtn: {
     width: 28, height: 28, borderRadius: 14,

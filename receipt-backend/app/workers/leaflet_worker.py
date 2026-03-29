@@ -2480,27 +2480,98 @@ def _save_tesco_apify_items(db, items: list) -> int:
 
     The custom Playwright actor returns:
       {"name": "...", "price": "€3.00", "promotion": "Clubcard Price...", "page": 1}
+
+    IMPORTANT: Some items have multi-buy deals (e.g. "Any 2 for €6.50")
+    where the actor captures the DEAL price instead of the UNIT price.
+    We detect and correct this.
     """
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(days=7)
     count = 0
     errors = 0
+
+    # Pattern to detect multi-buy deals: "Any 2 for €6.50", "3 for €5"
+    _MULTIBUY_RE = re.compile(
+        r"(?:any\s+)?(\d+)\s+for\s+[€£]?([\d]+\.?\d*)",
+        re.IGNORECASE,
+    )
+
     for item in items:
         try:
             name = item.get("name")
             price_raw = item.get("price") or item.get("priceText") or ""
-            # Handle both €3.00 and €3,00 formats
+            promo = item.get("promotion") or ""
+
+            # Try to get the actual unit price from multiple fields
+            # Some actors return regularPrice, unitPrice, retailPrice separately
+            regular_price_raw = (
+                item.get("regularPrice")
+                or item.get("unitPrice")
+                or item.get("retailPrice")
+                or item.get("originalPrice")
+                or ""
+            )
+
+            # Parse the main price
             price_str = str(price_raw).replace(",", ".")
             price_match = re.search(r"[\d]+\.[\d]{2}", price_str)
             price = float(price_match.group()) if price_match else None
+
+            # Parse regular price if available
+            reg_price = None
+            if regular_price_raw:
+                reg_str = str(regular_price_raw).replace(",", ".")
+                reg_match = re.search(r"[\d]+\.[\d]{2}", reg_str)
+                reg_price = float(reg_match.group()) if reg_match else None
+
             if not name or price is None:
                 continue
 
-            promo = item.get("promotion")
-            # promo is a plain string from the custom actor (e.g. "Clubcard Price...")
-            # not a dict — just use it directly for is_on_offer flag
-            is_on_offer = bool(promo)
+            # Check for multi-buy deals in promotion text
+            # e.g. "Any 2 for €6.50 Clubcard Price"
+            promotion_text = str(promo).strip() if promo else None
+            multibuy = _MULTIBUY_RE.search(promo) if promo else None
 
+            if multibuy:
+                deal_count = int(multibuy.group(1))
+                deal_total = float(multibuy.group(2))
+
+                # If captured price matches the deal total, it's WRONG
+                # e.g. price=6.50, deal="2 for 6.50" → unit should be ~3.25
+                if abs(price - deal_total) < 0.05 and deal_count > 1:
+                    if reg_price and reg_price > 0:
+                        # Use the regular price (€4.00)
+                        price = reg_price
+                        log.info(
+                            "Tesco: corrected multi-buy price '%s': "
+                            "deal=%d for €%.2f, using regular price €%.2f",
+                            name, deal_count, deal_total, price,
+                        )
+                    else:
+                        # No regular price available → calculate per-item from deal
+                        price = round(deal_total / deal_count, 2)
+                        log.info(
+                            "Tesco: corrected multi-buy price '%s': "
+                            "deal=%d for €%.2f → €%.2f per item (estimated)",
+                            name, deal_count, deal_total, price,
+                        )
+
+            # Sanity check: reject per-kg prices (€20+ for small items)
+            # Jelly 23g at €41.30 is clearly per-kg (real price ~€0.95)
+            weight_match = re.search(r"(\d+)\s*[Gg]$", name)
+            if weight_match:
+                weight_g = int(weight_match.group(1))
+                if weight_g < 500 and price > 15:
+                    # Likely per-kg price, estimate real price
+                    estimated = round(price * weight_g / 1000, 2)
+                    if estimated < price:
+                        log.info(
+                            "Tesco: likely per-kg price '%s': €%.2f → €%.2f (estimated from %dg)",
+                            name, price, estimated, weight_g,
+                        )
+                        price = estimated
+
+            is_on_offer = bool(promo)
             product_key = generate_product_key(name)
             category = (
                 item.get("category")
@@ -2509,18 +2580,22 @@ def _save_tesco_apify_items(db, items: list) -> int:
                 or "Other"
             )
 
+            upsert_data = {
+                "product_key": product_key,
+                "product_name": name,
+                "category": category,
+                "store_name": "Tesco",
+                "unit_price": float(price),
+                "is_on_offer": is_on_offer,
+                "source": "leaflet",
+                "observed_at": now.isoformat(),
+                "expires_at": expires_at.isoformat(),
+            }
+            if promotion_text:
+                upsert_data["promotion_text"] = promotion_text
+
             db.table("collective_prices").upsert(
-                {
-                    "product_key": product_key,
-                    "product_name": name,
-                    "category": category,
-                    "store_name": "Tesco",
-                    "unit_price": float(price),
-                    "is_on_offer": is_on_offer,
-                    "source": "leaflet",
-                    "observed_at": now.isoformat(),
-                    "expires_at": expires_at.isoformat(),
-                },
+                upsert_data,
                 on_conflict="product_key,store_name,source",
             ).execute()
             count += 1

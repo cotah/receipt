@@ -83,6 +83,7 @@ def _group_products(rows: list[dict]) -> list[dict]:
             "is_on_offer": row.get("is_on_offer", False),
             "observed_at": row.get("observed_at", ""),
             "product_key": row.get("product_key", ""),
+            "promotion_text": row.get("promotion_text"),
         }
 
         # Try to find an existing group with similar normalised name
@@ -207,8 +208,9 @@ async def smart_search(query: str, limit: int = 30) -> dict:
                 "unit_price": s["unit_price"],
                 "is_on_offer": s["is_on_offer"],
                 "is_cheapest": i == 0 and len(group["stores"]) > 1,
-                "price_per_unit": round(pup * 100, 2) if pup else None,  # cents per 100g/ml
+                "price_per_unit": round(pup * 100, 2) if pup else None,
                 "price_per_unit_label": "per 100g" if pup else None,
+                "promotion_text": s.get("promotion_text"),
             })
 
         results.append({

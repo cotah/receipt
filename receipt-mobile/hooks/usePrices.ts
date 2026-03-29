@@ -10,6 +10,7 @@ export interface SearchStoreEntry {
   is_cheapest: boolean;
   price_per_unit: number | null;
   price_per_unit_label: string | null;
+  promotion_text: string | null;
 }
 
 export interface SearchResult {
