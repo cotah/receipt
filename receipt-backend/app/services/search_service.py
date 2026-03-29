@@ -505,15 +505,12 @@ def are_comparable_products(name_a: str, name_b: str, price_a: float, price_b: f
             return False
         return True
     
-    # CASE 2: Only ONE has weight → suspicious if price differs a lot
-    # "Chicken Breast Fillets" €10.49 vs "Chicken Breast Fillets 500g" €4.99
-    # = almost certainly different sizes, NOT comparable
+    # CASE 2: Only ONE has weight → can NOT compare reliably
+    # "Chicken Breast Fillets" €10.49 (unknown size) vs "375g" €7.39
+    # Could be 1kg vs 375g = totally different per-unit price
+    # Until user confirms weight, reject these matches
     if (w_a and not w_b) or (w_b and not w_a):
-        if price_a > 0 and price_b > 0:
-            ratio = max(price_a, price_b) / min(price_a, price_b)
-            if ratio > 1.5:
-                return False
-        return True
+        return False
     
     # CASE 3: Neither has weight → strict price ratio
     if price_a > 0 and price_b > 0:
