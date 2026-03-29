@@ -651,3 +651,89 @@ async def admin_shelf_scan(
         "saved": saved,
         "errors": errors,
     }
+
+
+@router.get("/test-matching")
+async def test_product_matching(
+    _admin: str = Depends(require_admin),
+):
+    """Test product matching AI with known pairs. Returns accuracy per model."""
+    from app.config import settings
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+
+    test_pairs = [
+        ("Irish Chicken Breast Fillets 500g", "Tesco Irish Chicken Breast Fillets 420G", "YES"),
+        ("Avonmore Low Fat Milk 2L", "SuperValu Fresh Milk Low Fat (2 L)", "YES"),
+        ("Brennans Wholemeal Bread 800g", "Tesco Wholemeal Bread 800G", "YES"),
+        ("Irish Chicken Breast Fillets 500g", "Moy Park Hot & Spicy Mini Chicken Fillets (300 g)", "NO"),
+        ("Irish Chicken Breast Fillets 500g", "Birds Eye Chicken Burgers 4 Pack (200 g)", "NO"),
+        ("Apple Juice 1L", "Tropicana Orange Juice 900Ml", "NO"),
+        ("Apple Juice 1L", "Robinsons Real Fruit Pineapple Juice Drink", "NO"),
+        ("Semi Skimmed Milk 2L", "Alpro Oat Drink 1L", "NO"),
+        ("Onion Rings 150g", "SuperValu Red Onions (750 g)", "NO"),
+        ("Butter 227g", "Skippy Peanut Butter Smooth (340 g)", "NO"),
+    ]
+
+    prompt_template = (
+        "Are these the EXACT SAME type of grocery product? Only different brand/size is OK.\n\n"
+        "STRICT: Same product type, same cut, same form = YES. Different type/cut/form = NO.\n"
+        '- "Chicken Breast 500g" vs "Chicken Breast Fillets 1kg" = YES (same cut)\n'
+        '- "Chicken Breast" vs "Chicken Thighs" = NO (different cut!)\n'
+        '- "Apple Juice 1L" vs "Pure Apple Juice 500ml" = YES (same juice)\n'
+        '- "Apple Juice" vs "Orange Juice" = NO (different fruit!)\n\n'
+        "Reply ONLY with number and YES/NO:\n\n{pairs}"
+    )
+
+    async def test_model(model_name):
+        pairs_text = "\n".join(
+            f'{i+1}. "{a}" vs "{b}"' for i, (a, b, _) in enumerate(test_pairs)
+        )
+        prompt = prompt_template.format(pairs=pairs_text)
+        response = await client.chat.completions.create(
+            model=model_name, temperature=0, max_completion_tokens=200,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        answer = response.choices[0].message.content.strip()
+        results = {}
+        for line in answer.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split(".", 1)
+            if len(parts) == 2:
+                try:
+                    idx = int(parts[0].strip())
+                    results[idx] = "YES" if "YES" in parts[1].upper() else "NO"
+                except ValueError:
+                    pass
+
+        details = []
+        correct = 0
+        for i, (a, b, expected) in enumerate(test_pairs):
+            got = results.get(i + 1, "???")
+            is_correct = got == expected
+            if is_correct:
+                correct += 1
+            details.append({
+                "product_a": a, "product_b": b,
+                "expected": expected, "got": got, "correct": is_correct,
+            })
+        return {
+            "model": model_name,
+            "score": f"{correct}/{len(test_pairs)}",
+            "accuracy": f"{correct / len(test_pairs) * 100:.0f}%",
+            "details": details,
+        }
+
+    import asyncio
+    nano_result, mini_result = await asyncio.gather(
+        test_model("gpt-4.1-nano"),
+        test_model("gpt-4.1-mini"),
+    )
+
+    return {
+        "nano": nano_result,
+        "mini": mini_result,
+        "recommendation": "mini" if mini_result["score"] >= nano_result["score"] else "nano",
+    }
