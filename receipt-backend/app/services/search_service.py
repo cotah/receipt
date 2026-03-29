@@ -165,6 +165,25 @@ async def smart_search(query: str, limit: int = 30) -> dict:
     if not rows:
         return {"query": query, "results": [], "total": 0}
 
+    # Filter: ensure search words appear as WHOLE words, not substrings
+    # "apple" must match "Apple Juice" but NOT "Pineapple Juice"
+    search_words = [w.lower() for w in q.split() if len(w) >= 2]
+    filtered_rows = []
+    for row in rows:
+        name_lower = " " + row["product_name"].lower() + " "
+        match = True
+        for sw in search_words:
+            # Check word exists with word boundary (space, start, or punctuation before it)
+            if f" {sw}" not in name_lower and not name_lower.lstrip().startswith(sw):
+                match = False
+                break
+        if match:
+            filtered_rows.append(row)
+
+    rows = filtered_rows
+    if not rows:
+        return {"query": query, "results": [], "total": 0}
+
     # Group products
     groups = _group_products(rows)
 

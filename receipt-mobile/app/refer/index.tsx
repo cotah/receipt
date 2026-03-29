@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Share, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Share, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -18,21 +18,24 @@ export default function ReferScreen() {
 
   const handleShare = async () => {
     try {
-      await Share.share({
-        message:
-          `Join me on SmartDocket — the smart way to save on groceries in Ireland! 🛒\n\n` +
-          `Use my code ${referralCode} and we both get 50 bonus points.\n\n` +
-          `Download: https://smartdocket.ie`,
-      });
+      const msg = `Join me on SmartDocket — the smart way to save on groceries in Ireland! 🛒\n\nUse my referral code: ${referralCode}\nWe both get 50 bonus points!\n\nDownload: https://smartdocket.ie`;
+      await Share.share({ message: msg });
     } catch {}
   };
 
   const handleRedeem = async () => {
     const code = redeemCode.trim().toUpperCase();
     if (!code) return;
+
+    // Prevent self-referral on frontend too
+    if (code === referralCode) {
+      Alert.alert('Oops', 'You cannot use your own referral code!');
+      return;
+    }
+
     setRedeemLoading(true);
     try {
-      await api.post('/users/me/redeem-referral', { code });
+      await api.post('/users/me/redeem-referral', { referral_code: code });
       Alert.alert('🎉 Success!', 'You earned 50 bonus points!');
       setRedeemCode('');
       const { data } = await api.get('/users/me');
@@ -47,6 +50,7 @@ export default function ReferScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Feather name="arrow-left" size={24} color={Colors.text.primary} />
@@ -111,6 +115,7 @@ export default function ReferScreen() {
           </View>
         </Card>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

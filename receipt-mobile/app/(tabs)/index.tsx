@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 
 import { useRouter } from 'expo-router';
 import Card from '../../components/ui/Card';
@@ -58,6 +59,14 @@ export default function HomeScreen() {
     api.get('/prices/savings-summary').then(({ data }) => setSavings(data)).catch(() => {});
     api.get('/prices/price-memory?limit=3').then(({ data }) => setPriceMemories(data.memories || [])).catch(() => {});
   }, []);
+
+  // Refetch receipts every time Home gets focus (catches status changes like failed duplicates)
+  useFocusEffect(
+    useCallback(() => {
+      fetchReceipts(1);
+      fetchAlerts();
+    }, [])
+  );
 
   // Auto-detect location on first login if home_area is empty
   // Delay 1s to let profile fully load (especially for new Google accounts)
@@ -236,7 +245,7 @@ export default function HomeScreen() {
         {/* Recent Receipts */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Receipts</Text>
-          {receipts.slice(0, 3).map((r) => (
+          {receipts.filter((r) => r.status !== 'failed').slice(0, 3).map((r) => (
             <ReceiptCard
               key={r.id}
               {...r}

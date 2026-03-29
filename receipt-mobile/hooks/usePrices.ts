@@ -8,6 +8,8 @@ export interface SearchStoreEntry {
   unit_price: number;
   is_on_offer: boolean;
   is_cheapest: boolean;
+  price_per_unit: number | null;
+  price_per_unit_label: string | null;
 }
 
 export interface SearchResult {

@@ -203,8 +203,23 @@ export default function PricesScreen() {
                         <Text style={[styles.storePrice, i === 0 && styles.storePriceCheapest]}>
                           {formatCurrency(store.unit_price)}
                         </Text>
-                        {store.is_cheapest && <Badge text="CHEAPEST" variant="success" size="sm" />}
-                        {store.is_on_offer && <Badge text="OFFER" variant="warning" size="sm" />}
+                        {store.price_per_unit && (
+                          <Text style={styles.perUnitText}>€{(store.price_per_unit / 100).toFixed(2)}/100g</Text>
+                        )}
+                        <View style={styles.storeActions}>
+                          {store.is_cheapest && <Badge text="CHEAPEST" variant="success" size="sm" />}
+                          {store.is_on_offer && <Badge text="OFFER" variant="warning" size="sm" />}
+                          <Pressable
+                            onPress={() => toggleShoppingList(store.product_name, store.store_name, store.unit_price, '')}
+                            style={[styles.addBtn, addedToList.has(`${store.product_name}-${store.store_name}`) && styles.addBtnActive]}
+                          >
+                            <Feather
+                              name={addedToList.has(`${store.product_name}-${store.store_name}`) ? 'check' : 'plus'}
+                              size={14}
+                              color={addedToList.has(`${store.product_name}-${store.store_name}`) ? '#FFF' : Colors.primary.default}
+                            />
+                          </Pressable>
+                        </View>
                       </View>
                     </View>
                   </Card>
@@ -569,6 +584,16 @@ const styles = StyleSheet.create({
   storeProductName: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary },
   storeRowRight: { alignItems: 'flex-end', gap: 4 },
   storePrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 20, color: Colors.accent.amber },
+  perUnitText: { fontFamily: 'DMSans_400Regular', fontSize: 10, color: Colors.text.tertiary, marginTop: 1 },
+  storeActions: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  addBtn: {
+    width: 28, height: 28, borderRadius: 14,
+    borderWidth: 1.5, borderColor: Colors.primary.default,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  addBtnActive: {
+    backgroundColor: Colors.primary.default, borderColor: Colors.primary.default,
+  },
   storePriceCheapest: { color: Colors.accent.green },
 
   // Alternatives

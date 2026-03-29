@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as Linking from 'expo-linking';
@@ -88,7 +88,19 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="dark" />
-      <Slot />
+      <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="auth/callback" />
+        <Stack.Screen name="rewards" />
+        <Stack.Screen name="levels" />
+        <Stack.Screen name="refer" />
+        <Stack.Screen name="alerts" />
+        <Stack.Screen name="receipt/[id]" />
+        <Stack.Screen name="shopping-list" />
+        <Stack.Screen name="basket" />
+        <Stack.Screen name="report/[month]" />
+      </Stack>
     </GestureHandlerRootView>
   );
 }
