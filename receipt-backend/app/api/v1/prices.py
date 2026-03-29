@@ -625,16 +625,18 @@ async def get_savings_summary(
 
 
 async def _ai_verify_price_matches(candidates: list[dict]) -> list[dict]:
-    """Use GPT to verify that product matches are truly the same product.
+    """Use GPT to verify that product matches are truly the EXACT SAME product.
 
-    This is the critical brain that prevents:
-    - "Egg" matching "Easter Egg"
-    - "Apple" matching "Apple Juice"
-    - "Chicken" at €10 matching "Chicken Fillets" at €3
-    - "Onion Rings" matching "Red Onions"
-    - "Butter" matching "Peanut Butter"
+    CRITICAL: This is the brain that ensures precision. A wrong match
+    destroys user trust.
 
-    One cheap API call verifies all candidates at once.
+    Rules:
+    - SAME product type, SAME cut, SAME form = YES
+    - Different brand = YES (Tesco Chicken Breast vs Aldi Chicken Breast)
+    - Different size = YES but flag it (500g vs 1kg)
+    - Different cut = NO (breast vs thigh)
+    - Different product = NO (apple juice vs orange juice)
+    - Different form = NO (chicken burger vs chicken fillet)
     """
     if not candidates:
         return []
@@ -650,24 +652,35 @@ async def _ai_verify_price_matches(candidates: list[dict]) -> list[dict]:
             f"vs \"{c['match_name']}\" (€{c['match_price']:.2f})"
         )
 
-    prompt = f"""You are a grocery product matching expert. For each pair below,
-determine if they are the EXACT SAME product (just different naming/branding).
+    prompt = f"""You are verifying if grocery product pairs are the EXACT SAME product type.
 
-STRICT RULES:
-- "Egg" and "Easter Egg" = DIFFERENT (one is food, other is chocolate)
-- "Apple" and "Apple Juice" = DIFFERENT (one is fruit, other is drink)
-- "Chicken" and "Chicken Fillets" = COULD BE same IF similar price/weight
-- "Butter" and "Peanut Butter" = DIFFERENT
-- "Onion Rings" and "Red Onions" = DIFFERENT (one is snack, other is vegetable)
-- "Bread" and "Garlic Bread" = DIFFERENT
-- "Milk 2L" and "Milk 1L" = DIFFERENT size (but note: could still compare per-unit)
-- "Coca-Cola 500ml" and "Coca-Cola 2L" = DIFFERENT size
-- If prices differ by more than 3x AND no obvious size difference, likely DIFFERENT products
+ULTRA-STRICT RULES — read carefully:
 
-For each pair respond with ONLY the number and YES or NO:
+1. SAME product = YES:
+   - "Chicken Breast Fillets 500g" vs "Irish Chicken Breast Fillets 1kg" = YES (same cut, different size)
+   - "Apple Juice 1L" vs "Pressed Apple Juice 500ml" = YES (same juice, different size)
+   - "Tesco Semi-Skimmed Milk 2L" vs "Avonmore Milk Low Fat 2L" = YES (same product, different brand)
+   - "Cheddar Cheese 200g" vs "Mature Cheddar 400g" = YES (same cheese type)
+
+2. DIFFERENT product = NO:
+   - "Chicken Breast" vs "Chicken Thighs" = NO (different cut!)
+   - "Chicken Breast" vs "Chicken Burger" = NO (different form!)
+   - "Chicken Breast" vs "Turkey Breast" = NO (different meat!)
+   - "Apple Juice" vs "Orange Juice" = NO (different fruit!)
+   - "Apple Juice" vs "Pineapple Juice" = NO (different fruit!)
+   - "Milk" vs "Oat Milk" = NO (different product!)
+   - "Butter" vs "Peanut Butter" = NO
+   - "Bread" vs "Garlic Bread" = NO
+   - "Onion Rings" vs "Red Onions" = NO (snack vs vegetable!)
+   - "Egg" vs "Easter Egg" = NO (food vs chocolate!)
+   - "Rice" vs "Rice Cakes" = NO
+   - "Cream" vs "Ice Cream" = NO
+
+3. If products are the same type but VERY different price AND no size difference visible, say NO.
+
+For each pair respond ONLY with the number and YES or NO. Nothing else:
 1. YES
 2. NO
-etc.
 
 Pairs:
 {chr(10).join(pairs)}"""
@@ -675,6 +688,7 @@ Pairs:
     try:
         response = await client.chat.completions.create(
             model="gpt-4.1-nano",
+            temperature=0,
             max_completion_tokens=200,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -686,7 +700,6 @@ Pairs:
             line = line.strip()
             if not line:
                 continue
-            # Parse "1. YES" or "1. NO"
             parts = line.split(".", 1)
             if len(parts) == 2:
                 try:
@@ -697,14 +710,16 @@ Pairs:
                 except (ValueError, IndexError):
                     pass
 
+        import logging
+        logging.getLogger(__name__).info(
+            "AI verify: %d/%d candidates confirmed as same product",
+            len(verified), len(candidates),
+        )
         return verified
 
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning(f"AI verify failed: {e}")
-        # On AI failure, return EMPTY — better to show nothing than wrong matches
-        # The rule-based checks already filtered obvious mismatches, but
-        # without AI confirmation we can't be sure about edge cases
         return []
 
 

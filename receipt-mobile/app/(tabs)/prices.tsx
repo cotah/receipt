@@ -213,8 +213,8 @@ export default function PricesScreen() {
                 {/* AI Alternatives Section */}
                 <View style={styles.altSection}>
                   <View style={styles.altHeader}>
-                    <Text style={styles.altTitle}>💡 Cheaper Alternatives</Text>
-                    <Text style={styles.altSubtitle}>AI-powered suggestions based on similar products</Text>
+                    <Text style={styles.altTitle}>🔍 Same Product, Better Price</Text>
+                    <Text style={styles.altSubtitle}>Same product from different stores or sizes</Text>
                   </View>
 
                   {isLoadingAlts && (
@@ -237,6 +237,9 @@ export default function PricesScreen() {
                         </View>
                         <View style={styles.altRight}>
                           <Text style={styles.altPrice}>{formatCurrency(alt.unit_price)}</Text>
+                          {alt.price_per_100 && (
+                            <Text style={styles.altPerUnit}>€{(alt.price_per_100 / 100).toFixed(2)}/100g</Text>
+                          )}
                           {alt.is_on_offer && <Badge text="OFFER" variant="warning" size="sm" />}
                         </View>
                       </View>
@@ -580,6 +583,7 @@ const styles = StyleSheet.create({
   altName: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.text.primary },
   altRight: { alignItems: 'flex-end', gap: 4 },
   altPrice: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 16, color: Colors.accent.amber },
+  altPerUnit: { fontFamily: 'DMSans_400Regular', fontSize: 10, color: Colors.text.tertiary, marginTop: 1 },
 
   // Empty states
   emptyState: { alignItems: 'center', paddingVertical: Spacing.xxl, paddingHorizontal: Spacing.lg },

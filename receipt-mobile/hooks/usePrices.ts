@@ -28,6 +28,7 @@ export interface Alternative {
   unit_price: number;
   is_on_offer: boolean;
   search_term: string;
+  price_per_100: number | null;
 }
 
 // --- Weekly deals types ---

@@ -310,6 +310,7 @@ async def find_alternatives(
                         continue
                     
                     seen_keys.add(key)
+                    pup = _per_unit_price(float(row["unit_price"]), row["product_name"])
                     all_alternatives.append({
                         "product_name": row["product_name"],
                         "product_key": key,
@@ -317,6 +318,7 @@ async def find_alternatives(
                         "unit_price": float(row["unit_price"]),
                         "is_on_offer": row.get("is_on_offer", False),
                         "search_term": term,
+                        "price_per_100": round(pup * 100, 2) if pup else None,
                     })
         except Exception as e:
             log.warning(
@@ -325,7 +327,63 @@ async def find_alternatives(
 
     # Sort by price and return top alternatives
     all_alternatives.sort(key=lambda x: x["unit_price"])
-    return all_alternatives[:limit]
+    candidates = all_alternatives[:limit * 2]  # Get extra for AI filtering
+
+    if not candidates:
+        return []
+
+    # AI VERIFICATION — confirm each alternative is the EXACT SAME product type
+    try:
+        pairs = []
+        for i, alt in enumerate(candidates):
+            pairs.append(f'{i+1}. "{product_name}" vs "{alt["product_name"]}"')
+
+        verify_prompt = f"""Are these the EXACT SAME type of grocery product? Only different brand/size is OK.
+
+STRICT: Same product type, same cut, same form = YES. Different type/cut/form = NO.
+- "Chicken Breast 500g" vs "Chicken Breast Fillets 1kg" = YES (same cut)
+- "Chicken Breast" vs "Chicken Thighs" = NO (different cut!)
+- "Apple Juice 1L" vs "Pure Apple Juice 500ml" = YES (same juice)
+- "Apple Juice" vs "Orange Juice" = NO (different fruit!)
+- "Milk 2L" vs "Low Fat Milk 1L" = YES (same product)
+- "Milk" vs "Oat Drink" = NO (different product!)
+
+Reply ONLY with number and YES/NO:
+
+{chr(10).join(pairs)}"""
+
+        response = await client.chat.completions.create(
+            model="gpt-4.1-nano",
+            temperature=0,
+            max_completion_tokens=150,
+            messages=[{"role": "user", "content": verify_prompt}],
+        )
+        answer = response.choices[0].message.content.strip()
+
+        verified = []
+        for line in answer.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split(".", 1)
+            if len(parts) == 2:
+                try:
+                    idx = int(parts[0].strip()) - 1
+                    if "YES" in parts[1].upper() and 0 <= idx < len(candidates):
+                        verified.append(candidates[idx])
+                except (ValueError, IndexError):
+                    pass
+
+        log.info(
+            "find_alternatives: AI verified %d/%d for '%s'",
+            len(verified), len(candidates), product_name,
+        )
+        return verified[:limit]
+
+    except Exception as e:
+        log.warning("find_alternatives: AI verify failed: %s", e)
+        # On failure, return nothing — better empty than wrong
+        return []
 
 
 # Weight/size extraction for comparing like-for-like
