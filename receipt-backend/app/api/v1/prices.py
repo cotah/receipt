@@ -620,7 +620,7 @@ async def get_savings_summary(
         "best_saving": best_saving,
         "receipt_count": len(receipt_ids),
     }
-    set_cache(cache_key, result, ttl_seconds=1800)
+    set_cache(cache_key, result, ttl_seconds=600)  # 10 min cache
     return result
 
 

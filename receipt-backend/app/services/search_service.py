@@ -476,9 +476,11 @@ def are_comparable_products(name_a: str, name_b: str, price_a: float, price_b: f
     """Check if two products are genuinely comparable (same product, similar value).
     
     Rules:
-    1. Name similarity must be >= 0.4 (core words overlap)
+    1. Name similarity must be >= 0.35 (core words overlap)
     2. If both have weights, compare per-unit price (allows 2x500g vs 1kg)
-    3. If no weights, price ratio must be < 2.5x
+    3. If only ONE has weight + price diff > 1.5x → NOT comparable
+       (e.g. "Chicken Breast" €10.49 vs "Chicken Breast 500g" €4.99 = different sizes)
+    4. If neither has weight, price ratio must be < 2.0x
     """
     # Name similarity first
     norm_a = _normalize_for_grouping(name_a)
@@ -487,22 +489,32 @@ def are_comparable_products(name_a: str, name_b: str, price_a: float, price_b: f
     if sim < 0.35:
         return False
     
-    # If both have weights, use per-unit price comparison
-    # This handles: "Chicken Breast 1kg €10" vs "Chicken Breast 500g €4.50"
-    pup_a = _per_unit_price(price_a, name_a)
-    pup_b = _per_unit_price(price_b, name_b)
+    w_a = _extract_weight_grams(name_a)
+    w_b = _extract_weight_grams(name_b)
     
-    if pup_a and pup_b:
-        # Compare per-gram/ml price — allows up to 2x difference
-        pup_ratio = max(pup_a, pup_b) / min(pup_a, pup_b)
+    # CASE 1: Both have weights → compare per-unit price
+    if w_a and w_b:
+        pup_a = price_a / w_a
+        pup_b = price_b / w_b
+        pup_ratio = max(pup_a, pup_b) / min(pup_a, pup_b) if min(pup_a, pup_b) > 0 else 99
         if pup_ratio > 2.5:
             return False
         return True
     
-    # No weight info — fall back to absolute price ratio
+    # CASE 2: Only ONE has weight → suspicious if price differs a lot
+    # "Chicken Breast Fillets" €10.49 vs "Chicken Breast Fillets 500g" €4.99
+    # = almost certainly different sizes, NOT comparable
+    if (w_a and not w_b) or (w_b and not w_a):
+        if price_a > 0 and price_b > 0:
+            ratio = max(price_a, price_b) / min(price_a, price_b)
+            if ratio > 1.5:
+                return False
+        return True
+    
+    # CASE 3: Neither has weight → strict price ratio
     if price_a > 0 and price_b > 0:
         ratio = max(price_a, price_b) / min(price_a, price_b)
-        if ratio > 2.5:
+        if ratio > 2.0:
             return False
     
     return True
