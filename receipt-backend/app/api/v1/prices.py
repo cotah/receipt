@@ -29,33 +29,30 @@ async def compare_prices(
     now = datetime.now(timezone.utc)
     product_key = generate_product_key(product)
 
-    # Try exact product_key match first
-    query = (
-        db.table("collective_prices")
-        .select("*")
-        .eq("product_key", product_key)
-        .gte("expires_at", now.isoformat())
-        .order("unit_price")
-    )
-    if area:
-        query = query.eq("home_area", area)
-    result = query.execute()
+    # Try exact product_key match first via RPC (avoids vector column crash)
+    try:
+        result = db.rpc(
+            "search_products",
+            {"p_query": f"%{product_key}%", "p_limit": 30},
+        ).execute()
+        # Filter to exact product_key matches
+        exact = [r for r in (result.data or []) if r.get("product_key") == product_key]
+        if exact:
+            result.data = exact
+    except Exception:
+        result = type('R', (), {'data': []})()
 
     # Fallback: ILIKE search if exact key returns nothing
     if not result.data:
         words = product.lower().split()[:4]
         pattern = "%" + "%".join(words) + "%"
-        query = (
-            db.table("collective_prices")
-            .select("*")
-            .ilike("product_name", pattern)
-            .gte("expires_at", now.isoformat())
-            .order("unit_price")
-            .limit(20)
-        )
-        if area:
-            query = query.eq("home_area", area)
-        result = query.execute()
+        try:
+            result = db.rpc(
+                "search_products",
+                {"p_query": pattern, "p_limit": 20},
+            ).execute()
+        except Exception:
+            result = type('R', (), {'data': []})()
 
     # Group by store (keep cheapest per store)
     store_map: dict[str, dict] = {}
@@ -118,15 +115,13 @@ async def calculate_basket(
             words = [w for w in item_name.lower().split() if len(w) > 2][:4]
             if words:
                 pattern = "%" + "%".join(words) + "%"
-                result = (
-                    db.table("collective_prices")
-                    .select("store_name, unit_price, product_name")
-                    .ilike("product_name", pattern)
-                    .gte("expires_at", now.isoformat())
-                    .order("unit_price")
-                    .limit(20)
-                    .execute()
-                )
+                try:
+                    result = db.rpc(
+                        "search_products",
+                        {"p_query": pattern, "p_limit": 20},
+                    ).execute()
+                except Exception:
+                    pass
         store_prices: dict[str, float] = {}
         for row in result.data or []:
             s = row["store_name"]
@@ -376,16 +371,10 @@ async def get_price_memory(
         pattern = "%" + "%".join(words) + "%"
 
         try:
-            matches = (
-                db.table("collective_prices")
-                .select("product_name, store_name, unit_price, is_on_offer, category")
-                .eq("source", "leaflet")
-                .gte("expires_at", now.isoformat())
-                .ilike("product_name", pattern)
-                .order("unit_price")
-                .limit(10)
-                .execute()
-            )
+            matches = db.rpc(
+                "search_products",
+                {"p_query": pattern, "p_source": "leaflet", "p_limit": 10},
+            ).execute()
 
             for m in matches.data or []:
                 current_price = float(m["unit_price"])
@@ -621,16 +610,10 @@ async def get_savings_summary(
         pattern = "%" + "%".join(words) + "%"
 
         try:
-            matches = (
-                db.table("collective_prices")
-                .select("product_name, store_name, unit_price")
-                .eq("source", "leaflet")
-                .gte("expires_at", now.isoformat())
-                .ilike("product_name", pattern)
-                .order("unit_price")
-                .limit(5)
-                .execute()
-            )
+            matches = db.rpc(
+                "search_products",
+                {"p_query": pattern, "p_source": "leaflet", "p_limit": 5},
+            ).execute()
             for m in (matches.data or []):
                 current = float(m["unit_price"])
                 # Same strict rules as price-memory
@@ -910,16 +893,10 @@ async def _analyze_product_timing(db, product_name: str, now: datetime) -> dict:
 
     if not history.data or len(history.data) < 2:
         # Not enough data — show current status
-        current = (
-            db.table("collective_prices")
-            .select("product_name, store_name, unit_price, is_on_offer, expires_at")
-            .eq("source", "leaflet")
-            .gte("expires_at", now.isoformat())
-            .ilike("product_name", pattern)
-            .order("unit_price")
-            .limit(5)
-            .execute()
-        )
+        current = db.rpc(
+            "search_products",
+            {"p_query": pattern, "p_source": "leaflet", "p_limit": 5},
+        ).execute()
         return {
             "product": product_name,
             "has_cycle_data": False,

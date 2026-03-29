@@ -118,18 +118,21 @@ async def get_best_price(
 ) -> dict | None:
     """Get cheapest current price for a product."""
     now = datetime.now(timezone.utc).isoformat()
-    query = (
-        db.table("collective_prices")
-        .select("*")
-        .ilike("product_key", f"{product_key}%")
-        .gte("expires_at", now)
-        .order("unit_price")
-        .limit(1)
-    )
-    if area:
-        query = query.eq("home_area", area)
-    result = query.execute()
-    return result.data[0] if result.data else None
+    try:
+        query = (
+            db.table("collective_prices")
+            .select("product_key, product_name, store_name, store_branch, unit_price, category, is_on_offer, source, observed_at, expires_at, home_area")
+            .ilike("product_key", f"{product_key}%")
+            .gte("expires_at", now)
+            .order("unit_price")
+            .limit(1)
+        )
+        if area:
+            query = query.eq("home_area", area)
+        result = query.execute()
+        return result.data[0] if result.data else None
+    except Exception:
+        return None
 
 
 async def compare_prices(
@@ -139,17 +142,20 @@ async def compare_prices(
     now = datetime.now(timezone.utc).isoformat()
     product_key = generate_product_key(product)
 
-    query = (
-        db.table("collective_prices")
-        .select("*")
-        .ilike("product_key", f"{product_key}%")
-        .gte("expires_at", now)
-        .order("unit_price")
-    )
-    if area:
-        query = query.eq("home_area", area)
-    result = query.execute()
-    return result.data or []
+    try:
+        query = (
+            db.table("collective_prices")
+            .select("product_key, product_name, store_name, store_branch, unit_price, category, is_on_offer, source, observed_at, expires_at, home_area")
+            .ilike("product_key", f"{product_key}%")
+            .gte("expires_at", now)
+            .order("unit_price")
+        )
+        if area:
+            query = query.eq("home_area", area)
+        result = query.execute()
+        return result.data or []
+    except Exception:
+        return []
 
 
 async def cleanup_expired_prices(db: Client) -> int:

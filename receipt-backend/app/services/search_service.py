@@ -149,19 +149,14 @@ async def smart_search(query: str, limit: int = 30) -> dict:
     ilike_pattern = "%" + "%".join(words) + "%"
 
     try:
-        result = (
-            db.table("collective_prices")
-            .select(
-                "product_name, product_key, store_name, "
-                "unit_price, is_on_offer, observed_at"
-            )
-            .eq("source", "leaflet")
-            .gte("expires_at", now.isoformat())
-            .ilike("product_name", ilike_pattern)
-            .order("unit_price")
-            .limit(limit * 3)  # fetch extra for grouping
-            .execute()
-        )
+        result = db.rpc(
+            "search_products",
+            {
+                "p_query": ilike_pattern,
+                "p_source": "leaflet",
+                "p_limit": limit * 3,
+            },
+        ).execute()
     except Exception as e:
         log.error("smart_search: query failed: %s", e)
         return {"query": query, "results": [], "total": 0}
@@ -279,19 +274,14 @@ async def find_alternatives(
         try:
             words = term.split()
             pattern = "%" + "%".join(words) + "%"
-            result = (
-                db.table("collective_prices")
-                .select(
-                    "product_name, product_key, store_name, "
-                    "unit_price, is_on_offer"
-                )
-                .eq("source", "leaflet")
-                .gte("expires_at", now.isoformat())
-                .ilike("product_name", pattern)
-                .order("unit_price")
-                .limit(5)
-                .execute()
-            )
+            result = db.rpc(
+                "search_products",
+                {
+                    "p_query": pattern,
+                    "p_source": "leaflet",
+                    "p_limit": 5,
+                },
+            ).execute()
             for row in result.data or []:
                 key = row["product_key"]
                 if key not in seen_keys:
