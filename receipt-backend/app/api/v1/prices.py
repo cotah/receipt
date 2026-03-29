@@ -1159,3 +1159,61 @@ async def respond_to_confirmation(
         "status": "confirmed" if confirmed else "rejected",
         "id": confirmation_id,
     }
+
+
+@router.get("/store-products")
+async def get_store_products(
+    q: str = Query(..., min_length=2),
+    store: str = Query(...),
+    limit: int = Query(20, ge=1, le=50),
+    user_id: str = Depends(get_current_user),
+):
+    """Get all products matching query at a specific store.
+
+    Used when user taps a store in the comparison view to see
+    all variants/sizes available at that store.
+    """
+    db = get_service_client()
+    words = q.split()
+    pattern = "%" + "%".join(words) + "%"
+
+    try:
+        result = db.rpc(
+            "search_products",
+            {"p_query": pattern, "p_limit": limit},
+        ).execute()
+    except Exception as e:
+        return {"store": store, "products": [], "total": 0}
+
+    # Filter to exact store and apply word-boundary check
+    search_words = [w.lower() for w in q.split() if len(w) >= 2]
+    products = []
+    for row in (result.data or []):
+        if row["store_name"].lower() != store.lower():
+            continue
+        # Word boundary check
+        name_lower = " " + row["product_name"].lower() + " "
+        match = True
+        for sw in search_words:
+            if f" {sw}" not in name_lower and not name_lower.lstrip().startswith(sw):
+                match = False
+                break
+        if match:
+            from app.services.search_service import _per_unit_price
+            pup = _per_unit_price(float(row["unit_price"]), row["product_name"])
+            products.append({
+                "product_name": row["product_name"],
+                "product_key": row.get("product_key", ""),
+                "unit_price": float(row["unit_price"]),
+                "is_on_offer": row.get("is_on_offer", False),
+                "price_per_100": round(pup * 100, 2) if pup else None,
+            })
+
+    products.sort(key=lambda x: x["unit_price"])
+
+    return {
+        "store": store,
+        "query": q,
+        "products": products,
+        "total": len(products),
+    }

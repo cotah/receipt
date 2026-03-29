@@ -28,6 +28,9 @@ export default function PricesScreen() {
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [addedToList, setAddedToList] = useState<Map<string, string>>(new Map());
   const [timing, setTiming] = useState<any>(null);
+  const [expandedStore, setExpandedStore] = useState<string | null>(null);
+  const [storeProducts, setStoreProducts] = useState<any[]>([]);
+  const [loadingStore, setLoadingStore] = useState(false);
   const router = useRouter();
 
   const toggleShoppingList = useCallback(async (name: string, store: string, price: number, category?: string) => {
@@ -114,10 +117,34 @@ export default function PricesScreen() {
 
   const handleProductTap = (result: SearchResult) => {
     selectProduct(result);
+    setExpandedStore(null);
+    setStoreProducts([]);
   };
 
   const handleBack = () => {
     clearSelection();
+    setExpandedStore(null);
+    setStoreProducts([]);
+  };
+
+  const handleStoreTap = async (storeName: string) => {
+    if (expandedStore === storeName) {
+      setExpandedStore(null);
+      setStoreProducts([]);
+      return;
+    }
+    setExpandedStore(storeName);
+    setLoadingStore(true);
+    try {
+      const { data } = await api.get('/prices/store-products', {
+        params: { q: searchText || selectedProduct?.display_name || '', store: storeName, limit: 20 },
+      });
+      setStoreProducts(data.products || []);
+    } catch {
+      setStoreProducts([]);
+    } finally {
+      setLoadingStore(false);
+    }
   };
 
   
@@ -191,38 +218,82 @@ export default function PricesScreen() {
                 )}
 
                 {selectedProduct.stores.map((store, i) => (
-                  <Card key={store.store_name} style={[styles.storeRow, i === 0 && styles.storeRowCheapest] as any}>
-                    <View style={styles.storeRowInner}>
-                      <View style={styles.storeRowLeft}>
-                        <StoreTag storeName={store.store_name} size="md" />
-                        <Text style={styles.storeProductName} numberOfLines={2}>
-                          {store.product_name}
-                        </Text>
-                      </View>
-                      <View style={styles.storeRowRight}>
-                        <Text style={[styles.storePrice, i === 0 && styles.storePriceCheapest]}>
-                          {formatCurrency(store.unit_price)}
-                        </Text>
-                        {store.price_per_unit && (
-                          <Text style={styles.perUnitText}>€{(store.price_per_unit / 100).toFixed(2)}/100g</Text>
-                        )}
-                        <View style={styles.storeActions}>
-                          {store.is_cheapest && <Badge text="CHEAPEST" variant="success" size="sm" />}
-                          {store.is_on_offer && <Badge text="OFFER" variant="warning" size="sm" />}
-                          <Pressable
-                            onPress={() => toggleShoppingList(store.product_name, store.store_name, store.unit_price, '')}
-                            style={[styles.addBtn, addedToList.has(`${store.product_name}-${store.store_name}`) && styles.addBtnActive]}
-                          >
-                            <Feather
-                              name={addedToList.has(`${store.product_name}-${store.store_name}`) ? 'check' : 'plus'}
-                              size={14}
-                              color={addedToList.has(`${store.product_name}-${store.store_name}`) ? '#FFF' : Colors.primary.default}
-                            />
-                          </Pressable>
+                  <View key={store.store_name}>
+                    <Card style={[styles.storeRow, i === 0 && styles.storeRowCheapest] as any}>
+                      <View style={styles.storeRowInner}>
+                        <View style={styles.storeRowLeft}>
+                          <StoreTag storeName={store.store_name} size="md" />
+                          <Text style={styles.storeProductName} numberOfLines={2}>
+                            {store.product_name}
+                          </Text>
+                        </View>
+                        <View style={styles.storeRowRight}>
+                          <Text style={[styles.storePrice, i === 0 && styles.storePriceCheapest]}>
+                            {formatCurrency(store.unit_price)}
+                          </Text>
+                          {store.price_per_unit && (
+                            <Text style={styles.perUnitText}>€{(store.price_per_unit / 100).toFixed(2)}/100g</Text>
+                          )}
+                          <View style={styles.storeActions}>
+                            {store.is_cheapest && <Badge text="CHEAPEST" variant="success" size="sm" />}
+                            {store.is_on_offer && <Badge text="OFFER" variant="warning" size="sm" />}
+                            <Pressable
+                              onPress={() => toggleShoppingList(store.product_name, store.store_name, store.unit_price, '')}
+                              style={[styles.addBtn, addedToList.has(`${store.product_name}-${store.store_name}`) && styles.addBtnActive]}
+                            >
+                              <Feather
+                                name={addedToList.has(`${store.product_name}-${store.store_name}`) ? 'check' : 'plus'}
+                                size={14}
+                                color={addedToList.has(`${store.product_name}-${store.store_name}`) ? '#FFF' : Colors.primary.default}
+                              />
+                            </Pressable>
+                          </View>
                         </View>
                       </View>
-                    </View>
-                  </Card>
+                      <Pressable onPress={() => handleStoreTap(store.store_name)} style={styles.expandHintRow}>
+                        <Feather name={expandedStore === store.store_name ? 'chevron-up' : 'chevron-down'} size={14} color={Colors.text.tertiary} />
+                        <Text style={styles.expandHintText}>
+                          {expandedStore === store.store_name ? 'Hide products' : 'See all products at this store'}
+                        </Text>
+                      </Pressable>
+                    </Card>
+
+                    {/* Expanded store catalog */}
+                    {expandedStore === store.store_name && (
+                      <View style={styles.expandedSection}>
+                        {loadingStore && (
+                          <ActivityIndicator size="small" color={Colors.primary.default} style={{ padding: 12 }} />
+                        )}
+                        {!loadingStore && storeProducts.length === 0 && (
+                          <Text style={styles.expandedEmpty}>No other products found at this store</Text>
+                        )}
+                        {!loadingStore && storeProducts.map((p: any, j: number) => (
+                          <View key={`${p.product_key}-${j}`} style={styles.expandedItem}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.expandedName} numberOfLines={2}>{p.product_name}</Text>
+                              {p.price_per_100 && (
+                                <Text style={styles.expandedPerUnit}>€{(p.price_per_100 / 100).toFixed(2)}/100g</Text>
+                              )}
+                            </View>
+                            <View style={styles.expandedRight}>
+                              <Text style={styles.expandedPrice}>{formatCurrency(p.unit_price)}</Text>
+                              {p.is_on_offer && <Badge text="OFFER" variant="warning" size="sm" />}
+                              <Pressable
+                                onPress={() => toggleShoppingList(p.product_name, store.store_name, p.unit_price, '')}
+                                style={[styles.addBtnSmall, addedToList.has(`${p.product_name}-${store.store_name}`) && styles.addBtnActive]}
+                              >
+                                <Feather
+                                  name={addedToList.has(`${p.product_name}-${store.store_name}`) ? 'check' : 'plus'}
+                                  size={12}
+                                  color={addedToList.has(`${p.product_name}-${store.store_name}`) ? '#FFF' : Colors.primary.default}
+                                />
+                              </Pressable>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
                 ))}
 
                 {/* AI Alternatives Section */}
@@ -594,6 +665,29 @@ const styles = StyleSheet.create({
   addBtnActive: {
     backgroundColor: Colors.primary.default, borderColor: Colors.primary.default,
   },
+  addBtnSmall: {
+    width: 24, height: 24, borderRadius: 12,
+    borderWidth: 1.5, borderColor: Colors.primary.default,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  expandHintRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors.surface.alt,
+  },
+  expandHintText: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary },
+  expandedSection: {
+    marginLeft: 12, marginBottom: Spacing.sm,
+    borderLeftWidth: 2, borderLeftColor: Colors.surface.border, paddingLeft: 12,
+  },
+  expandedEmpty: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.tertiary, padding: 12 },
+  expandedItem: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.surface.alt,
+  },
+  expandedName: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.primary },
+  expandedPerUnit: { fontFamily: 'DMSans_400Regular', fontSize: 10, color: Colors.text.tertiary, marginTop: 2 },
+  expandedRight: { alignItems: 'flex-end', gap: 4 },
+  expandedPrice: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 14, color: Colors.accent.amber },
   storePriceCheapest: { color: Colors.accent.green },
 
   // Alternatives
