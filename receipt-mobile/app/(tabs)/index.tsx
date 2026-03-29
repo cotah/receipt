@@ -248,7 +248,7 @@ export default function HomeScreen() {
         {/* Recent Receipts */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Receipts</Text>
-          {receipts.filter((r) => r.status !== 'failed').slice(0, 3).map((r) => (
+          {receipts.slice(0, 3).map((r) => (
             <ReceiptCard
               key={r.id}
               {...r}

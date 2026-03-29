@@ -69,8 +69,10 @@ export const useReceiptStore = create<ReceiptState>((set, get) => ({
       if (store) params.store = store;
       if (month) params.month = month;
       const { data } = await api.get('/receipts', { params });
+      // Filter out failed receipts (duplicates, invalid, etc) — they should never show
+      const validReceipts = (data.data || []).filter((r: any) => r.status !== 'failed');
       set({
-        receipts: page === 1 ? data.data : [...get().receipts, ...data.data],
+        receipts: page === 1 ? validReceipts : [...get().receipts, ...validReceipts],
         pagination: {
           page: data.pagination.page,
           totalPages: data.pagination.total_pages,
