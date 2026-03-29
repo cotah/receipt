@@ -269,29 +269,30 @@ async def get_alternatives(
     product_name: str = Query(
         ..., min_length=2, description="Product to find alternatives for"
     ),
+    exclude_key: str | None = Query(None, description="Product key to exclude from results"),
     limit: int = Query(6, ge=1, le=15),
     user_id: str = Depends(get_current_user),
 ):
-    """AI-powered cheaper alternatives for a given product.
+    """Same product at different stores/sizes.
 
-    Uses OpenAI to understand the product category and find
-    similar/cheaper alternatives from different brands in the database.
-    Example: 'Nutella 400g' → suggests store-brand hazelnut spreads.
+    Uses AI to find the EXACT same product type from different stores,
+    excluding the product already being viewed.
     """
     from app.services.search_service import find_alternatives
 
-    cache_key = f"alternatives:{product_name.lower().strip()}"
+    cache_key = f"alternatives:{product_name.lower().strip()}:{exclude_key or ''}"
     cached = get_cache(cache_key)
     if cached:
         return cached
 
-    alternatives = await find_alternatives(product_name, limit=limit)
+    exclude_keys = [exclude_key] if exclude_key else None
+    alternatives = await find_alternatives(product_name, limit=limit, exclude_keys=exclude_keys)
     result = {
         "product_name": product_name,
         "alternatives": alternatives,
         "total": len(alternatives),
     }
-    set_cache(cache_key, result, ttl_seconds=3600)  # 1h cache
+    set_cache(cache_key, result, ttl_seconds=3600)
     return result
 
 
@@ -614,11 +615,25 @@ async def get_savings_summary(
         except Exception:
             pass
 
+    # Get REAL attributed savings (only from confirmed purchases via SmartDocket alerts)
+    try:
+        attr_result = (
+            db.table("savings_attributions")
+            .select("estimated_saving")
+            .eq("user_id", user_id)
+            .gte("created_at", month_start.isoformat())
+            .execute()
+        )
+        attributed = sum(float(a.get("estimated_saving", 0)) for a in (attr_result.data or []))
+    except Exception:
+        attributed = 0.0
+
     result = {
         "month_potential_savings": round(total_savings, 2),
         "products_with_better_price": better_count,
         "best_saving": best_saving,
         "receipt_count": len(receipt_ids),
+        "attributed_savings": round(attributed, 2),
     }
     set_cache(cache_key, result, ttl_seconds=600)  # 10 min cache
     return result

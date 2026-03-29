@@ -18,8 +18,19 @@ export default function ReferScreen() {
 
   const handleShare = async () => {
     try {
-      const msg = `Join me on SmartDocket — the smart way to save on groceries in Ireland! 🛒\n\nUse my referral code: ${referralCode}\nWe both get 50 bonus points!\n\nDownload: https://smartdocket.ie`;
-      await Share.share({ message: msg });
+      // iOS WhatsApp/iMessage often preview only the URL
+      // Keep the referral code BEFORE the URL so it's always visible
+      const shareText = [
+        '🛒 SmartDocket — Compare grocery prices in Ireland!',
+        '',
+        'I use SmartDocket to find the cheapest prices across Tesco, Lidl, Aldi, SuperValu & Dunnes.',
+        '',
+        `🎁 Use my referral code: ${referralCode}`,
+        'We both get 50 bonus points!',
+        '',
+        'https://smartdocket.ie',
+      ].join('\n');
+      await Share.share({ message: shareText });
     } catch {}
   };
 

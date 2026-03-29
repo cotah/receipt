@@ -107,14 +107,14 @@ export function usePrices() {
   }, []);
 
   // AI alternatives
-  const fetchAlternatives = useCallback(async (productName: string) => {
+  const fetchAlternatives = useCallback(async (productName: string, excludeKey?: string) => {
     if (!productName || productName.length < 2) return;
     setIsLoadingAlts(true);
     setAlternatives([]);
     try {
-      const { data } = await api.get('/prices/alternatives', {
-        params: { product_name: productName, limit: 6 },
-      });
+      const params: any = { product_name: productName, limit: 6 };
+      if (excludeKey) params.exclude_key = excludeKey;
+      const { data } = await api.get('/prices/alternatives', { params });
       setAlternatives(data.alternatives || []);
     } catch (err) {
       console.error('[Prices] alternatives error:', err);
@@ -126,7 +126,7 @@ export function usePrices() {
   // Select product → detail + alternatives
   const selectProduct = useCallback((product: SearchResult) => {
     setSelectedProduct(product);
-    fetchAlternatives(product.display_name);
+    fetchAlternatives(product.display_name, product.product_key);
   }, [fetchAlternatives]);
 
   const clearSelection = useCallback(() => {

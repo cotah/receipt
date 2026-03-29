@@ -158,12 +158,12 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Discounts</Text>
           </Card>
           <Card style={styles.statCard}>
-            <Text style={[styles.statValue, { color: savings?.month_potential_savings > 0 ? Colors.accent.green : Colors.text.tertiary }]}>
-              {formatCurrency(savings?.month_potential_savings ?? 0)}
+            <Text style={[styles.statValue, { color: savings?.attributed_savings > 0 ? Colors.accent.green : Colors.text.tertiary }]}>
+              {formatCurrency(savings?.attributed_savings ?? 0)}
             </Text>
-            <Text style={styles.statLabel}>Could save</Text>
-            {savings?.products_with_better_price > 0 && (
-              <Text style={styles.comingSoon}>{savings.products_with_better_price} items cheaper</Text>
+            <Text style={styles.statLabel}>Saved</Text>
+            {savings?.attributed_savings > 0 && (
+              <Text style={styles.comingSoon}>with SmartDocket</Text>
             )}
           </Card>
         </View>

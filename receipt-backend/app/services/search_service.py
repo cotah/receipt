@@ -229,13 +229,14 @@ async def smart_search(query: str, limit: int = 30) -> dict:
 
 
 async def find_alternatives(
-    product_name: str, limit: int = 5
+    product_name: str, limit: int = 5, exclude_keys: list[str] | None = None,
 ) -> list[dict]:
-    """Use OpenAI to find cheaper alternative products in the database.
+    """Use OpenAI to find the same product at different stores/sizes.
 
-    1. Asks AI to generate search terms for similar/alternative products
+    1. Asks AI to generate search terms for the SAME product
     2. Searches the DB for those terms
-    3. Returns cheaper alternatives grouped by store
+    3. Filters with AI verification
+    4. Excludes the product already being viewed
     """
     if not settings.OPENAI_API_KEY or not product_name:
         return []
@@ -301,6 +302,9 @@ async def find_alternatives(
     # Step 2: Search DB for each term and collect results
     all_alternatives: list[dict] = []
     seen_keys: set[str] = set()
+    # Pre-populate seen_keys with excluded products (the one being viewed)
+    if exclude_keys:
+        seen_keys.update(exclude_keys)
 
     for term in search_terms[:5]:
         try:
