@@ -5,6 +5,7 @@ from app.utils.text_utils import generate_product_key
 from app.database import get_service_client
 from app.config import settings
 from app.services.cache_service import get_cache, set_cache
+from app.services.search_service import are_comparable_products, _normalize_for_grouping, _token_similarity, _per_unit_price
 from app.models.price import (
     PriceCompareResponse,
     StorePrice,
@@ -379,32 +380,8 @@ async def get_price_memory(
             for m in matches.data or []:
                 current_price = float(m["unit_price"])
 
-                # RULE 1: Price sanity — reject if prices are wildly different
-                # A €10 chicken is NOT the same as a €3 chicken fillet
-                if paid_price > 0 and current_price > 0:
-                    ratio = max(paid_price, current_price) / min(paid_price, current_price)
-                    if ratio > 3.0:  # More than 3x price difference = different product
-                        continue
-
-                # RULE 2: Substring trap — "apple" must not match "apple juice"
-                name_lower = name.lower().strip()
-                match_lower = m["product_name"].lower().strip()
-                # If one is much shorter and is contained in the other, reject
-                if len(name_lower) < len(match_lower) * 0.5:
-                    # User product is much shorter — likely a substring match
-                    # e.g. "Apple" matching "Apple Juice 1L"
-                    if name_lower in match_lower and len(name_lower.split()) <= 2:
-                        continue
-                if len(match_lower) < len(name_lower) * 0.5:
-                    if match_lower in name_lower and len(match_lower.split()) <= 2:
-                        continue
-
-                # RULE 3: Core noun must match
-                # "egg" ≠ "easter egg", "onion rings" ≠ "red onions"
-                norm_user = _normalize_for_grouping(name)
-                norm_match = _normalize_for_grouping(m["product_name"])
-                similarity = _token_similarity(norm_user, norm_match)
-                if similarity < 0.6:
+                # Strict product matching: same product, similar size, comparable price
+                if not are_comparable_products(name, m["product_name"], paid_price, current_price):
                     continue
 
                 candidates.append({
@@ -616,18 +593,8 @@ async def get_savings_summary(
             ).execute()
             for m in (matches.data or []):
                 current = float(m["unit_price"])
-                # Same strict rules as price-memory
-                if paid > 0 and current > 0:
-                    ratio = max(paid, current) / min(paid, current)
-                    if ratio > 3.0:
-                        continue
-                name_l = name.lower().strip()
-                match_l = m["product_name"].lower().strip()
-                if len(name_l) < len(match_l) * 0.5 and name_l in match_l and len(name_l.split()) <= 2:
-                    continue
-                norm_u = _normalize_for_grouping(name)
-                norm_m = _normalize_for_grouping(m["product_name"])
-                if _token_similarity(norm_u, norm_m) < 0.6:
+                # Strict matching: same product, similar size
+                if not are_comparable_products(name, m["product_name"], paid, current):
                     continue
 
                 saving = paid - current

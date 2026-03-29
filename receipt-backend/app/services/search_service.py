@@ -181,12 +181,15 @@ async def smart_search(query: str, limit: int = 30) -> dict:
 
         stores = []
         for i, s in enumerate(group["stores"]):
+            pup = _per_unit_price(s["unit_price"], s["product_name"])
             stores.append({
                 "store_name": s["store_name"],
                 "product_name": s["product_name"],
                 "unit_price": s["unit_price"],
                 "is_on_offer": s["is_on_offer"],
                 "is_cheapest": i == 0 and len(group["stores"]) > 1,
+                "price_per_unit": round(pup * 100, 2) if pup else None,  # cents per 100g/ml
+                "price_per_unit_label": "per 100g" if pup else None,
             })
 
         results.append({
@@ -225,20 +228,30 @@ async def find_alternatives(
         # Step 1: Ask OpenAI for alternative product search terms
         response = await client.chat.completions.create(
             model="gpt-5.4-nano",
-            temperature=0.3,
+            temperature=0.1,
             max_completion_tokens=200,
             messages=[
                 {
                     "role": "system",
                     "content": (
-                        "You are a grocery product expert for Irish supermarkets "
-                        "(Tesco, SuperValu, Lidl, Aldi, Dunnes). "
-                        "Given a product name, suggest 3-5 SHORT search terms "
-                        "(1-3 words each) for similar/alternative products that "
-                        "a budget-conscious shopper might consider instead. "
-                        "Focus on store-brand alternatives, similar products from "
-                        "different brands, and generic versions. "
-                        "Return ONLY the search terms, one per line, no numbering."
+                        "You are a grocery product search expert for Irish supermarkets "
+                        "(Tesco, SuperValu, Lidl, Aldi, Dunnes).\n\n"
+                        "Each store has its OWN brand products (Tesco Everyday, Lidl Cien, Aldi Brooklea, etc).\n"
+                        "The SAME product exists across stores under different brand names.\n\n"
+                        "STRICT RULES:\n"
+                        "- Given a product, return search terms for the EXACT SAME type of product\n"
+                        "- ANY brand is OK — store brands, name brands, generic versions\n"
+                        "- Different sizes are OK (500g, 1L, 2-pack, etc)\n"
+                        "- NEVER suggest a DIFFERENT product category\n\n"
+                        "CORRECT examples:\n"
+                        "- 'Apple Juice 1L' → 'apple juice', 'pressed apple juice', 'pure apple juice'\n"
+                        "- 'Chicken Breast Fillets 500g' → 'chicken breast', 'chicken breast fillets', 'chicken fillet'\n"
+                        "- 'Semi Skimmed Milk 2L' → 'semi skimmed milk', 'low fat milk', 'milk 2l'\n\n"
+                        "WRONG examples (NEVER do this):\n"
+                        "- 'Apple Juice' → 'orange juice' (DIFFERENT FRUIT!)\n"
+                        "- 'Chicken Breast' → 'chicken thighs' (DIFFERENT CUT!)\n"
+                        "- 'Milk' → 'oat drink' (DIFFERENT PRODUCT!)\n\n"
+                        "Return 2-4 SHORT search terms (1-3 words each), one per line, no numbering."
                     ),
                 },
                 {
@@ -285,6 +298,17 @@ async def find_alternatives(
             for row in result.data or []:
                 key = row["product_key"]
                 if key not in seen_keys:
+                    # Validate: must be same type of product
+                    norm_original = _normalize_for_grouping(product_name)
+                    norm_result = _normalize_for_grouping(row["product_name"])
+                    # Check core words overlap
+                    orig_words = set(norm_original.split())
+                    result_words = set(norm_result.split())
+                    # At least one important word must match
+                    important_overlap = orig_words & result_words
+                    if not important_overlap:
+                        continue
+                    
                     seen_keys.add(key)
                     all_alternatives.append({
                         "product_name": row["product_name"],
@@ -302,3 +326,106 @@ async def find_alternatives(
     # Sort by price and return top alternatives
     all_alternatives.sort(key=lambda x: x["unit_price"])
     return all_alternatives[:limit]
+
+
+# Weight/size extraction for comparing like-for-like
+_WEIGHT_RE = re.compile(
+    r"(\d+\.?\d*)\s*(kg|g|ml|l|cl|oz|lb|litre|liter)\b",
+    re.IGNORECASE,
+)
+
+_PACK_RE = re.compile(
+    r"(\d+)\s*(?:x|×|pk|pack)\s*(?:(\d+\.?\d*)\s*(g|ml|kg|l|cl))?",
+    re.IGNORECASE,
+)
+
+
+def _extract_weight_grams(name: str) -> float | None:
+    """Extract total weight from product name and normalize to grams.
+    
+    Handles multi-packs: '6 x 330ml' = 1980g, '2 Pack 500g' = 1000g
+    Returns None if no weight found.
+    """
+    # Check for multi-pack first: "6 x 330ml", "4 pack 125g"
+    pack_match = _PACK_RE.search(name)
+    if pack_match and pack_match.group(2):
+        count = int(pack_match.group(1))
+        value = float(pack_match.group(2))
+        unit = pack_match.group(3).lower()
+        per_item = _normalize_to_grams(value, unit)
+        if per_item is not None:
+            return count * per_item
+    
+    # Single item weight
+    match = _WEIGHT_RE.search(name)
+    if not match:
+        return None
+    value = float(match.group(1))
+    unit = match.group(2).lower()
+    return _normalize_to_grams(value, unit)
+
+
+def _normalize_to_grams(value: float, unit: str) -> float | None:
+    """Convert a value+unit to grams (or ml for liquids)."""
+    if unit in ("kg",):
+        return value * 1000
+    if unit in ("g",):
+        return value
+    if unit in ("l", "litre", "liter"):
+        return value * 1000
+    if unit in ("ml",):
+        return value
+    if unit in ("cl",):
+        return value * 10
+    if unit in ("lb",):
+        return value * 453.6
+    if unit in ("oz",):
+        return value * 28.35
+    return None
+
+
+def _per_unit_price(price: float, name: str) -> float | None:
+    """Calculate price per gram/ml for comparison.
+    
+    This enables comparing: 1kg @ €10 vs 500g @ €4 (€0.01/g vs €0.008/g)
+    """
+    weight = _extract_weight_grams(name)
+    if weight and weight > 0:
+        return price / weight
+    return None
+
+
+def are_comparable_products(name_a: str, name_b: str, price_a: float, price_b: float) -> bool:
+    """Check if two products are genuinely comparable (same product, similar value).
+    
+    Rules:
+    1. Name similarity must be >= 0.4 (core words overlap)
+    2. If both have weights, compare per-unit price (allows 2x500g vs 1kg)
+    3. If no weights, price ratio must be < 2.5x
+    """
+    # Name similarity first
+    norm_a = _normalize_for_grouping(name_a)
+    norm_b = _normalize_for_grouping(name_b)
+    sim = _token_similarity(norm_a, norm_b)
+    if sim < 0.35:
+        return False
+    
+    # If both have weights, use per-unit price comparison
+    # This handles: "Chicken Breast 1kg €10" vs "Chicken Breast 500g €4.50"
+    pup_a = _per_unit_price(price_a, name_a)
+    pup_b = _per_unit_price(price_b, name_b)
+    
+    if pup_a and pup_b:
+        # Compare per-gram/ml price — allows up to 2x difference
+        pup_ratio = max(pup_a, pup_b) / min(pup_a, pup_b)
+        if pup_ratio > 2.5:
+            return False
+        return True
+    
+    # No weight info — fall back to absolute price ratio
+    if price_a > 0 and price_b > 0:
+        ratio = max(price_a, price_b) / min(price_a, price_b)
+        if ratio > 2.5:
+            return False
+    
+    return True
