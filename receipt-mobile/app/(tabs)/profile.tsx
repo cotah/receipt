@@ -342,7 +342,7 @@ export default function ProfileScreen() {
                 <View style={styles.iconCircle}>
                   <Feather name="star" size={16} color={Colors.accent.amber} />
                 </View>
-                <Text style={styles.rowLabel}>Points</Text>
+                <Text style={styles.rowLabel}>Points & Rewards</Text>
               </View>
               <View style={styles.rowRight}>
                 <Text style={styles.rowValueBold}>{points}</Text>
@@ -353,7 +353,7 @@ export default function ProfileScreen() {
             <View style={styles.divider} />
 
             {/* Level */}
-            <Pressable style={styles.row} onPress={() => router.push('/rewards')}>
+            <Pressable style={styles.row} onPress={() => router.push('/levels')}>
               <View style={styles.rowLeft}>
                 <View style={styles.iconCircle}>
                   <Feather name="award" size={16} color={Colors.accent.amber} />
@@ -371,7 +371,7 @@ export default function ProfileScreen() {
             <View style={styles.divider} />
 
             {/* Refer */}
-            <Pressable style={styles.row} onPress={() => router.push('/rewards')}>
+            <Pressable style={styles.row} onPress={() => router.push('/refer')}>
               <View style={styles.rowLeft}>
                 <View style={styles.iconCircle}>
                   <Feather name="gift" size={16} color={Colors.primary.default} />
