@@ -56,23 +56,21 @@ export default function ReceiptDetailScreen() {
     setWeights(prev => ({ ...prev, [itemId]: preset }));
   };
 
-  const handleSaveWeights = async () => {
-    const items = Object.entries(weights)
-      .filter(([, w]) => w.trim().length > 0)
-      .map(([item_id, weight]) => ({ item_id, weight: weight.trim() }));
-    if (items.length === 0) {
-      setWeightDismissed(true);
-      return;
-    }
+  const handleConfirmSingleWeight = async (itemId: string) => {
+    const weight = (weights[itemId] || '').trim();
+    if (!weight) return;
     setSavingWeights(true);
     try {
-      await api.patch(`/receipts/${id}/confirm-weights`, { items });
-      setWeightDismissed(true);
-      setNeedsWeight([]);
-      // Refresh receipt detail to show updated names
+      await api.patch(`/receipts/${id}/confirm-weights`, {
+        items: [{ item_id: itemId, weight }],
+      });
+      // Remove this item from the list
+      setNeedsWeight(prev => prev.filter(i => i.id !== itemId));
+      setWeights(prev => { const n = { ...prev }; delete n[itemId]; return n; });
+      // Refresh receipt to show updated name
       if (id) fetchReceiptDetail(id);
     } catch {
-      Alert.alert('Error', 'Could not save weights');
+      Alert.alert('Error', 'Could not save weight');
     } finally {
       setSavingWeights(false);
     }
@@ -139,15 +137,18 @@ export default function ReceiptDetailScreen() {
           )}
         </Card>
 
-        {/* Weight confirmation — shown when items have no weight info */}
+        {/* Weight confirmation — each product confirms independently */}
         {needsWeight.length > 0 && !weightDismissed && (
           <Card style={styles.weightCard}>
             <View style={styles.weightHeader}>
               <Feather name="info" size={18} color={Colors.primary.default} />
               <Text style={styles.weightTitle}>Confirm product sizes</Text>
+              <Pressable onPress={() => setWeightDismissed(true)} style={{ marginLeft: 'auto' }}>
+                <Feather name="x" size={18} color={Colors.text.tertiary} />
+              </Pressable>
             </View>
             <Text style={styles.weightDesc}>
-              For better price comparisons, confirm the weight or volume of these products:
+              For better price comparisons, confirm the weight or volume:
             </Text>
 
             {needsWeight.map((item) => (
@@ -173,27 +174,34 @@ export default function ReceiptDetailScreen() {
                     </Pressable>
                   ))}
                 </View>
-                <TextInput
-                  style={styles.weightInput}
-                  placeholder="Or type: 500g, 1kg, 1L..."
-                  placeholderTextColor={Colors.text.tertiary}
-                  value={weights[item.id] || ''}
-                  onChangeText={(v) => handleWeightChange(item.id, v)}
-                  autoCapitalize="none"
-                />
+                <View style={styles.weightInputRow}>
+                  <TextInput
+                    style={styles.weightInput}
+                    placeholder="Or type: 500g, 1kg, 1L..."
+                    placeholderTextColor={Colors.text.tertiary}
+                    value={weights[item.id] || ''}
+                    onChangeText={(v) => handleWeightChange(item.id, v)}
+                    autoCapitalize="none"
+                  />
+                  <Pressable
+                    onPress={() => handleConfirmSingleWeight(item.id)}
+                    disabled={!weights[item.id]?.trim() || savingWeights}
+                    style={[
+                      styles.confirmItemBtn,
+                      (!weights[item.id]?.trim()) && { opacity: 0.4 },
+                    ]}
+                  >
+                    <Feather name="check" size={16} color="#FFF" />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setNeedsWeight(prev => prev.filter(i => i.id !== item.id))}
+                    style={styles.skipItemBtn}
+                  >
+                    <Text style={styles.skipItemBtnText}>Skip</Text>
+                  </Pressable>
+                </View>
               </View>
             ))}
-
-            <View style={styles.weightActions}>
-              <Pressable onPress={() => setWeightDismissed(true)} style={styles.skipBtn}>
-                <Text style={styles.skipBtnText}>Skip</Text>
-              </Pressable>
-              <Pressable onPress={handleSaveWeights} style={styles.saveWeightsBtn} disabled={savingWeights}>
-                <Text style={styles.saveWeightsBtnText}>
-                  {savingWeights ? 'Saving...' : 'Confirm'}
-                </Text>
-              </Pressable>
-            </View>
           </Card>
         )}
 
@@ -336,16 +344,16 @@ const styles = StyleSheet.create({
   presetBtnText: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.text.secondary },
   presetBtnTextActive: { color: '#FFF' },
   weightInput: {
-    fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.primary,
+    flex: 1, fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.primary,
     borderWidth: 1, borderColor: Colors.surface.border, borderRadius: BorderRadius.sm,
     paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#FFF',
   },
-  weightActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 8 },
-  skipBtn: { paddingVertical: 10, paddingHorizontal: 16 },
-  skipBtnText: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.text.tertiary },
-  saveWeightsBtn: {
-    paddingVertical: 10, paddingHorizontal: 24, backgroundColor: Colors.primary.default,
-    borderRadius: BorderRadius.sm,
+  weightInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  confirmItemBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: Colors.primary.default,
+    alignItems: 'center', justifyContent: 'center',
   },
-  saveWeightsBtnText: { fontFamily: 'DMSans_700Bold', fontSize: 14, color: '#FFF' },
+  skipItemBtn: { paddingVertical: 8, paddingHorizontal: 4 },
+  skipItemBtnText: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary },
 });
