@@ -20,12 +20,19 @@ class PriceCompareResponse(BaseModel):
     stores: list[StorePrice]
 
 
+class BasketItemDetail(BaseModel):
+    name: str
+    price: float | None = None
+    found: bool = False
+
+
 class BasketItem(BaseModel):
     store: str
     total_estimated: float
     items_available: int
     items_missing: int
     savings_vs_most_expensive: float = 0.0
+    items: list[BasketItemDetail] = []
 
 
 class SplitRecommendation(BaseModel):

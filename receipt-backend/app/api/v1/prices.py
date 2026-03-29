@@ -12,6 +12,7 @@ from app.models.price import (
     BasketRequest,
     BasketResponse,
     BasketItem,
+    BasketItemDetail,
     SplitRecommendation,
     LeafletOffersResponse,
     LeafletOffer,
@@ -101,6 +102,13 @@ async def calculate_basket(
     all_stores: set[str] = set()
     item_prices: dict[str, dict[str, float]] = {}  # item -> {store: price}
 
+    # Normalize store names
+    _STORE_NORMALIZE = {
+        "tesco": "Tesco", "lidl": "Lidl", "aldi": "Aldi",
+        "supervalu": "SuperValu", "dunnes": "Dunnes",
+        "dunnes stores": "Dunnes",
+    }
+
     for item_name in body.items:
         product_key = generate_product_key(item_name)
         result = (
@@ -125,9 +133,10 @@ async def calculate_basket(
                     pass
         store_prices: dict[str, float] = {}
         for row in result.data or []:
-            s = row["store_name"]
+            raw_store = row["store_name"]
+            s = _STORE_NORMALIZE.get(raw_store.lower().strip(), raw_store)
             if s not in store_prices:
-                store_prices[s] = row["unit_price"]
+                store_prices[s] = float(row["unit_price"])
                 all_stores.add(s)
         item_prices[item_name] = store_prices
 
@@ -136,17 +145,22 @@ async def calculate_basket(
     for store in sorted(all_stores):
         total = 0.0
         available = 0
+        item_details = []
         for item_name in body.items:
             price = item_prices.get(item_name, {}).get(store)
             if price is not None:
                 total += price
                 available += 1
+                item_details.append(BasketItemDetail(name=item_name, price=round(price, 2), found=True))
+            else:
+                item_details.append(BasketItemDetail(name=item_name, price=None, found=False))
         summary.append(BasketItem(
             store=store,
             total_estimated=round(total, 2),
             items_available=available,
             items_missing=total_items - available,
             savings_vs_most_expensive=0,
+            items=item_details,
         ))
 
     summary.sort(key=lambda x: x.total_estimated)
@@ -161,7 +175,7 @@ async def calculate_basket(
     for item_name in body.items:
         prices = item_prices.get(item_name, {})
         if prices:
-            cheapest_store = min(prices, key=prices.get)
+            cheapest_store = min(prices, key=prices.get)  # type: ignore
             split_total += prices[cheapest_store]
             split_parts.setdefault(cheapest_store, []).append(item_name)
 

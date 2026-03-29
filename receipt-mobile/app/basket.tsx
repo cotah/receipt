@@ -4,11 +4,27 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import Card from '../components/ui/Card';
+import Badge from '../components/ui/Badge';
 import StoreTag from '../components/prices/StoreTag';
 import { Colors } from '../constants/colors';
-import { Spacing } from '../constants/typography';
+import { Spacing, BorderRadius } from '../constants/typography';
 import { formatCurrency } from '../utils/formatCurrency';
 import api from '../services/api';
+
+interface ItemDetail {
+  name: string;
+  price: number | null;
+  found: boolean;
+}
+
+interface StoreResult {
+  store: string;
+  total_estimated: number;
+  items_available: number;
+  items_missing: number;
+  savings_vs_most_expensive: number;
+  items: ItemDetail[];
+}
 
 export default function BasketScreen() {
   const router = useRouter();
@@ -17,8 +33,8 @@ export default function BasketScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [result, setResult] = useState<any>(null);
+  const [expandedStore, setExpandedStore] = useState<string | null>(null);
 
-  // Auto-load items from shopping list
   useEffect(() => {
     (async () => {
       try {
@@ -37,11 +53,10 @@ export default function BasketScreen() {
 
   const addItem = () => {
     const trimmed = inputText.trim();
-    if (!trimmed) return;
-    if (items.includes(trimmed)) return;
+    if (!trimmed || items.includes(trimmed)) return;
     setItems(prev => [...prev, trimmed]);
     setInputText('');
-    setResult(null); // Clear previous results
+    setResult(null);
   };
 
   const removeItem = (index: number) => {
@@ -55,6 +70,7 @@ export default function BasketScreen() {
       return;
     }
     setIsLoading(true);
+    setExpandedStore(null);
     try {
       const { data } = await api.post('/prices/basket', { items });
       setResult(data);
@@ -63,6 +79,10 @@ export default function BasketScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const toggleStore = (store: string) => {
+    setExpandedStore(prev => prev === store ? null : store);
   };
 
   if (isLoadingList) {
@@ -77,7 +97,6 @@ export default function BasketScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Feather name="arrow-left" size={24} color={Colors.text.primary} />
@@ -146,51 +165,85 @@ export default function BasketScreen() {
                   <Text style={styles.splitTitle}>Smart Split</Text>
                 </View>
                 <Text style={styles.splitTotal}>
-                  Split your shop across stores for {formatCurrency(result.split_recommendation.total_with_split)}
+                  Split your shop for {formatCurrency(result.split_recommendation.total_with_split)}
                 </Text>
                 <Text style={styles.splitDetail}>{result.split_recommendation.message}</Text>
-                {result.summary.length > 0 && (
-                  <Text style={styles.splitSaving}>
-                    Save {formatCurrency(result.summary[0].total_estimated - result.split_recommendation.total_with_split)} vs best single store
-                  </Text>
-                )}
               </Card>
             )}
 
             {/* Store comparison */}
             <Text style={styles.resultsTitle}>Store Comparison</Text>
+            <Text style={styles.resultsHint}>Tap a store to see product details</Text>
 
-            {result.summary?.map((store: any, i: number) => (
-              <Card key={store.store} style={[styles.storeCard, i === 0 && styles.cheapestCard] as any}>
-                <View style={styles.storeRow}>
-                  <View style={styles.storeLeft}>
-                    <StoreTag storeName={store.store} size="md" />
-                    <View style={styles.storeStats}>
-                      <Text style={styles.storeAvail}>
-                        {store.items_available}/{items.length} items found
-                      </Text>
-                      {store.items_missing > 0 && (
-                        <Text style={styles.storeMissing}>
-                          {store.items_missing} missing
+            {result.summary?.map((store: StoreResult, i: number) => (
+              <View key={store.store}>
+                <Pressable onPress={() => toggleStore(store.store)}>
+                  <Card style={[styles.storeCard, i === 0 && styles.cheapestCard] as any}>
+                    <View style={styles.storeRow}>
+                      <View style={styles.storeLeft}>
+                        <StoreTag storeName={store.store} size="md" />
+                        <View style={styles.storeStats}>
+                          <Text style={styles.storeAvail}>
+                            {store.items_available}/{items.length} items
+                          </Text>
+                          {store.items_missing > 0 && (
+                            <Text style={styles.storeMissing}>
+                              {store.items_missing} missing
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                      <View style={styles.storeRight}>
+                        <Text style={[styles.storePrice, i === 0 && styles.cheapestPrice]}>
+                          {formatCurrency(store.total_estimated)}
                         </Text>
-                      )}
+                        {i === 0 && result.summary.length > 1 && (
+                          <Text style={styles.cheapestLabel}>CHEAPEST</Text>
+                        )}
+                      </View>
                     </View>
-                  </View>
-                  <View style={styles.storeRight}>
-                    <Text style={[styles.storePrice, i === 0 && styles.cheapestPrice]}>
-                      {formatCurrency(store.total_estimated)}
-                    </Text>
-                    {i === 0 && result.summary.length > 1 && (
-                      <Text style={styles.cheapestLabel}>CHEAPEST</Text>
-                    )}
-                    {store.savings_vs_most_expensive > 0 && i === 0 && (
-                      <Text style={styles.savingLabel}>
-                        Save {formatCurrency(store.savings_vs_most_expensive)}
+                    <View style={styles.expandRow}>
+                      <Feather
+                        name={expandedStore === store.store ? 'chevron-up' : 'chevron-down'}
+                        size={14} color={Colors.text.tertiary}
+                      />
+                      <Text style={styles.expandText}>
+                        {expandedStore === store.store ? 'Hide details' : 'See products'}
                       </Text>
+                    </View>
+                  </Card>
+                </Pressable>
+
+                {/* Expanded product list */}
+                {expandedStore === store.store && store.items && (
+                  <Card style={styles.detailCard}>
+                    {store.items.filter((d: ItemDetail) => d.found).length > 0 && (
+                      <Text style={styles.detailSectionTitle}>✓ Available</Text>
                     )}
-                  </View>
-                </View>
-              </Card>
+                    {store.items.filter((d: ItemDetail) => d.found).map((d: ItemDetail, j: number) => (
+                      <View key={`found-${j}`} style={styles.detailRow}>
+                        <View style={styles.detailIcon}>
+                          <Feather name="check" size={12} color={Colors.accent.green} />
+                        </View>
+                        <Text style={styles.detailName} numberOfLines={1}>{d.name}</Text>
+                        <Text style={styles.detailPrice}>{d.price != null ? formatCurrency(d.price) : ''}</Text>
+                      </View>
+                    ))}
+                    {store.items.filter((d: ItemDetail) => !d.found).length > 0 && (
+                      <Text style={[styles.detailSectionTitle, { marginTop: 10 }]}>✗ Not found</Text>
+                    )}
+                    {store.items.filter((d: ItemDetail) => !d.found).map((d: ItemDetail, j: number) => (
+                      <View key={`missing-${j}`} style={styles.detailRow}>
+                        <View style={[styles.detailIcon, { backgroundColor: Colors.accent.redSoft }]}>
+                          <Feather name="x" size={12} color="#E85D3A" />
+                        </View>
+                        <Text style={[styles.detailName, { color: Colors.text.tertiary }]} numberOfLines={1}>{d.name}</Text>
+                        <Text style={styles.detailMissing}>—</Text>
+                      </View>
+                    ))}
+                  </Card>
+                )}
+              </View>
             ))}
 
             {result.summary?.length === 0 && (
@@ -227,8 +280,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: Colors.primary.dark },
   scroll: { padding: Spacing.md, paddingBottom: 100 },
-
-  // Input
   inputRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
   input: {
     flex: 1, backgroundColor: Colors.surface.card, borderRadius: 12,
@@ -240,8 +291,6 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.primary.default,
     alignItems: 'center', justifyContent: 'center',
   },
-
-  // Item chips
   itemsList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: Spacing.md },
   itemChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -250,8 +299,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.surface.border,
   },
   itemChipText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.primary, maxWidth: 150 },
-
-  // Optimize button
   optimizeBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: Colors.primary.default, borderRadius: 12,
@@ -259,22 +306,16 @@ const styles = StyleSheet.create({
   },
   optimizeBtnDisabled: { opacity: 0.5 },
   optimizeBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 16, color: '#fff' },
-
-  // Results
   results: { marginTop: Spacing.sm },
-  resultsTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm },
-
-  // Split card
+  resultsTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: 2 },
+  resultsHint: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, marginBottom: Spacing.sm },
   splitCard: { marginBottom: Spacing.md, padding: Spacing.md, borderWidth: 1, borderColor: '#A8D5B8', backgroundColor: '#F0F9F4' },
   splitHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   splitTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: Colors.text.primary },
   splitTotal: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 18, color: Colors.accent.green, marginBottom: 4 },
-  splitDetail: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary, lineHeight: 18, marginBottom: 4 },
-  splitSaving: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: Colors.accent.green },
-
-  // Store cards
-  storeCard: { marginBottom: Spacing.xs, padding: Spacing.sm },
-  cheapestCard: { borderWidth: 1, borderColor: Colors.accent.green },
+  splitDetail: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary, lineHeight: 18 },
+  storeCard: { marginBottom: Spacing.xs },
+  cheapestCard: { borderWidth: 2, borderColor: Colors.accent.green },
   storeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   storeLeft: { flex: 1, gap: 4 },
   storeStats: { flexDirection: 'row', gap: 8, marginTop: 2 },
@@ -284,12 +325,24 @@ const styles = StyleSheet.create({
   storePrice: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 20, color: Colors.text.primary },
   cheapestPrice: { color: Colors.accent.green },
   cheapestLabel: { fontFamily: 'DMSans_600SemiBold', fontSize: 10, color: Colors.accent.green, marginTop: 2 },
-  savingLabel: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.accent.green, marginTop: 2 },
-
+  expandRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors.surface.alt,
+  },
+  expandText: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary },
+  detailCard: { marginBottom: Spacing.sm, marginLeft: 8, borderLeftWidth: 3, borderLeftColor: Colors.primary.light },
+  detailSectionTitle: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: Colors.text.secondary, marginBottom: 6 },
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5 },
+  detailIcon: {
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: Colors.accent.greenSoft,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  detailName: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.primary, flex: 1 },
+  detailPrice: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 13, color: Colors.accent.amber },
+  detailMissing: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.tertiary },
   noResultCard: { padding: Spacing.md },
   noResultText: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.secondary, textAlign: 'center' },
-
-  // Empty state
   emptyState: { alignItems: 'center', paddingTop: 40 },
   emptyEmoji: { fontSize: 48, marginBottom: Spacing.md },
   emptyTitle: { fontFamily: 'DMSans_700Bold', fontSize: 20, color: Colors.text.primary, marginBottom: Spacing.xs },
