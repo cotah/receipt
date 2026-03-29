@@ -18,19 +18,22 @@ export default function ReferScreen() {
 
   const handleShare = async () => {
     try {
-      // iOS WhatsApp/iMessage often preview only the URL
-      // Keep the referral code BEFORE the URL so it's always visible
-      const shareText = [
+      const textOnly = [
         '🛒 SmartDocket — Compare grocery prices in Ireland!',
         '',
         'I use SmartDocket to find the cheapest prices across Tesco, Lidl, Aldi, SuperValu & Dunnes.',
         '',
         `🎁 Use my referral code: ${referralCode}`,
         'We both get 50 bonus points!',
-        '',
-        'https://smartdocket.ie',
       ].join('\n');
-      await Share.share({ message: shareText });
+
+      if (Platform.OS === 'ios') {
+        // iOS: separate message from URL — both show in share sheet
+        await Share.share({ message: textOnly, url: 'https://smartdocket.ie' });
+      } else {
+        // Android: URL must be in the message text
+        await Share.share({ message: textOnly + '\n\nhttps://smartdocket.ie' });
+      }
     } catch {}
   };
 
