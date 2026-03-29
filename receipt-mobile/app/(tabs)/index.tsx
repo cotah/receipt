@@ -222,8 +222,11 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Best saving highlight */}
-        {savings?.best_saving && priceMemories.length === 0 && (
+        {/* Best saving highlight — only if ratio is < 2x (avoids false matches) */}
+        {savings?.best_saving && priceMemories.length === 0 && 
+         savings.best_saving.paid > 0 && savings.best_saving.now > 0 &&
+         (savings.best_saving.paid / savings.best_saving.now) < 2.0 &&
+         savings.best_saving.saving > 0.20 && (
           <Card style={styles.bestSavingCard}>
             <Text style={styles.bestSavingTitle}>💡 Best saving right now</Text>
             <Text style={styles.bestSavingText}>
