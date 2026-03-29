@@ -249,7 +249,7 @@ async def get_leaflet_offers(
         total=result.count,
         page=page,
     )
-    set_cache(cache_key, response.model_dump(mode="json"), ttl_seconds=3600)
+    set_cache(cache_key, response.model_dump(mode="json"), ttl_seconds=600)
     return response
 
 
@@ -274,7 +274,7 @@ async def smart_search_products(
         return cached
 
     result = await smart_search(q, limit=limit)
-    set_cache(cache_key, result, ttl_seconds=1800)  # 30 min cache
+    set_cache(cache_key, result, ttl_seconds=600)  # 30 min cache
     return result
 
 
@@ -306,7 +306,7 @@ async def get_alternatives(
         "alternatives": alternatives,
         "total": len(alternatives),
     }
-    set_cache(cache_key, result, ttl_seconds=3600)
+    set_cache(cache_key, result, ttl_seconds=600)
     return result
 
 
@@ -348,7 +348,7 @@ async def get_price_memory(
 
     if not receipt_items.data:
         result = {"memories": [], "total": 0, "potential_savings": 0}
-        set_cache(cache_key, result, ttl_seconds=3600)
+        set_cache(cache_key, result, ttl_seconds=600)
         return result
 
     # Get the store_name for each receipt
@@ -524,7 +524,7 @@ async def get_price_memory(
         "total": len(memories),
         "potential_savings": total_savings,
     }
-    set_cache(cache_key, result, ttl_seconds=1800)  # 30 min cache
+    set_cache(cache_key, result, ttl_seconds=600)  # 30 min cache
     return result
 
 
@@ -566,7 +566,7 @@ async def get_savings_summary(
             "best_saving": None,
             "receipt_count": 0,
         }
-        set_cache(cache_key, result, ttl_seconds=3600)
+        set_cache(cache_key, result, ttl_seconds=600)
         return result
 
     receipt_ids = list({r["receipt_id"] for r in receipt_items.data})
@@ -881,7 +881,7 @@ async def get_smart_timing(
         "needs_more_data": True,  # Will be False once we have 4+ weeks
     }
 
-    set_cache(cache_key, result, ttl_seconds=3600)
+    set_cache(cache_key, result, ttl_seconds=600)
     return result
 
 
