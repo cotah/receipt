@@ -16,6 +16,7 @@ class ReceiptItemBase(BaseModel):
     discount_amount: float = 0.0
     is_on_offer: bool = False
     barcode: Optional[str] = None
+    confirmed_weight: Optional[str] = None
 
 
 class CollectiveComparison(BaseModel):

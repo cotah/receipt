@@ -6,6 +6,7 @@ import traceback
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from app.utils.auth_utils import get_current_user
 from app.utils.image_utils import compress_image, validate_image
 from app.utils.text_utils import generate_product_key
@@ -853,3 +854,144 @@ async def delete_receipt(
 
     db.table("receipt_items").delete().eq("receipt_id", receipt_id).execute()
     db.table("receipts").delete().eq("id", receipt_id).execute()
+
+
+# ─── Weight confirmation ───────────────────────────────────
+
+import re as _re
+
+_WEIGHT_PATTERN = _re.compile(
+    r"\d+\.?\d*\s*(?:kg|g|ml|l|cl|oz|lb|litre|liter)\b",
+    _re.IGNORECASE,
+)
+
+_SKIP_ITEMS = {"deposit", "bag", "bags", "carrier bag", "levy", "tax"}
+
+
+def _item_has_weight(name: str) -> bool:
+    """Check if a product name contains weight/volume info."""
+    return bool(_WEIGHT_PATTERN.search(name))
+
+
+@router.get("/{receipt_id}/needs-weight")
+async def get_items_needing_weight(
+    receipt_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """Return items from this receipt that have no weight in their name.
+
+    Used after OCR to ask the user to confirm weight/size
+    for better price comparisons.
+    """
+    db = get_service_client()
+
+    # Verify receipt belongs to user
+    receipt = (
+        db.table("receipts")
+        .select("id, status")
+        .eq("id", receipt_id)
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+    if not receipt.data:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+
+    items = (
+        db.table("receipt_items")
+        .select("id, normalized_name, unit_price, confirmed_weight")
+        .eq("receipt_id", receipt_id)
+        .execute()
+    )
+
+    needs_weight = []
+    for item in (items.data or []):
+        name = item.get("normalized_name", "")
+        # Skip already confirmed, deposits/bags, and items that already have weight
+        if item.get("confirmed_weight"):
+            continue
+        if name.lower().strip() in _SKIP_ITEMS:
+            continue
+        if _item_has_weight(name):
+            continue
+        needs_weight.append({
+            "id": item["id"],
+            "name": name,
+            "price": float(item.get("unit_price", 0)),
+        })
+
+    return {
+        "receipt_id": receipt_id,
+        "items": needs_weight,
+        "total": len(needs_weight),
+    }
+
+
+class WeightConfirmation(BaseModel):
+    item_id: str
+    weight: str  # e.g. "500g", "1kg", "1L", "330ml"
+
+
+class ConfirmWeightsRequest(BaseModel):
+    items: list[WeightConfirmation]
+
+
+@router.patch("/{receipt_id}/confirm-weights")
+async def confirm_item_weights(
+    receipt_id: str,
+    body: ConfirmWeightsRequest,
+    user_id: str = Depends(get_current_user),
+):
+    """Save user-confirmed weights for receipt items.
+
+    This improves price comparisons by knowing the exact size
+    of products where the receipt didn't include weight info.
+    """
+    db = get_service_client()
+
+    # Verify receipt belongs to user
+    receipt = (
+        db.table("receipts")
+        .select("id")
+        .eq("id", receipt_id)
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+    if not receipt.data:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+
+    updated = 0
+    for item in body.items:
+        weight = item.weight.strip()
+        if not weight:
+            continue
+        # Update the receipt item with confirmed weight
+        db.table("receipt_items").update({
+            "confirmed_weight": weight,
+        }).eq("id", item.item_id).eq("receipt_id", receipt_id).execute()
+
+        # Also update the normalized_name to include weight
+        # so future searches match correctly
+        existing = (
+            db.table("receipt_items")
+            .select("normalized_name")
+            .eq("id", item.item_id)
+            .single()
+            .execute()
+        )
+        if existing.data:
+            current_name = existing.data["normalized_name"]
+            if not _item_has_weight(current_name):
+                new_name = f"{current_name} {weight}"
+                new_key = generate_product_key(new_name)
+                db.table("receipt_items").update({
+                    "normalized_name": new_name,
+                }).eq("id", item.item_id).execute()
+                log.info(
+                    "Weight confirmed: '%s' → '%s' (%s)",
+                    current_name, new_name, weight,
+                )
+        updated += 1
+
+    return {"status": "ok", "updated": updated}

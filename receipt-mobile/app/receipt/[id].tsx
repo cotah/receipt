@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Image, Pressable, StyleSheet, Alert, Modal, Dimensions } from 'react-native';
+import { View, Text, ScrollView, Image, Pressable, StyleSheet, Alert, Modal, Dimensions, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -9,21 +9,74 @@ import ProductList from '../../components/receipts/ProductList';
 import Skeleton from '../../components/ui/Skeleton';
 import Button from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
-import { Spacing } from '../../constants/typography';
+import { Spacing, BorderRadius } from '../../constants/typography';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { formatReceiptDate } from '../../utils/formatDate';
 import { useReceipts } from '../../hooks/useReceipts';
+import api from '../../services/api';
+
+interface NeedsWeightItem {
+  id: string;
+  name: string;
+  price: number;
+}
+
+const WEIGHT_PRESETS = ['100g', '250g', '500g', '1kg', '1.5kg', '1L', '2L'];
 
 export default function ReceiptDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { currentReceipt, isLoading, fetchReceiptDetail, deleteReceipt, clearCurrent } = useReceipts();
   const [imageModalVisible, setImageModalVisible] = useState(false);
+  const [needsWeight, setNeedsWeight] = useState<NeedsWeightItem[]>([]);
+  const [weights, setWeights] = useState<Record<string, string>>({});
+  const [weightDismissed, setWeightDismissed] = useState(false);
+  const [savingWeights, setSavingWeights] = useState(false);
 
   useEffect(() => {
-    if (id) fetchReceiptDetail(id);
+    if (id) {
+      fetchReceiptDetail(id);
+      // Check if items need weight confirmation
+      api.get(`/receipts/${id}/needs-weight`)
+        .then(({ data }) => {
+          if (data.items?.length > 0) {
+            setNeedsWeight(data.items);
+          }
+        })
+        .catch(() => {});
+    }
     return () => clearCurrent();
   }, [id]);
+
+  const handleWeightChange = (itemId: string, value: string) => {
+    setWeights(prev => ({ ...prev, [itemId]: value }));
+  };
+
+  const handleWeightPreset = (itemId: string, preset: string) => {
+    setWeights(prev => ({ ...prev, [itemId]: preset }));
+  };
+
+  const handleSaveWeights = async () => {
+    const items = Object.entries(weights)
+      .filter(([, w]) => w.trim().length > 0)
+      .map(([item_id, weight]) => ({ item_id, weight: weight.trim() }));
+    if (items.length === 0) {
+      setWeightDismissed(true);
+      return;
+    }
+    setSavingWeights(true);
+    try {
+      await api.patch(`/receipts/${id}/confirm-weights`, { items });
+      setWeightDismissed(true);
+      setNeedsWeight([]);
+      // Refresh receipt detail to show updated names
+      if (id) fetchReceiptDetail(id);
+    } catch {
+      Alert.alert('Error', 'Could not save weights');
+    } finally {
+      setSavingWeights(false);
+    }
+  };
 
   const handleDelete = () => {
     Alert.alert('Delete Receipt', 'Are you sure you want to delete this receipt?', [
@@ -85,6 +138,64 @@ export default function ReceiptDetailScreen() {
             </View>
           )}
         </Card>
+
+        {/* Weight confirmation — shown when items have no weight info */}
+        {needsWeight.length > 0 && !weightDismissed && (
+          <Card style={styles.weightCard}>
+            <View style={styles.weightHeader}>
+              <Feather name="info" size={18} color={Colors.primary.default} />
+              <Text style={styles.weightTitle}>Confirm product sizes</Text>
+            </View>
+            <Text style={styles.weightDesc}>
+              For better price comparisons, confirm the weight or volume of these products:
+            </Text>
+
+            {needsWeight.map((item) => (
+              <View key={item.id} style={styles.weightItem}>
+                <View style={styles.weightItemHeader}>
+                  <Text style={styles.weightItemName} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.weightItemPrice}>{formatCurrency(item.price)}</Text>
+                </View>
+                <View style={styles.weightPresets}>
+                  {WEIGHT_PRESETS.map((preset) => (
+                    <Pressable
+                      key={preset}
+                      onPress={() => handleWeightPreset(item.id, preset)}
+                      style={[
+                        styles.presetBtn,
+                        weights[item.id] === preset && styles.presetBtnActive,
+                      ]}
+                    >
+                      <Text style={[
+                        styles.presetBtnText,
+                        weights[item.id] === preset && styles.presetBtnTextActive,
+                      ]}>{preset}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <TextInput
+                  style={styles.weightInput}
+                  placeholder="Or type: 500g, 1kg, 1L..."
+                  placeholderTextColor={Colors.text.tertiary}
+                  value={weights[item.id] || ''}
+                  onChangeText={(v) => handleWeightChange(item.id, v)}
+                  autoCapitalize="none"
+                />
+              </View>
+            ))}
+
+            <View style={styles.weightActions}>
+              <Pressable onPress={() => setWeightDismissed(true)} style={styles.skipBtn}>
+                <Text style={styles.skipBtnText}>Skip</Text>
+              </Pressable>
+              <Pressable onPress={handleSaveWeights} style={styles.saveWeightsBtn} disabled={savingWeights}>
+                <Text style={styles.saveWeightsBtnText}>
+                  {savingWeights ? 'Saving...' : 'Confirm'}
+                </Text>
+              </Pressable>
+            </View>
+          </Card>
+        )}
 
         {/* Items */}
         <Text style={styles.sectionTitle}>Products ({r.items.length})</Text>
@@ -203,4 +314,38 @@ const styles = StyleSheet.create({
     height: Dimensions.get('window').height * 0.85,
   },
   deleteSection: { marginTop: Spacing.xl, alignItems: 'center' },
+
+  // Weight confirmation styles
+  weightCard: {
+    marginTop: Spacing.md, backgroundColor: Colors.accent.greenSoft, borderWidth: 1, borderColor: Colors.primary.default,
+    borderRadius: BorderRadius.md,
+  },
+  weightHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  weightTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: Colors.primary.dark },
+  weightDesc: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary, marginBottom: 12 },
+  weightItem: { marginBottom: 14, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.06)' },
+  weightItemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  weightItemName: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.primary, flex: 1 },
+  weightItemPrice: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 14, color: Colors.accent.amber, marginLeft: 8 },
+  weightPresets: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
+  presetBtn: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
+    backgroundColor: '#FFF', borderWidth: 1, borderColor: Colors.surface.border,
+  },
+  presetBtnActive: { backgroundColor: Colors.primary.default, borderColor: Colors.primary.default },
+  presetBtnText: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.text.secondary },
+  presetBtnTextActive: { color: '#FFF' },
+  weightInput: {
+    fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.primary,
+    borderWidth: 1, borderColor: Colors.surface.border, borderRadius: BorderRadius.sm,
+    paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#FFF',
+  },
+  weightActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 8 },
+  skipBtn: { paddingVertical: 10, paddingHorizontal: 16 },
+  skipBtnText: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.text.tertiary },
+  saveWeightsBtn: {
+    paddingVertical: 10, paddingHorizontal: 24, backgroundColor: Colors.primary.default,
+    borderRadius: BorderRadius.sm,
+  },
+  saveWeightsBtnText: { fontFamily: 'DMSans_700Bold', fontSize: 14, color: '#FFF' },
 });
