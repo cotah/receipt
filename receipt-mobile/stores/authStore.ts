@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { Session, User } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { supabase } from '../services/supabase';
-import api, { setApiToken } from '../services/api';
+import { setApiToken } from '../services/api';
 
 export interface UserProfile {
   id: string;
@@ -128,6 +128,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
+    setApiToken(null);
     try {
       await supabase.auth.signOut();
     } catch {
@@ -206,6 +207,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return;
         }
         if (data.session) {
+          setApiToken(data.session.access_token);
           set({ session: data.session, user: data.session.user, isAuthenticated: true });
           await get().fetchProfile(data.session.access_token);
         }
@@ -228,6 +230,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
       if (data.session) {
+        setApiToken(data.session.access_token);
         set({ session: data.session, user: data.session.user, isAuthenticated: true });
         await get().fetchProfile(data.session.access_token);
       }
