@@ -18,6 +18,7 @@ export interface ReceiptDetail extends Receipt {
   subtotal: number | null;
   raw_text: string | null;
   items: ReceiptItem[];
+  image_urls: string[];
 }
 
 export interface ReceiptItem {

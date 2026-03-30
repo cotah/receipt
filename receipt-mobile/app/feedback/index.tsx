@@ -118,7 +118,7 @@ export default function FeedbackScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg.primary },
+  container: { flex: 1, backgroundColor: Colors.surface.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.md, paddingVertical: 14,

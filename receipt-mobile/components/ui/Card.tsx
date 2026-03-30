@@ -1,11 +1,11 @@
 import React from 'react';
-import { Pressable, View, StyleSheet, ViewStyle } from 'react-native';
+import { Pressable, View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { Colors, Shadows } from '../../constants/colors';
 import { BorderRadius, Spacing } from '../../constants/typography';
 
 interface CardProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   variant?: 'default' | 'elevated' | 'glass';
 }

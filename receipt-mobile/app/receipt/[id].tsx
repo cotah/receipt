@@ -237,7 +237,7 @@ export default function ReceiptDetailScreen() {
               </ScrollView>
             ) : (
               <Pressable onPress={() => setImageModalVisible(true)}>
-                <Image source={{ uri: r.image_url }} style={styles.receiptImage} resizeMode="contain" />
+                <Image source={{ uri: r.image_url ?? undefined }} style={styles.receiptImage} resizeMode="contain" />
                 <View style={styles.expandHint}>
                   <Feather name="maximize-2" size={14} color="#FFF" />
                   <Text style={styles.expandHintText}>Tap to expand</Text>
@@ -255,7 +255,7 @@ export default function ReceiptDetailScreen() {
                 <Feather name="x" size={28} color="#FFF" />
               </Pressable>
               <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
-                {(r.image_urls?.length > 0 ? r.image_urls : [r.image_url]).map((url: string, idx: number) => (
+                {(r.image_urls?.length > 0 ? r.image_urls : [r.image_url].filter(Boolean) as string[]).map((url: string, idx: number) => (
                   <Image
                     key={idx}
                     source={{ uri: url }}

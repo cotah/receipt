@@ -228,7 +228,7 @@ export default function PricesScreen() {
                           {store.is_on_offer && <Badge text="OFFER" variant="warning" size="sm" />}
                           <Pressable
                             onPress={() => toggleShoppingList(store.product_name, store.store_name, store.unit_price, '')}
-                            style={[styles.addBtn, addedToList.has(`${store.product_name}-${store.store_name}`) && styles.addBtnActive]}
+                            style={[styles.compareAddBtn, addedToList.has(`${store.product_name}-${store.store_name}`) && styles.addBtnActive]}
                           >
                             <Feather
                               name={addedToList.has(`${store.product_name}-${store.store_name}`) ? 'check' : 'plus'}
@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
   perUnitText: { fontFamily: 'DMSans_400Regular', fontSize: 10, color: Colors.text.tertiary, marginTop: 1 },
   promoText: { fontFamily: 'DMSans_500Medium', fontSize: 10, color: Colors.accent.amber, marginTop: 2 },
   storeActions: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  addBtn: {
+  compareAddBtn: {
     width: 28, height: 28, borderRadius: 14,
     borderWidth: 1.5, borderColor: Colors.primary.default,
     alignItems: 'center', justifyContent: 'center',
