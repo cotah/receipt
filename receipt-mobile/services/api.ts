@@ -10,16 +10,25 @@ const api = axios.create({
   },
 });
 
-// Track auth state to prevent loops
-let isSigningOut = false;
-let authFailCount = 0;
+// In-memory token that authStore updates directly.
+// This avoids depending on SecureStore (which fails with large Google tokens).
+let _inMemoryToken: string | null = null;
+
+export function setApiToken(token: string | null) {
+  _inMemoryToken = token;
+}
 
 api.interceptors.request.use(async (config) => {
+  // 1. Try in-memory token first (always works, set by authStore)
+  if (_inMemoryToken) {
+    config.headers.Authorization = `Bearer ${_inMemoryToken}`;
+    return config;
+  }
+  // 2. Fallback to supabase getSession (works when SecureStore has space)
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) {
       config.headers.Authorization = `Bearer ${session.access_token}`;
-      authFailCount = 0; // Reset on successful token
     }
   } catch {
     // Continue without auth
@@ -28,27 +37,9 @@ api.interceptors.request.use(async (config) => {
 });
 
 api.interceptors.response.use(
-  (response) => {
-    authFailCount = 0;
-    return response;
-  },
+  (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
-      authFailCount++;
-      // Only sign out after 3 consecutive 401s AND not already signing out
-      // This prevents sign-out loops from a single bad request
-      if (authFailCount >= 3 && !isSigningOut) {
-        isSigningOut = true;
-        try {
-          await supabase.auth.signOut();
-        } catch {
-          // Force clear local state even if signOut fails
-        } finally {
-          isSigningOut = false;
-          authFailCount = 0;
-        }
-      }
-    }
+    // Don't auto-signout on 401 — let the auth state handle it
     return Promise.reject(error);
   }
 );

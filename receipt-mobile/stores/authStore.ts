@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { Session, User } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { supabase } from '../services/supabase';
-import api from '../services/api';
+import api, { setApiToken } from '../services/api';
 
 export interface UserProfile {
   id: string;
@@ -36,7 +36,7 @@ interface AuthState {
   signInWithOAuth: (provider: 'apple' | 'google') => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   setProfile: (profile: UserProfile) => void;
-  fetchProfile: () => Promise<void>;
+  fetchProfile: (accessToken?: string) => Promise<void>;
   handleDeepLink: (url: string) => Promise<void>;
 }
 
@@ -61,8 +61,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        setApiToken(session.access_token);
         set({ session, user: session.user, isAuthenticated: true });
-        await get().fetchProfile();
+        await get().fetchProfile(session.access_token);
       }
     } finally {
       set({ isLoading: false });
@@ -70,15 +71,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[Auth] onAuthStateChange:', event, session?.user?.email);
+      // CRITICAL: Set the in-memory token BEFORE anything else
+      // This is needed because SecureStore can't store large Google OAuth tokens
+      setApiToken(session?.access_token ?? null);
       set({
         session,
         user: session?.user ?? null,
         isAuthenticated: !!session,
       });
       if (session) {
-        // Small delay to ensure session is fully saved before fetching profile
-        await new Promise(resolve => setTimeout(resolve, 500));
-        await get().fetchProfile();
+        await get().fetchProfile(session.access_token);
       } else {
         set({ profile: null });
       }
@@ -136,21 +138,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setProfile: (profile) => set({ profile }),
 
-  fetchProfile: async () => {
+  fetchProfile: async (accessToken?: string) => {
     try {
-      // Use our backend API instead of direct Supabase query.
-      // Reason: Google OAuth token is >2048 bytes, SecureStore can't store it,
-      // so the Supabase JS client has no auth → RLS blocks profile query.
-      // Our API works because it gets the token from the Authorization header
-      // which is set from the in-memory session (not SecureStore).
-      const { data } = await api.get('/users/me');
+      // Get token: use passed token first, fallback to session in state, then getSession
+      let token = accessToken;
+      if (!token) {
+        token = get().session?.access_token;
+      }
+      if (!token) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          token = session?.access_token;
+        } catch {}
+      }
+      if (!token) {
+        console.warn('[Auth] fetchProfile: no token available');
+        return;
+      }
+
+      console.log('[Auth] fetchProfile with token:', token.substring(0, 20) + '...');
+
+      // Call API directly with the token — bypass the axios interceptor
+      // which might fail if getSession() returns null (SecureStore issue)
+      const baseURL = process.env.EXPO_PUBLIC_API_URL;
+      const response = await fetch(`${baseURL}/users/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        console.warn('[Auth] fetchProfile HTTP error:', response.status);
+        return;
+      }
+
+      const data = await response.json();
       if (data) {
-        console.log('[Auth] Profile loaded via API:', data.email, 'plan:', data.plan);
+        console.log('[Auth] Profile loaded:', data.email, 'plan:', data.plan);
         set({ profile: data as UserProfile });
       }
     } catch (err: any) {
       console.warn('[Auth] fetchProfile failed:', err?.message || err);
-      // If 401/404, profile might not exist or session expired — that's OK
     }
   },
 
@@ -178,7 +207,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
         if (data.session) {
           set({ session: data.session, user: data.session.user, isAuthenticated: true });
-          await get().fetchProfile();
+          await get().fetchProfile(data.session.access_token);
         }
         return;
       }
@@ -200,7 +229,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       if (data.session) {
         set({ session: data.session, user: data.session.user, isAuthenticated: true });
-        await get().fetchProfile();
+        await get().fetchProfile(data.session.access_token);
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
