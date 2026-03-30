@@ -67,13 +67,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: false });
     }
 
-    supabase.auth.onAuthStateChange(async (_event, session) => {
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[Auth] onAuthStateChange:', event, session?.user?.email);
       set({
         session,
         user: session?.user ?? null,
         isAuthenticated: !!session,
       });
       if (session) {
+        // Small delay to ensure session is fully saved before fetching profile
+        await new Promise(resolve => setTimeout(resolve, 500));
         await get().fetchProfile();
       } else {
         set({ profile: null });
@@ -135,19 +138,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   fetchProfile: async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.warn('[Auth] fetchProfile: no user');
+        return;
+      }
 
-      // Try fetching profile
+      console.log('[Auth] fetchProfile for user:', user.id, user.email);
+
+      // Fetch profile - use explicit columns to avoid any serialization issues
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, email, full_name, avatar_url, locale, currency, home_area, notify_alerts, notify_reports, push_token, referral_code, referred_by, plan, plan_expires_at, scans_this_month, scans_month_reset, chat_queries_today, chat_queries_reset, points, is_admin, phone')
         .eq('id', user.id)
         .single();
 
       if (error) {
-        console.warn('[Auth] Profile fetch error:', error.message);
-        // Profile might not exist yet (new Google user) — create it
+        console.warn('[Auth] Profile fetch error:', error.code, error.message);
+        // Profile doesn't exist — create it (new user from Google/Apple)
         if (error.code === 'PGRST116') {
+          console.log('[Auth] Creating new profile for', user.email);
           const newProfile = {
             id: user.id,
             email: user.email,
@@ -155,26 +164,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
             plan: 'free',
           };
-          const { data: created } = await supabase
+          const { data: created, error: createErr } = await supabase
             .from('profiles')
             .insert(newProfile)
             .select()
             .single();
-          if (created) set({ profile: created as UserProfile });
+          if (createErr) {
+            console.error('[Auth] Profile create failed:', createErr.message);
+          } else if (created) {
+            console.log('[Auth] Profile created successfully');
+            set({ profile: created as UserProfile });
+          }
         }
         return;
       }
 
       if (data) {
+        console.log('[Auth] Profile loaded:', data.email, 'plan:', data.plan);
         // Sync Google metadata if profile exists but missing data
         const updates: Record<string, string> = {};
         const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
         const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture;
         if (!data.full_name && googleName) updates.full_name = googleName;
-        if (!data.avatar_url && googleAvatar) updates.avatar_url = googleAvatar;
+        if ((!data.avatar_url || data.avatar_url.startsWith('data:')) && googleAvatar) {
+          updates.avatar_url = googleAvatar;
+        }
         if (!data.email && user.email) updates.email = user.email;
 
         if (Object.keys(updates).length > 0) {
+          console.log('[Auth] Syncing Google metadata:', Object.keys(updates));
           await supabase.from('profiles').update(updates).eq('id', user.id);
           Object.assign(data, updates);
         }
