@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Session, User } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { supabase } from '../services/supabase';
+import api from '../services/api';
 
 export interface UserProfile {
   id: string;
@@ -137,70 +138,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   fetchProfile: async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.warn('[Auth] fetchProfile: no user');
-        return;
-      }
-
-      console.log('[Auth] fetchProfile for user:', user.id, user.email);
-
-      // Fetch profile - use explicit columns to avoid any serialization issues
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, full_name, avatar_url, locale, currency, home_area, notify_alerts, notify_reports, push_token, referral_code, referred_by, plan, plan_expires_at, scans_this_month, scans_month_reset, chat_queries_today, chat_queries_reset, points, is_admin, phone')
-        .eq('id', user.id)
-        .single();
-
-      if (error) {
-        console.warn('[Auth] Profile fetch error:', error.code, error.message);
-        // Profile doesn't exist — create it (new user from Google/Apple)
-        if (error.code === 'PGRST116') {
-          console.log('[Auth] Creating new profile for', user.email);
-          const newProfile = {
-            id: user.id,
-            email: user.email,
-            full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
-            avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
-            plan: 'free',
-          };
-          const { data: created, error: createErr } = await supabase
-            .from('profiles')
-            .insert(newProfile)
-            .select()
-            .single();
-          if (createErr) {
-            console.error('[Auth] Profile create failed:', createErr.message);
-          } else if (created) {
-            console.log('[Auth] Profile created successfully');
-            set({ profile: created as UserProfile });
-          }
-        }
-        return;
-      }
-
+      // Use our backend API instead of direct Supabase query.
+      // Reason: Google OAuth token is >2048 bytes, SecureStore can't store it,
+      // so the Supabase JS client has no auth → RLS blocks profile query.
+      // Our API works because it gets the token from the Authorization header
+      // which is set from the in-memory session (not SecureStore).
+      const { data } = await api.get('/users/me');
       if (data) {
-        console.log('[Auth] Profile loaded:', data.email, 'plan:', data.plan);
-        // Sync Google metadata if profile exists but missing data
-        const updates: Record<string, string> = {};
-        const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
-        const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture;
-        if (!data.full_name && googleName) updates.full_name = googleName;
-        if ((!data.avatar_url || data.avatar_url.startsWith('data:')) && googleAvatar) {
-          updates.avatar_url = googleAvatar;
-        }
-        if (!data.email && user.email) updates.email = user.email;
-
-        if (Object.keys(updates).length > 0) {
-          console.log('[Auth] Syncing Google metadata:', Object.keys(updates));
-          await supabase.from('profiles').update(updates).eq('id', user.id);
-          Object.assign(data, updates);
-        }
-
+        console.log('[Auth] Profile loaded via API:', data.email, 'plan:', data.plan);
         set({ profile: data as UserProfile });
       }
-    } catch (err) {
-      console.error('[Auth] fetchProfile failed:', err);
+    } catch (err: any) {
+      console.warn('[Auth] fetchProfile failed:', err?.message || err);
+      // If 401/404, profile might not exist or session expired — that's OK
     }
   },
 
