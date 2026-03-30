@@ -52,6 +52,9 @@ export default function ShoppingListScreen() {
 
   useEffect(() => {
     fetchList();
+    // Safety: never stay loading forever
+    const timeout = setTimeout(() => setIsLoading(false), 8000);
+    return () => clearTimeout(timeout);
   }, []);
 
   const checkItem = async (itemId: string) => {

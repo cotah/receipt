@@ -79,6 +79,8 @@ export const useReceiptStore = create<ReceiptState>((set, get) => ({
           total: data.pagination.total,
         },
       });
+    } catch {
+      // API error — don't crash, just stop loading
     } finally {
       set({ isLoading: false });
     }
@@ -89,6 +91,8 @@ export const useReceiptStore = create<ReceiptState>((set, get) => ({
     try {
       const { data } = await api.get(`/receipts/${id}`);
       set({ currentReceipt: data });
+    } catch {
+      // API error — don't crash, just stop loading
     } finally {
       set({ isLoading: false });
     }
