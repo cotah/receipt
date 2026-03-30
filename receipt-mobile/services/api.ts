@@ -10,36 +10,43 @@ const api = axios.create({
   },
 });
 
-// Track if we're already signing out to prevent loops
+// Track auth state to prevent loops
 let isSigningOut = false;
+let authFailCount = 0;
 
 api.interceptors.request.use(async (config) => {
   try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) {
       config.headers.Authorization = `Bearer ${session.access_token}`;
+      authFailCount = 0; // Reset on successful token
     }
   } catch {
-    // If getSession fails, continue without auth — the API will return 401
+    // Continue without auth
   }
   return config;
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    authFailCount = 0;
+    return response;
+  },
   async (error) => {
-    // Only sign out on 401 ONCE to prevent loops
-    if (error.response?.status === 401 && !isSigningOut) {
-      isSigningOut = true;
-      try {
-        await supabase.auth.signOut();
-      } catch {
-        // Sign out failed — ignore
-      } finally {
-        // Reset after 5 seconds to allow future sign-outs
-        setTimeout(() => { isSigningOut = false; }, 5000);
+    if (error.response?.status === 401) {
+      authFailCount++;
+      // Only sign out after 3 consecutive 401s AND not already signing out
+      // This prevents sign-out loops from a single bad request
+      if (authFailCount >= 3 && !isSigningOut) {
+        isSigningOut = true;
+        try {
+          await supabase.auth.signOut();
+        } catch {
+          // Force clear local state even if signOut fails
+        } finally {
+          isSigningOut = false;
+          authFailCount = 0;
+        }
       }
     }
     return Promise.reject(error);

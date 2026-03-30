@@ -75,22 +75,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       if (session) {
         await get().fetchProfile();
-        // Sync Google name + avatar to profile if missing
-        const profile = get().profile;
-        const user = session.user;
-        if (profile && user?.user_metadata) {
-          const updates: Record<string, string> = {};
-          const googleName = user.user_metadata.full_name || user.user_metadata.name;
-          const googleAvatar = user.user_metadata.avatar_url || user.user_metadata.picture;
-          if (!profile.full_name && googleName) updates.full_name = googleName;
-          if ((!profile.avatar_url || profile.avatar_url.startsWith('data:')) && googleAvatar) {
-            updates.avatar_url = googleAvatar;
-          }
-          if (Object.keys(updates).length > 0) {
-            await supabase.from('profiles').update(updates).eq('id', user.id);
-            set({ profile: { ...profile, ...updates } });
-          }
-        }
       } else {
         set({ profile: null });
       }
@@ -152,14 +136,53 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase
+
+      // Try fetching profile
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
-      if (data) set({ profile: data as UserProfile });
-    } catch {
-      // Profile fetch failed — user will see empty profile but app won't crash
+
+      if (error) {
+        console.warn('[Auth] Profile fetch error:', error.message);
+        // Profile might not exist yet (new Google user) — create it
+        if (error.code === 'PGRST116') {
+          const newProfile = {
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+            avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
+            plan: 'free',
+          };
+          const { data: created } = await supabase
+            .from('profiles')
+            .insert(newProfile)
+            .select()
+            .single();
+          if (created) set({ profile: created as UserProfile });
+        }
+        return;
+      }
+
+      if (data) {
+        // Sync Google metadata if profile exists but missing data
+        const updates: Record<string, string> = {};
+        const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
+        const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+        if (!data.full_name && googleName) updates.full_name = googleName;
+        if (!data.avatar_url && googleAvatar) updates.avatar_url = googleAvatar;
+        if (!data.email && user.email) updates.email = user.email;
+
+        if (Object.keys(updates).length > 0) {
+          await supabase.from('profiles').update(updates).eq('id', user.id);
+          Object.assign(data, updates);
+        }
+
+        set({ profile: data as UserProfile });
+      }
+    } catch (err) {
+      console.error('[Auth] fetchProfile failed:', err);
     }
   },
 
