@@ -75,14 +75,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       if (session) {
         await get().fetchProfile();
-        // Bug 5: sync Google name to profile if missing
+        // Sync Google name + avatar to profile if missing
         const profile = get().profile;
         const user = session.user;
-        if (profile && !profile.full_name && user?.user_metadata) {
+        if (profile && user?.user_metadata) {
+          const updates: Record<string, string> = {};
           const googleName = user.user_metadata.full_name || user.user_metadata.name;
-          if (googleName) {
-            await supabase.from('profiles').update({ full_name: googleName }).eq('id', user.id);
-            set({ profile: { ...profile, full_name: googleName } });
+          const googleAvatar = user.user_metadata.avatar_url || user.user_metadata.picture;
+          if (!profile.full_name && googleName) updates.full_name = googleName;
+          if ((!profile.avatar_url || profile.avatar_url.startsWith('data:')) && googleAvatar) {
+            updates.avatar_url = googleAvatar;
+          }
+          if (Object.keys(updates).length > 0) {
+            await supabase.from('profiles').update(updates).eq('id', user.id);
+            set({ profile: { ...profile, ...updates } });
           }
         }
       } else {
@@ -132,21 +138,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Sign out from Supabase failed — still clear local state
+    }
     set({ session: null, user: null, profile: null, isAuthenticated: false });
   },
 
   setProfile: (profile) => set({ profile }),
 
   fetchProfile: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-    if (data) set({ profile: data as UserProfile });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      if (data) set({ profile: data as UserProfile });
+    } catch {
+      // Profile fetch failed — user will see empty profile but app won't crash
+    }
   },
 
   handleDeepLink: async (url: string) => {
