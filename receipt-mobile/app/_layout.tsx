@@ -88,19 +88,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="auth/callback" />
-        <Stack.Screen name="rewards" />
-        <Stack.Screen name="levels" />
-        <Stack.Screen name="refer" />
-        <Stack.Screen name="alerts" />
-        <Stack.Screen name="receipt/[id]" />
-        <Stack.Screen name="shopping-list" />
-        <Stack.Screen name="basket" />
-        <Stack.Screen name="report/[month]" />
-      </Stack>
+      <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }} />
     </GestureHandlerRootView>
   );
 }

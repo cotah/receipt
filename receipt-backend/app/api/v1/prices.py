@@ -633,12 +633,12 @@ async def get_savings_summary(
     try:
         attr_result = (
             db.table("savings_attributions")
-            .select("estimated_saving")
+            .select("saving")
             .eq("user_id", user_id)
             .gte("created_at", month_start.isoformat())
             .execute()
         )
-        attributed = sum(float(a.get("estimated_saving", 0)) for a in (attr_result.data or []))
+        attributed = sum(float(a.get("saving", 0)) for a in (attr_result.data or []))
     except Exception:
         attributed = 0.0
 
