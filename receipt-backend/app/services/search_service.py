@@ -168,14 +168,16 @@ async def smart_search(query: str, limit: int = 30) -> dict:
 
     # Filter: ensure search words appear as WHOLE words, not substrings
     # "apple" must match "Apple Juice" but NOT "Pineapple Juice"
+    # "bread" must match "White Bread" but NOT "Breaded Chicken"
+    import re
     search_words = [w.lower() for w in q.split() if len(w) >= 2]
     filtered_rows = []
     for row in rows:
-        name_lower = " " + row["product_name"].lower() + " "
+        name_lower = row["product_name"].lower()
         match = True
         for sw in search_words:
-            # Check word exists with word boundary (space, start, or punctuation before it)
-            if f" {sw}" not in name_lower and not name_lower.lstrip().startswith(sw):
+            # Use regex word boundary: \b matches start/end of word
+            if not re.search(r'\b' + re.escape(sw) + r'\b', name_lower):
                 match = False
                 break
         if match:

@@ -22,8 +22,8 @@ async def store_item_embedding(item_id: str, text: str) -> None:
     db.table("receipt_items").update({"embedding": embedding}).eq("id", item_id).execute()
 
 
-async def get_relevant_context(user_id: str, query: str) -> dict:
-    """Build context for chat RAG from user's data."""
+async def get_relevant_context(user_id: str, query: str, history: list[dict] = None) -> dict:
+    """Build context for chat RAG from user's data + store prices."""
     db = get_service_client()
     now = datetime.now(timezone.utc)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -193,6 +193,44 @@ async def get_relevant_context(user_id: str, query: str) -> dict:
     except Exception:
         pass
 
+    # Fetch store prices for products mentioned in the query or conversation
+    store_prices_text = "No specific product queried."
+    try:
+        import re as _re
+        # Extract product keywords from query + recent history
+        price_keywords = _extract_price_keywords(query, history or [])
+        if price_keywords:
+            price_lines = []
+            for kw in price_keywords[:3]:  # Max 3 products to keep tokens low
+                ilike = f"%{kw}%"
+                prices_result = db.rpc(
+                    "search_products",
+                    {"p_query": ilike, "p_source": "leaflet", "p_limit": 15},
+                ).execute()
+                if prices_result.data:
+                    # Filter with word boundary
+                    kw_lower = kw.lower()
+                    filtered = [
+                        p for p in prices_result.data
+                        if _re.search(r'\b' + _re.escape(kw_lower) + r'\b', p["product_name"].lower())
+                    ]
+                    # Deduplicate by store (cheapest per store)
+                    by_store: dict[str, dict] = {}
+                    for p in filtered:
+                        s = p["store_name"]
+                        if s not in by_store or p["unit_price"] < by_store[s]["unit_price"]:
+                            by_store[s] = p
+                    sorted_prices = sorted(by_store.values(), key=lambda x: x["unit_price"])
+                    for p in sorted_prices[:5]:
+                        promo = f" ({p.get('promotion_text')})" if p.get("promotion_text") else ""
+                        price_lines.append(
+                            f"  {p['store_name']}: {p['product_name']} — €{p['unit_price']:.2f}{promo}"
+                        )
+            if price_lines:
+                store_prices_text = "\n".join(price_lines)
+    except Exception:
+        pass
+
     return {
         "user_name": user_name,
         "current_hour_utc": now.hour,
@@ -201,15 +239,43 @@ async def get_relevant_context(user_id: str, query: str) -> dict:
         "prev_month_total": prev_total,
         "top_store": top_store,
         "store_summary": store_summary,
-        "product_count": unique_products,
-        "recent_items_summary": items_summary or "No recent purchases.",
         "full_items_this_month": full_items_text,
-        "price_insights": price_insights,
-        "top_products": top_products_text or "No purchase history yet.",
-        "favourite_categories": favourite_categories_text or "N/A",
-        "smartdocket_savings_total": smartdocket_savings_total,
-        "smartdocket_savings_month": smartdocket_savings_month,
+        "store_prices": store_prices_text,
     }
+
+
+def _extract_price_keywords(query: str, history: list[dict]) -> list[str]:
+    """Extract product names the user is asking about from query + conversation."""
+    import re as _re
+    keywords = []
+
+    # Common grocery product words to look for
+    grocery_words = {
+        "milk", "bread", "butter", "cheese", "chicken", "beef", "pork", "eggs",
+        "rice", "pasta", "yogurt", "yoghurt", "cream", "juice", "water",
+        "coffee", "tea", "sugar", "flour", "oil", "cereal", "ham", "bacon",
+        "sausage", "potato", "tomato", "onion", "apple", "banana", "orange",
+    }
+
+    # Check query for grocery words or multi-word product names
+    q_lower = query.lower()
+    for word in grocery_words:
+        if _re.search(r'\b' + word + r'\b', q_lower):
+            keywords.append(word)
+
+    # If query is short (1-2 words), it might be a follow-up — check history
+    if len(query.split()) <= 2 and not keywords and history:
+        # Look through recent assistant messages for product mentions
+        for msg in reversed(history[-4:]):
+            if msg.get("role") == "assistant":
+                content_lower = msg["content"].lower()
+                for word in grocery_words:
+                    if _re.search(r'\b' + word + r'\b', content_lower):
+                        keywords.append(word)
+                if keywords:
+                    break
+
+    return list(dict.fromkeys(keywords))[:3]  # Unique, max 3
 
 
 async def batch_embed_products(batch_size: int = 100) -> int:

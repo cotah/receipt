@@ -386,6 +386,15 @@ export default function ProfileScreen() {
           </Card>
         </View>
 
+        {/* Report an Issue */}
+        <Pressable
+          style={styles.reportBtn}
+          onPress={() => Linking.openURL('mailto:report@smartdocket.ie?subject=Bug Report — SmartDocket App')}
+        >
+          <Feather name="alert-circle" size={18} color={Colors.primary.default} />
+          <Text style={styles.reportText}>Report an Issue</Text>
+        </Pressable>
+
         {/* Sign out */}
         <Pressable style={styles.signOutBtn} onPress={handleSignOut}>
           <Feather name="log-out" size={18} color="#DC3545" />
@@ -634,6 +643,15 @@ const styles = StyleSheet.create({
   },
 
   // Sign out
+  reportBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, marginTop: Spacing.md,
+    borderRadius: 12, borderWidth: 1, borderColor: Colors.primary.default + '20',
+    backgroundColor: Colors.primary.default + '08',
+  },
+  reportText: {
+    fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: Colors.primary.default,
+  },
   signOutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 14, marginTop: Spacing.md,

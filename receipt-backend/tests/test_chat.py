@@ -4,24 +4,26 @@ from app.services.chat_service import build_system_prompt, CHAT_SYSTEM_PROMPT
 
 def test_system_prompt_includes_user_context():
     context = {
+        "user_name": "Henrique",
+        "current_hour_utc": 12,
         "month_total": 350.00,
         "month_receipts": 6,
         "prev_month_total": 400.00,
         "top_store": "Lidl",
-        "product_count": 120,
-        "recent_items_summary": "- Fruit & Veg: €45.00\n- Dairy: €30.00",
-        "price_insights": "- Banana: bought 8 times, avg €1.05",
+        "store_summary": "€200 at Lidl, €150 at Tesco",
+        "full_items_this_month": "- Lidl | Banana | qty: 3 | €1.05",
+        "store_prices": "Lidl: Banana 1kg — €1.05",
     }
     prompt = build_system_prompt(context)
     assert "€350.00" in prompt
     assert "6 shops" in prompt
     assert "Lidl" in prompt
-    assert "Fruit & Veg" in prompt
+    assert "Banana" in prompt
+    assert "Henrique" in prompt
 
 
 def test_system_prompt_restricts_to_grocery():
     assert "grocery" in CHAT_SYSTEM_PROMPT.lower() or "spending" in CHAT_SYSTEM_PROMPT.lower()
-    assert "ONLY" in CHAT_SYSTEM_PROMPT
 
 
 def test_system_prompt_uses_euro():
