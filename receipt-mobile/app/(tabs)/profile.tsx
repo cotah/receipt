@@ -389,7 +389,7 @@ export default function ProfileScreen() {
         {/* Report an Issue */}
         <Pressable
           style={styles.reportBtn}
-          onPress={() => Linking.openURL('mailto:report@smartdocket.ie?subject=Bug Report — SmartDocket App')}
+          onPress={() => router.push('/feedback')}
         >
           <Feather name="alert-circle" size={18} color={Colors.primary.default} />
           <Text style={styles.reportText}>Report an Issue</Text>

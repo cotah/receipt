@@ -37,16 +37,23 @@ export default function HomeScreen() {
     const existingId = addedToList.get(key);
     if (existingId) {
       try {
-        await api.delete(`/shopping-list/${existingId}`);
+        if (existingId !== 'exists') {
+          await api.delete(`/shopping-list/${existingId}`);
+        }
         setAddedToList(prev => { const n = new Map(prev); n.delete(key); return n; });
-      } catch {}
+      } catch {
+        setAddedToList(prev => { const n = new Map(prev); n.delete(key); return n; });
+      }
     } else {
       try {
         const { data } = await api.post('/shopping-list/add', {
           product_name: name, store_name: store, unit_price: price, source: 'memory',
         });
-        const itemId = data.item?.id || 'exists';
-        setAddedToList(prev => new Map(prev).set(key, itemId));
+        if (data.status === 'exists') return;
+        const itemId = data.item?.id;
+        if (itemId) {
+          setAddedToList(prev => new Map(prev).set(key, itemId));
+        }
       } catch {}
     }
   };
