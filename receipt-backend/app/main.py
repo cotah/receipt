@@ -252,45 +252,6 @@ async def debug_run_enrichment(request: Request):
     return {"status": "done", **result}
 
 
-@app.post("/api/v1/debug/import-barcodes")
-async def debug_import_barcodes(request: Request):
-    """ONE-TIME: Import barcodes from JSON body into barcode_catalog. Remove after use."""
-    _verify_admin_key(request)
-    from app.database import get_service_client as _get_db
-    from app.utils.text_utils import generate_product_key
-
-    body = await request.json()
-    items = body.get("items", [])
-    db = _get_db()
-    saved = 0
-
-    for item in items:
-        try:
-            barcode = str(item.get("barcode", "")).strip()
-            name = item.get("product_name", "").strip()
-            if not barcode or not name or len(barcode) < 8:
-                continue
-
-            db.table("barcode_catalog").upsert({
-                "barcode": barcode,
-                "product_name": name,
-                "product_key": generate_product_key(name),
-                "brand": item.get("brand", ""),
-                "category": "Other",
-                "package_size": str(item.get("package_size", "")),
-                "image_url": "",
-                "store_name": None,
-                "last_seen": __import__("datetime").datetime.now(
-                    __import__("datetime").timezone.utc
-                ).isoformat(),
-            }, on_conflict="barcode").execute()
-            saved += 1
-        except Exception as e:
-            pass
-
-    return {"status": "done", "received": len(items), "saved": saved}
-
-
 def _verify_admin_key(request: Request):
     """Check X-Admin-Key header matches ADMIN_KEY env var."""
     if not settings.ADMIN_KEY:
