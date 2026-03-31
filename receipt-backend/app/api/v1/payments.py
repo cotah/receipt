@@ -135,7 +135,11 @@ async def stripe_webhook(request: Request):
 
 
 def _award_deferred_referral(db, user_id: str):
-    """When a user upgrades to Pro, check if their referrer was FREE and award deferred 50 pts."""
+    """When a user upgrades to Pro, award deferred referral points to their referrer.
+
+    PRO referrer: already got 25 pts at signup → now gets +25 = 50 total
+    FREE referrer: got 0 pts at signup → now gets +50 = 50 total
+    """
     try:
         profile = db.table("profiles").select(
             "referred_by"
@@ -153,15 +157,22 @@ def _award_deferred_referral(db, user_id: str):
         if not referrer.data:
             return
 
-        # Only award if referrer is FREE (PRO referrers already got points at redeem time)
-        if referrer.data.get("plan") != "pro":
-            current_pts = referrer.data.get("points") or 0
-            db.table("profiles").update({
-                "points": current_pts + 50,
-            }).eq("id", referrer.data["id"]).execute()
-            log.info(
-                "Deferred referral: awarded 50 pts to FREE referrer %s (referee %s went Pro)",
-                referrer.data["id"], user_id,
-            )
+        current_pts = referrer.data.get("points") or 0
+        referrer_plan = referrer.data.get("plan", "free")
+
+        if referrer_plan == "pro":
+            # PRO referrer already got 25 at signup → award remaining 25
+            award = 25
+        else:
+            # FREE referrer got 0 at signup → award full 50
+            award = 50
+
+        db.table("profiles").update({
+            "points": current_pts + award,
+        }).eq("id", referrer.data["id"]).execute()
+        log.info(
+            "Deferred referral: awarded %d pts to %s referrer %s (referee %s went Pro)",
+            award, referrer_plan.upper(), referrer.data["id"], user_id,
+        )
     except Exception as e:
         log.warning("Deferred referral check failed: %s", e)

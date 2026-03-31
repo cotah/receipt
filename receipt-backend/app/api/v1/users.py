@@ -168,21 +168,23 @@ async def redeem_referral(
         "points": my_points,
     }).eq("id", user_id).execute()
 
-    # Referrer: PRO gets 50 pts now. FREE gets pts when referee goes Pro.
+    # Referrer rewards:
+    # PRO referrer → 25 pts now (signup) + 25 pts when referee goes Pro = 50 total
+    # FREE referrer → 0 pts now + 50 pts when referee goes Pro
     referrer_earned = 0
     if referrer_plan == "pro":
-        referrer_points = (referrer.data.get("points") or 0) + 50
+        referrer_points = (referrer.data.get("points") or 0) + 25
         db.table("profiles").update({
             "points": referrer_points,
         }).eq("id", referrer_id).execute()
-        referrer_earned = 50
+        referrer_earned = 25
         log.info(
-            "Referral redeemed: %s used code %s (PRO referrer %s). +50 pts each.",
+            "Referral redeemed: %s used code %s (PRO referrer %s). Referee +50, Referrer +25 now (+25 deferred if Pro).",
             user_id, code, referrer_id,
         )
     else:
         log.info(
-            "Referral redeemed: %s used code %s (FREE referrer %s). Referee +50 pts. Referrer deferred until Pro upgrade.",
+            "Referral redeemed: %s used code %s (FREE referrer %s). Referee +50 pts. Referrer deferred until referee goes Pro.",
             user_id, code, referrer_id,
         )
 
@@ -190,7 +192,7 @@ async def redeem_referral(
         "status": "ok",
         "points_earned": 50,
         "referrer_earned": referrer_earned,
-        "referrer_deferred": referrer_earned == 0,
+        "referrer_deferred": True,  # Always deferred portion remaining
     }
 
 
