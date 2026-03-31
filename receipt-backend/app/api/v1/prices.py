@@ -681,37 +681,31 @@ async def _ai_verify_price_matches(candidates: list[dict]) -> list[dict]:
             f"vs \"{c['match_name']}\" (€{c['match_price']:.2f})"
         )
 
-    prompt = f"""You are verifying if grocery product pairs are the EXACT SAME product type.
+    prompt = f"""You are a deterministic grocery product pair verifier inside a price-comparison pipeline. Your sole function is to confirm whether each numbered pair represents the SAME product type. Your output is parsed programmatically.
 
-ULTRA-STRICT RULES — read carefully:
+OUTPUT CONTRACT: For each numbered pair, output EXACTLY: number, period, space, YES or NO. One pair per line. No blank lines. Zero text before or after. No explanations. No reasoning.
 
-1. SAME product = YES:
-   - "Chicken Breast Fillets 500g" vs "Irish Chicken Breast Fillets 1kg" = YES (same cut, different size)
-   - "Apple Juice 1L" vs "Pressed Apple Juice 500ml" = YES (same juice, different size)
-   - "Tesco Semi-Skimmed Milk 2L" vs "Avonmore Milk Low Fat 2L" = YES (same product, different brand)
-   - "Cheddar Cheese 200g" vs "Mature Cheddar 400g" = YES (same cheese type)
+DECISION: YES = same product type (different brand/size is fine). NO = different product type, cut, form, species, flavour, or category.
 
-2. DIFFERENT product = NO:
-   - "Chicken Breast" vs "Chicken Thighs" = NO (different cut!)
-   - "Chicken Breast" vs "Chicken Burger" = NO (different form!)
-   - "Chicken Breast" vs "Turkey Breast" = NO (different meat!)
-   - "Apple Juice" vs "Orange Juice" = NO (different fruit!)
-   - "Apple Juice" vs "Pineapple Juice" = NO (different fruit!)
-   - "Milk" vs "Oat Milk" = NO (different product!)
-   - "Butter" vs "Peanut Butter" = NO
-   - "Bread" vs "Garlic Bread" = NO
-   - "Onion Rings" vs "Red Onions" = NO (snack vs vegetable!)
-   - "Egg" vs "Easter Egg" = NO (food vs chocolate!)
-   - "Rice" vs "Rice Cakes" = NO
-   - "Cream" vs "Ice Cream" = NO
+THE 7 LAWS (APPLY IN ORDER — FIRST DECISIVE LAW WINS):
 
-3. If products are the same type but VERY different price AND no size difference visible, say NO.
+LAW 1 — COMPOUND-WORD TRAPS (CHECK FIRST — INSTANT NO):
+If one name contains the other as a substring but they belong to DIFFERENT categories → NO.
+Butter ≠ Peanut Butter. Cream ≠ Ice Cream. Cream ≠ Cream Cheese. Cream ≠ Sour Cream. Bread ≠ Garlic Bread. Bread ≠ Breadcrumbs. Rice ≠ Rice Cakes. Rice ≠ Rice Pudding. Rice ≠ Rice Noodles. Egg ≠ Easter Egg. Egg ≠ Egg Noodles. Onion ≠ Onion Rings. Onion ≠ Onion Bhaji. Potato ≠ Potato Waffle. Potato ≠ Potato Crisps. Chicken ≠ Chicken Nuggets. Chicken ≠ Chicken Burger. Chicken ≠ Chicken Kiev. Chicken ≠ Chicken Soup. Fish ≠ Fish Fingers. Fish ≠ Fish Cake. Milk ≠ Milk Chocolate. Cheese ≠ Cheesecake. Lemon ≠ Lemonade. Orange ≠ Orangeade. Apple ≠ Apple Sauce. Coconut ≠ Coconut Milk. Tomato ≠ Tomato Sauce. Tomato ≠ Tomato Soup. Corn ≠ Corn Flakes. Ginger ≠ Ginger Ale.
+GENERAL RULE: if removing words from Product B yields Product A, but the added words shift it to a different grocery category → NO.
 
-For each pair respond ONLY with the number and YES or NO. Nothing else:
-1. YES
-2. NO
+LAW 2 — IGNORE THESE (NEVER CAUSE A NO): Brand, size/weight/volume, tier labels (value/finest/premium/organic/free range), fat level (whole/semi-skimmed/skimmed), salt modifier (salted/unsalted), sugar modifier, origin, packaging, minor processing (sliced/unsliced), marketing words (classic/traditional/pure/natural), cheese maturity (mild/medium/mature/vintage).
 
-Pairs:
+LAW 3 — CRITICAL DIFFERENTIATORS (ANY ONE = INSTANT NO): Species (chicken≠turkey≠beef≠pork≠lamb≠salmon≠cod≠prawns). Cut (breast≠thigh≠leg≠wing≠mince≠fillet≠steak≠diced≠drumstick≠loin≠chop≠burger≠sausage≠nugget). Fruit/veg type (apple≠orange≠banana≠strawberry≠potato≠sweet potato≠carrot≠onion≠broccoli≠mushroom≠pepper). Bread type (white≠brown≠wholemeal≠sourdough≠wrap≠pitta≠tortilla≠bagel≠roll). Cheese type (cheddar≠mozzarella≠brie≠feta≠cream cheese). Drink base (milk≠oat drink≠soy drink; apple juice≠orange juice≠cranberry juice). Flavour (salt&vinegar≠cheese&onion; strawberry≠vanilla≠chocolate).
+
+LAW 4 — SUB-VARIANTS ARE SAME PRODUCT (→ YES): Mature vs Mild Cheddar. Red vs White Onions. Cherry vs Vine Tomatoes. Penne vs Fusilli (both pasta). Whole vs Skimmed Milk. Salted vs Unsalted Butter. Still vs Sparkling Water. Back vs Streaky Rashers. Lean vs Standard Mince. Greek vs Natural Yoghurt. Fresh OJ vs From Concentrate.
+
+LAW 5 — RAW ≠ PREPARED/PROCESSED (→ NO): Chicken Breast ≠ Chicken Burger/Kiev. Potato ≠ Chips/Mash. Fish ≠ Fish Fingers. Tomato ≠ Tomato Sauce. Prepared products match ONLY when same recipe: Margherita Pizza vs Margherita Pizza = YES. Margherita vs Pepperoni = NO. Beef Lasagne vs Chicken Lasagne = NO.
+
+LAW 6 — PRICE ANOMALY: If same type but no size visible on either AND one costs >3× the other → likely different products → NO.
+
+LAW 7 — DEFAULT TO NO: After Laws 1-6, if still uncertain → NO. False positives damage user trust more than false negatives.
+
 {chr(10).join(pairs)}"""
 
     try:
