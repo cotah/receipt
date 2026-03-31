@@ -234,6 +234,7 @@ async def debug_import_catalog_once(request: Request):
     """ONE-TIME: Import radeance catalog data then remove this endpoint."""
     _verify_admin_key(request)
     import httpx
+    from app.database import get_service_client as _get_db
     from app.workers.leaflet_worker import _save_tesco_apify_items
 
     ds_ids = [
@@ -243,7 +244,7 @@ async def debug_import_catalog_once(request: Request):
         "lQsteTsAgK4S9Pq07",
     ]
     token = settings.APIFY_API_TOKEN
-    db = get_service_client()
+    db = _get_db()
     all_items = []
     seen = set()
 
