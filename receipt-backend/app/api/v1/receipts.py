@@ -525,7 +525,7 @@ async def _process_from_text(
             except Exception:
                 pass  # Non-critical
 
-        # 7. Increment scan counter and award points
+        # 7. Increment scan counter and award points (tiered by receipt total)
         try:
             increment_scan_count(db, user_id)
             profile_pts = (
@@ -537,11 +537,23 @@ async def _process_from_text(
             )
             pts_data = profile_pts.data or {}
             current_pts = pts_data.get("points") or 0
-            award = 25 if is_pro(pts_data) else 10
+            pro = is_pro(pts_data)
+            receipt_total = float(total_amount or 0)
+
+            # Tiered points: bigger receipt = more products = more data = more points
+            if receipt_total >= 120:
+                award = 75 if pro else 30
+            elif receipt_total >= 70:
+                award = 50 if pro else 20
+            elif receipt_total >= 30:
+                award = 35 if pro else 15
+            else:
+                award = 25 if pro else 10
+
             db.table("profiles").update(
                 {"points": current_pts + award}
             ).eq("id", user_id).execute()
-            log.info(f"[{receipt_id}] Awarded {award} points (total: {current_pts + award})")
+            log.info(f"[{receipt_id}] Awarded {award} points (receipt €{receipt_total:.2f}, {'Pro' if pro else 'Free'}, total: {current_pts + award})")
         except Exception as pts_err:
             log.warning(f"[{receipt_id}] Failed to award points: {pts_err}")
 

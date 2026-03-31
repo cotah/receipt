@@ -1,5 +1,6 @@
 import logging
 import secrets
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -232,11 +233,12 @@ async def get_contribute_status(user_id: str = Depends(get_current_user)):
 
     # How to earn points
     actions = [
-        {"action": "Scan a receipt", "points": 10, "icon": "camera", "description": "Take a photo of your shopping receipt"},
+        {"action": "Scan a receipt", "points": 10, "points_max": 75, "icon": "camera", "description": "Bigger shop = more points (up to 75 for Pro!)"},
         {"action": "Link barcodes", "points": 30, "icon": "maximize", "description": "Scan product barcodes after a receipt (2x points!)"},
-        {"action": "Add a product", "points": 10, "icon": "plus-circle", "description": "Scan an unknown barcode and name it"},
+        {"action": "Add a product", "points": 10, "icon": "plus-circle", "description": "Add a new product by scanning its barcode"},
         {"action": "Refer a friend", "points": 50, "icon": "users", "description": "You earn when your friend goes Pro"},
         {"action": "Confirm a saving", "points": 10, "icon": "thumbs-up", "description": "Confirm SmartDocket helped you save"},
+        {"action": "Monthly raffle", "points": 200, "icon": "gift", "description": "200 pts = 1 ticket to win a signed jersey!"},
     ]
 
     # Leaderboard — top 10 users by points this month
@@ -268,6 +270,28 @@ async def get_contribute_status(user_id: str = Depends(get_current_user)):
         leaderboard = []
         my_rank = None
 
+    # Raffle info — 200 pts = 1 ticket, monthly draw
+    from calendar import monthrange
+    now = datetime.now(timezone.utc)
+    my_tickets = points // 200
+    # Next draw: first Saturday of next month
+    if now.month == 12:
+        next_month = now.replace(year=now.year + 1, month=1, day=1)
+    else:
+        next_month = now.replace(month=now.month + 1, day=1)
+    # Find first Saturday
+    first_sat = next_month
+    while first_sat.weekday() != 5:  # 5 = Saturday
+        first_sat += timedelta(days=1)
+
+    raffle = {
+        "my_tickets": my_tickets,
+        "points_per_ticket": 200,
+        "points_to_next_ticket": 200 - (points % 200) if points % 200 != 0 else 0,
+        "next_draw": first_sat.strftime("%B %d, %Y"),
+        "prize": "Signed Premier League Jersey",
+    }
+
     return {
         "points": points,
         "level": level,
@@ -275,6 +299,7 @@ async def get_contribute_status(user_id: str = Depends(get_current_user)):
         "actions": actions,
         "leaderboard": leaderboard,
         "my_rank": my_rank,
+        "raffle": raffle,
     }
 
 
