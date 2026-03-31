@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     MAX_IMAGE_SIZE_MB: int = 10
     ADMIN_KEY: str = ""  # Required for debug endpoints
 
+    # Enrichment — Google Custom Search for product images
+    GOOGLE_CSE_API_KEY: str = ""
+    GOOGLE_CSE_ID: str = "46c4dc5ab9c71486f"
+
     @property
     def allowed_origins_list(self) -> List[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",")]
