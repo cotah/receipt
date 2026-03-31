@@ -4,7 +4,7 @@ import math
 import logging
 import traceback
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from app.utils.auth_utils import get_current_user
@@ -995,3 +995,106 @@ async def confirm_item_weights(
         updated += 1
 
     return {"status": "ok", "updated": updated}
+
+
+# ─── Barcode-after-receipt linking ───
+
+@router.get("/{receipt_id}/barcode-items")
+async def get_barcode_items(
+    receipt_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """Get receipt items that don't have barcodes linked yet."""
+    db = get_service_client()
+
+    receipt = (
+        db.table("receipts")
+        .select("id, store_name")
+        .eq("id", receipt_id)
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+    if not receipt.data:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+
+    items = (
+        db.table("receipt_items")
+        .select("id, normalized_name, category, unit_price, barcode")
+        .eq("receipt_id", receipt_id)
+        .order("normalized_name")
+        .execute()
+    )
+
+    # Filter: items without barcodes, skip bags/deposits
+    skip_names = {"bag", "bags", "carrier bag", "deposit", "bag charge"}
+    scannable = []
+    for item in (items.data or []):
+        name = (item.get("normalized_name") or "").strip()
+        if not name or name.lower() in skip_names:
+            continue
+        if item.get("barcode"):
+            continue  # Already has barcode
+        scannable.append({
+            "id": item["id"],
+            "name": name,
+            "category": item.get("category", "Other"),
+            "price": float(item.get("unit_price") or 0),
+        })
+
+    return {
+        "receipt_id": receipt_id,
+        "store_name": receipt.data.get("store_name", ""),
+        "items": scannable,
+        "total": len(scannable),
+        "points_per_scan": 30,  # Double the normal 15
+    }
+
+
+@router.post("/link-barcode")
+async def link_barcode_to_item(
+    item_id: str = Query(...),
+    barcode: str = Query(..., min_length=8),
+    user_id: str = Depends(get_current_user),
+):
+    """Link a barcode to a receipt item. Awards 30 points (double)."""
+    db = get_service_client()
+
+    # Verify item belongs to user
+    item = (
+        db.table("receipt_items")
+        .select("id, normalized_name, category, unit_price, user_id")
+        .eq("id", item_id)
+        .single()
+        .execute()
+    )
+    if not item.data or item.data.get("user_id") != user_id:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    product_name = item.data["normalized_name"]
+    product_key = generate_product_key(product_name)
+
+    # 1. Update receipt_item with barcode
+    db.table("receipt_items").update({"barcode": barcode}).eq("id", item_id).execute()
+
+    # 2. Upsert to barcode_catalog
+    try:
+        db.table("barcode_catalog").upsert({
+            "barcode": barcode,
+            "product_name": product_name,
+            "product_key": product_key,
+            "category": item.data.get("category", "Other"),
+            "source": "receipt_scan",
+        }).execute()
+    except Exception:
+        pass  # Duplicate barcode is fine
+
+    # 3. Award 30 points (double)
+    try:
+        profile = db.table("profiles").select("points").eq("id", user_id).single().execute()
+        current = (profile.data or {}).get("points") or 0
+        db.table("profiles").update({"points": current + 30}).eq("id", user_id).execute()
+    except Exception:
+        pass
+
+    return {"status": "ok", "points_earned": 30, "product_name": product_name}

@@ -203,7 +203,22 @@ export default function ScanScreen() {
                   if (!isMounted.current) return;
                   setPhotos([]);
                   setShowCamera(true);
-                  router.push(`/receipt/${receiptId}`);
+                  // Ask user if they want to scan barcodes for double points
+                  Alert.alert(
+                    '✅ Receipt processed!',
+                    'Scan barcodes of your products now for double points (30 pts each)!',
+                    [
+                      {
+                        text: 'Skip',
+                        style: 'cancel',
+                        onPress: () => router.push(`/receipt/${receiptId}`),
+                      },
+                      {
+                        text: 'Scan barcodes ⭐',
+                        onPress: () => router.push(`/link-barcodes?receiptId=${receiptId}`),
+                      },
+                    ],
+                  );
                 }, 300);
                 resolve();
                 return;
