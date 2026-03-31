@@ -57,14 +57,45 @@ def _normalize_for_grouping(name: str) -> str:
 
 
 def _token_similarity(a: str, b: str) -> float:
-    """Simple token overlap similarity (Jaccard) between two normalised names."""
+    """Smart token similarity that prevents false matches on differentiated products.
+
+    'chicken breast' vs 'chicken breast bites' → LOW (bites changes the product)
+    'honey' vs 'honey biscuits' → LOW (biscuits is a different product)
+    'white bread' vs 'bread white' → HIGH (same tokens)
+    'brennans bread' vs 'bread' → MEDIUM (brand difference is ok)
+    """
     tokens_a = set(a.split())
     tokens_b = set(b.split())
     if not tokens_a or not tokens_b:
         return 0.0
+
     intersection = tokens_a & tokens_b
     union = tokens_a | tokens_b
-    return len(intersection) / len(union)
+
+    # Base Jaccard score
+    jaccard = len(intersection) / len(union)
+
+    # PENALTY: if one side has extra words that are "product differentiators"
+    # These words fundamentally change what the product IS
+    # "Chicken" + "Bites" = different product than "Chicken"
+    differentiators = {
+        "bites", "biscuit", "biscuits", "cake", "cakes", "sauce", "soup",
+        "crisp", "crisps", "chip", "chips", "bar", "bars", "spread",
+        "yoghurt", "yogurt", "drink", "juice", "jam", "paste", "powder",
+        "roast", "roasted", "smoked", "dried", "frozen", "canned", "tinned",
+        "organic", "mini", "snack", "snacks", "wrap", "wraps", "roll", "rolls",
+        "flavour", "flavoured", "coated", "stuffed", "glazed", "pickled",
+        "ice", "cream", "pudding", "pie", "tart", "crumble",
+    }
+
+    extra_a = tokens_a - tokens_b
+    extra_b = tokens_b - tokens_a
+
+    # If extra words include a differentiator → NOT the same product
+    if extra_a & differentiators or extra_b & differentiators:
+        return min(jaccard, 0.4)  # Cap at 0.4 so it never passes 0.6 threshold
+
+    return jaccard
 
 
 def _group_products(rows: list[dict]) -> list[dict]:
@@ -88,6 +119,7 @@ def _group_products(rows: list[dict]) -> list[dict]:
             "observed_at": row.get("observed_at", ""),
             "product_key": row.get("product_key", ""),
             "promotion_text": row.get("promotion_text"),
+            "weight_g": weight_g,
         }
 
         # Try to find an existing group with similar normalised name
@@ -151,6 +183,92 @@ def _group_products(rows: list[dict]) -> list[dict]:
     )
 
     return groups
+
+
+def _find_better_value_tip(group: dict, all_groups: list[dict]) -> dict | None:
+    """Find a better-value alternative in a different size of the same product.
+
+    e.g. "Honey 1kg @ €3.00 (€0.30/100g)" vs "Honey 500g @ €1.30 (€0.26/100g)"
+    → "Buy 2x Honey 500g at Tesco (€2.60) instead of Honey 1kg (€3.00). Saves €0.40"
+    """
+    if not group.get("stores"):
+        return None
+
+    # Get this group's cheapest store + weight
+    my_store = group["stores"][0]
+    my_name = my_store.get("product_name", "")
+    my_price = my_store["unit_price"]
+    my_weight = _extract_weight_grams(my_name)
+    if not my_weight or my_weight <= 0:
+        return None
+
+    my_ppu = my_price / my_weight  # price per gram
+
+    # Get base product name (without size/brand)
+    my_base = _normalize_for_grouping(my_name)
+    if not my_base or len(my_base) < 2:
+        return None
+
+    best_tip = None
+    best_saving = 0
+
+    for other in all_groups:
+        if other is group:
+            continue
+        if not other.get("stores"):
+            continue
+
+        other_store = other["stores"][0]
+        other_name = other_store.get("product_name", "")
+        other_price = other_store["unit_price"]
+        other_weight = _extract_weight_grams(other_name)
+        if not other_weight or other_weight <= 0:
+            continue
+
+        # Check it's the same base product (high similarity)
+        other_base = _normalize_for_grouping(other_name)
+        # Use raw Jaccard here (no differentiator penalty) since we already
+        # know these are different sizes of possibly the same product
+        tokens_a = set(my_base.split())
+        tokens_b = set(other_base.split())
+        if not tokens_a or not tokens_b:
+            continue
+        intersection = tokens_a & tokens_b
+        union = tokens_a | tokens_b
+        sim = len(intersection) / len(union)
+        if sim < 0.5:
+            continue
+
+        other_ppu = other_price / other_weight  # price per gram
+
+        # How many of the other product do we need to match our weight?
+        qty_needed = my_weight / other_weight
+        # Only consider whole numbers (you can't buy half a jar)
+        qty_int = round(qty_needed)
+        if qty_int < 1 or abs(qty_int - qty_needed) > 0.3:
+            continue  # Not a clean multiple (e.g., 1kg vs 300g = 3.33 → skip)
+
+        total_cost = other_price * qty_int
+        total_weight = other_weight * qty_int
+
+        # Only suggest if the alternative covers at least 80% of the weight
+        if total_weight < my_weight * 0.8:
+            continue
+
+        saving = my_price - total_cost
+        if saving > 0.10 and saving > best_saving:
+            best_saving = saving
+            best_tip = {
+                "product_name": other_name,
+                "store_name": other_store["store_name"],
+                "quantity": qty_int,
+                "unit_price": other_price,
+                "total_price": round(total_cost, 2),
+                "saving": round(saving, 2),
+                "message": f"Buy {qty_int}x {other_name} at {other_store['store_name']} (€{total_cost:.2f}) instead of {my_name} (€{my_price:.2f}). Saves €{saving:.2f}",
+            }
+
+    return best_tip
 
 
 async def smart_search(query: str, limit: int = 30) -> dict:
@@ -223,9 +341,14 @@ async def smart_search(query: str, limit: int = 30) -> dict:
         )
 
         stores = []
+        # Reference weight: use the heaviest in the group for comparison
+        ref_weight = group.get("weight_g")
+        all_weights = [s.get("weight_g") for s in group["stores"] if s.get("weight_g")]
+        max_weight = max(all_weights) if all_weights else None
+
         for i, s in enumerate(group["stores"]):
             pup = _per_unit_price(s["unit_price"], s["product_name"])
-            stores.append({
+            entry = {
                 "store_name": s["store_name"],
                 "product_name": s["product_name"],
                 "unit_price": s["unit_price"],
@@ -234,7 +357,18 @@ async def smart_search(query: str, limit: int = 30) -> dict:
                 "price_per_unit": round(pup * 100, 2) if pup else None,
                 "price_per_unit_label": "per 100g" if pup else None,
                 "promotion_text": s.get("promotion_text"),
-            })
+                "weight_note": None,
+            }
+            # Add weight difference note if products vary in size
+            s_weight = s.get("weight_g")
+            if s_weight and max_weight and abs(s_weight - max_weight) > 10:
+                diff = max_weight - s_weight
+                if diff > 0:
+                    if diff >= 1000:
+                        entry["weight_note"] = f"{diff/1000:.1f}kg less"
+                    else:
+                        entry["weight_note"] = f"{int(diff)}g less"
+            stores.append(entry)
 
         results.append({
             "display_name": group["display_name"],
@@ -245,6 +379,13 @@ async def smart_search(query: str, limit: int = 30) -> dict:
             "cheapest_store": cheapest["store_name"],
             "potential_saving": saving,
         })
+
+    # --- Better-value tips across different sizes ---
+    # Compare groups that are the same base product but different sizes
+    for group in results:
+        tip = _find_better_value_tip(group, results)
+        if tip:
+            group["value_tip"] = tip
 
     return {
         "query": query,

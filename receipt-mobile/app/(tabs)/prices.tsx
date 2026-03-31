@@ -205,6 +205,15 @@ export default function PricesScreen() {
                   </View>
                 )}
 
+                {selectedProduct.value_tip && (
+                  <View style={styles.valueTipDetail}>
+                    <Text style={styles.valueTipDetailTitle}>💡 Better value</Text>
+                    <Text style={styles.valueTipDetailText}>
+                      {selectedProduct.value_tip.message}
+                    </Text>
+                  </View>
+                )}
+
                 {selectedProduct.stores.map((store, i) => (
                   <Card key={store.store_name} style={[styles.storeRow, i === 0 && styles.storeRowCheapest] as any}>
                     <View style={styles.storeRowInner}>
@@ -223,6 +232,9 @@ export default function PricesScreen() {
                         )}
                         {store.promotion_text && (
                           <Text style={styles.promoText}>{store.promotion_text}</Text>
+                        )}
+                        {store.weight_note && (
+                          <Text style={styles.weightNote}>⚖️ {store.weight_note}</Text>
                         )}
                         <View style={styles.storeActions}>
                           {store.is_cheapest && <Badge text="CHEAPEST" variant="success" size="sm" />}
@@ -315,6 +327,13 @@ export default function PricesScreen() {
                         <Text style={styles.resultHint}>
                           Available in {result.store_count} stores · Tap to compare
                         </Text>
+                      )}
+                      {result.value_tip && (
+                        <View style={styles.valueTip}>
+                          <Text style={styles.valueTipText}>
+                            💡 {result.value_tip.quantity}x {result.value_tip.product_name} at {result.value_tip.store_name} = €{result.value_tip.total_price.toFixed(2)} (save €{result.value_tip.saving.toFixed(2)})
+                          </Text>
+                        </View>
                       )}
                     </Card>
                   </Pressable>
@@ -580,6 +599,18 @@ const styles = StyleSheet.create({
   resultBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.sm },
   resultStores: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1 },
   resultHint: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, marginTop: 6 },
+  valueTip: {
+    marginTop: 6, backgroundColor: 'rgba(60,179,113,0.08)',
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
+  },
+  valueTipText: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: '#1A7D45', lineHeight: 16 },
+  valueTipDetail: {
+    backgroundColor: 'rgba(60,179,113,0.08)', borderRadius: 12,
+    padding: Spacing.sm, marginBottom: Spacing.sm,
+    borderLeftWidth: 3, borderLeftColor: '#3CB371',
+  },
+  valueTipDetailTitle: { fontFamily: 'DMSans_700Bold', fontSize: 13, color: '#1A7D45', marginBottom: 4 },
+  valueTipDetailText: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: '#1A7D45', lineHeight: 18 },
 
   // Product detail
   detailSection: { marginTop: Spacing.sm },
@@ -607,6 +638,7 @@ const styles = StyleSheet.create({
   storePrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 20, color: Colors.accent.amber },
   perUnitText: { fontFamily: 'DMSans_400Regular', fontSize: 10, color: Colors.text.tertiary, marginTop: 1 },
   promoText: { fontFamily: 'DMSans_500Medium', fontSize: 10, color: Colors.accent.amber, marginTop: 2 },
+  weightNote: { fontFamily: 'DMSans_500Medium', fontSize: 10, color: Colors.accent.blue, marginTop: 2 },
   storeActions: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   compareAddBtn: {
     width: 28, height: 28, borderRadius: 14,

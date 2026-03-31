@@ -11,6 +11,7 @@ export interface SearchStoreEntry {
   price_per_unit: number | null;
   price_per_unit_label: string | null;
   promotion_text: string | null;
+  weight_note: string | null;
 }
 
 export interface SearchResult {
@@ -21,6 +22,15 @@ export interface SearchResult {
   cheapest_price: number;
   cheapest_store: string;
   potential_saving: number | null;
+  value_tip?: {
+    product_name: string;
+    store_name: string;
+    quantity: number;
+    unit_price: number;
+    total_price: number;
+    saving: number;
+    message: string;
+  };
 }
 
 // --- Alternatives types ---
