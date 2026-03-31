@@ -2668,7 +2668,7 @@ async def scrape_tesco_promotions() -> None:
     try:
         items = await _run_apify_actor(
             settings.APIFY_ACTOR_TESCO,
-            {"maxPages": 30, "mode": "full"},
+            {"maxPages": 24, "mode": "promotions"},
             timeout_secs=3600,
         )
         if items:
