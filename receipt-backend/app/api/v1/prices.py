@@ -1007,10 +1007,36 @@ async def barcode_identify_photo(
         image_part = {"mime_type": "image/jpeg", "data": image_bytes}
 
         prompt = (
-            "You are looking at a photo of a grocery product sold in Ireland. "
-            "Identify the product and return ONLY the product name including brand and size. "
-            "Example: 'Brennans Wholemeal Bread 800g' or 'Avonmore Fresh Milk 2L'. "
-            "If you can't identify it, return 'unknown'. Return ONLY the name, nothing else."
+            "You are a deterministic grocery product identifier for the Irish market. "
+            "Return EXACTLY ONE line: the product name as BRAND + PRODUCT DESCRIPTION + SIZE/WEIGHT. "
+            "If identification is impossible, return exactly: unknown\n\n"
+            "THE 7 IDENTIFICATION LAWS:\n\n"
+            "LAW 1 — VISUAL SCAN: Step 1: Read front label (brand, product name, variant). "
+            "Step 2: Find size/weight (bottom of label, corners, near barcode, on cap). "
+            "Step 3: Identify brand from text, logo, or packaging design. "
+            "Step 4: Determine exact product type.\n\n"
+            "LAW 2 — NAME CONSTRUCTION: BRAND + RANGE (if any) + PRODUCT + VARIANT/FLAVOUR + SIZE. "
+            "Title Case. Include full description as printed. Size with unit (500g, 2L, 6 Pack). "
+            "Examples: Avonmore Super Milk 1L, Brennans Family Pan White Bread 800g, "
+            "Tayto Cheese And Onion Crisps 6 Pack, Barry's Tea Gold Blend 80 Tea Bags.\n\n"
+            "LAW 3 — NEVER GUESS: Only include text you CAN read. If brand not visible but "
+            "packaging is iconic (Cadbury purple, Brennans orange, Tayto yellow) and 95%+ certain, "
+            "include brand. If size not visible, omit it. If product type unclear, return: unknown. "
+            "A wrong name is FAR worse than unknown.\n\n"
+            "LAW 4 — IRISH BRANDS: Dairy: Avonmore (red/blue), Kerrygold (gold/green), Glenisk (green). "
+            "Bakery: Brennans (orange), Pat The Baker (red/white). Meat: Denny (blue), Clonakilty (red). "
+            "Drinks: Barry's Tea (red/gold), Lyons (green), Club Orange, Ballygowan (green). "
+            "Snacks: Tayto (yellow), Cadbury (purple), Keogh's (brown). "
+            "Store brands: Tesco blue/white, Aldi Brooklea/Specially Selected, "
+            "Lidl Deluxe/Cien, SuperValu Signature Tastes, Dunnes Simply Better.\n\n"
+            "LAW 5 — DIFFICULT IMAGES: Angled product → read legible text. Partial view → use what's visible. "
+            "Multiple products → identify CENTRAL one only. Blurry/unreadable → unknown. "
+            "Back of pack only → unknown. Loose produce → just name (Bananas, Carrots).\n\n"
+            "LAW 6 — EXCLUDE: No barcodes/batch numbers. No prices. No 'New'/'Improved'/'Limited Edition'. "
+            "No nutritional claims unless they ARE the variant name (e.g., Protein Milk). "
+            "No allergen warnings. No category names instead of product names.\n\n"
+            "LAW 7 — RETURN unknown WHEN: Cannot determine product type, image too blurry, "
+            "not a grocery product, shows only receipt/shelf label, confidence below 80%."
         )
         response = _gemini_model.generate_content([prompt, image_part])
         product_name = response.text.strip().strip('"').strip("'")
@@ -1024,17 +1050,22 @@ async def barcode_identify_photo(
         # Fallback to OpenAI Vision
         try:
             from app.services.ocr_service import openai_client
+            photo_prompt = (
+                "You are a deterministic grocery product identifier for the Irish market. "
+                "Return EXACTLY ONE line: the product name as BRAND + PRODUCT DESCRIPTION + SIZE/WEIGHT. "
+                "If identification is impossible, return exactly: unknown\n\n"
+                "RULES: Read front label for brand, product, variant, size. Title Case. "
+                "Include full description. Examples: Avonmore Fresh Milk 2L, "
+                "Brennans Wholemeal Bread 800g, Kerrygold Pure Irish Butter 227g. "
+                "Never guess text you cannot read. If blurry/unclear, return: unknown. "
+                "A wrong name is worse than unknown. No quotes, no explanation, just the name."
+            )
             response = await openai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": (
-                            "You are looking at a photo of a grocery product sold in Ireland. "
-                            "Identify the product and return ONLY the product name including brand and size. "
-                            "Example: 'Brennans Wholemeal Bread 800g'. "
-                            "If you can't identify it, return 'unknown'. Return ONLY the name."
-                        )},
+                        {"type": "text", "text": photo_prompt},
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
                     ],
                 }],
