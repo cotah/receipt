@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Alert, Vibration } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import { Feather } from '@expo/vector-icons';
 
@@ -42,6 +42,7 @@ interface BarcodeResult {
 
 export default function BarcodeScannerScreen() {
   const router = useRouter();
+  const { scanned } = useLocalSearchParams<{ scanned?: string }>();
   const [permission, requestPermission] = useCameraPermissions();
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
   const [result, setResult] = useState<BarcodeResult | null>(null);
@@ -50,32 +51,36 @@ export default function BarcodeScannerScreen() {
   const lastScanned = useRef<string>('');
   const cooldown = useRef(false);
 
-  const handleBarcode = useCallback(async (scanResult: BarcodeScanningResult) => {
-    const barcode = scanResult.data;
-
-    // Prevent duplicate scans
-    if (cooldown.current || barcode === lastScanned.current) return;
-    cooldown.current = true;
-    lastScanned.current = barcode;
-
-    Vibration.vibrate(100);
+  // If barcode was passed from scan tab, look it up immediately
+  const lookupBarcode = useCallback(async (barcode: string) => {
     setScannedBarcode(barcode);
     setIsLoading(true);
     setResult(null);
-
     try {
-      const { data } = await api.get<BarcodeResult>('/prices/barcode-lookup', {
-        params: { barcode },
-      });
+      const { data } = await api.get<BarcodeResult>('/prices/barcode-lookup', { params: { barcode } });
       setResult(data);
-    } catch (e: any) {
+    } catch {
       Alert.alert('Error', 'Could not look up this barcode');
     } finally {
       setIsLoading(false);
-      // Allow rescan after 3 seconds
-      setTimeout(() => { cooldown.current = false; }, 3000);
     }
   }, []);
+
+  useEffect(() => {
+    if (scanned) {
+      lookupBarcode(scanned);
+    }
+  }, [scanned, lookupBarcode]);
+
+  const handleBarcode = useCallback(async (scanResult: BarcodeScanningResult) => {
+    const barcode = scanResult.data;
+    if (cooldown.current || barcode === lastScanned.current) return;
+    cooldown.current = true;
+    lastScanned.current = barcode;
+    Vibration.vibrate(100);
+    await lookupBarcode(barcode);
+    setTimeout(() => { cooldown.current = false; }, 3000);
+  }, [lookupBarcode]);
 
   const resetScan = useCallback(() => {
     setScannedBarcode(null);

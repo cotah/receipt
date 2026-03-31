@@ -1,16 +1,18 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, Image, StyleSheet, Alert, ScrollView, Pressable } from 'react-native';
+import { View, Text, Image, StyleSheet, Alert, ScrollView, Pressable, Vibration } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import ReceiptScanner from '../../components/receipts/ReceiptScanner';
 import ProcessingModal from '../../components/receipts/ProcessingModal';
 import Button from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
-import { Spacing } from '../../constants/typography';
+import { Spacing, Fonts } from '../../constants/typography';
 import { compressImage } from '../../utils/imageHelpers';
 import { useReceipts } from '../../hooks/useReceipts';
 import api from '../../services/api';
+
+type ScanMode = 'receipt' | 'barcode';
 
 export default function ScanScreen() {
   const router = useRouter();
@@ -23,6 +25,10 @@ export default function ScanScreen() {
   const [showCamera, setShowCamera] = useState(true);
   const [flashOn, setFlashOn] = useState(false);
   const { isProcessing, processingStatus } = useReceipts();
+
+  // Scan mode: receipt (default) or barcode
+  const [scanMode, setScanMode] = useState<ScanMode>('receipt');
+  const barcodeCooldown = useRef(false);
 
   // Progress
   const [fakeProgress, setFakeProgress] = useState(0);
@@ -232,6 +238,17 @@ export default function ScanScreen() {
     }
   };
 
+  // Barcode scan handler
+  const handleBarcodeScan = useCallback((result: BarcodeScanningResult) => {
+    if (barcodeCooldown.current) return;
+    barcodeCooldown.current = true;
+    Vibration.vibrate(100);
+    // Navigate to barcode results page
+    router.push(`/barcode-scanner?scanned=${result.data}`);
+    // Reset cooldown after navigation
+    setTimeout(() => { barcodeCooldown.current = false; }, 3000);
+  }, [router]);
+
   const displayStatus = isProcessing || fakeProgress > 0
     ? {
         progress: fakeProgress,
@@ -336,13 +353,66 @@ export default function ScanScreen() {
         </View>
       )}
 
-      <CameraView ref={cameraRef} style={styles.camera} facing="back" enableTorch={flashOn}>
-        <ReceiptScanner
-          onCapture={handleCapture}
-          onPickFromGallery={handlePickFromGallery}
-          flashOn={flashOn}
-          onToggleFlash={() => setFlashOn((v) => !v)}
-        />
+      {/* Mode toggle — Receipt / Barcode */}
+      {photos.length === 0 && (
+        <View style={styles.modeToggle}>
+          <Pressable
+            onPress={() => setScanMode('receipt')}
+            style={[styles.modeBtn, scanMode === 'receipt' && styles.modeBtnActive]}
+          >
+            <Text style={[styles.modeBtnText, scanMode === 'receipt' && styles.modeBtnTextActive]}>
+              🧾 Receipt
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setScanMode('barcode')}
+            style={[styles.modeBtn, scanMode === 'barcode' && styles.modeBtnActive]}
+          >
+            <Text style={[styles.modeBtnText, scanMode === 'barcode' && styles.modeBtnTextActive]}>
+              ▮▮▮ Barcode
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
+      <CameraView
+        ref={cameraRef}
+        style={styles.camera}
+        facing="back"
+        enableTorch={flashOn}
+        barcodeScannerSettings={scanMode === 'barcode' ? { barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] } : undefined}
+        onBarcodeScanned={scanMode === 'barcode' ? handleBarcodeScan : undefined}
+      >
+        {scanMode === 'receipt' ? (
+          <ReceiptScanner
+            onCapture={handleCapture}
+            onPickFromGallery={handlePickFromGallery}
+            flashOn={flashOn}
+            onToggleFlash={() => setFlashOn((v) => !v)}
+          />
+        ) : (
+          /* Barcode scanning overlay */
+          <View style={styles.barcodeOverlay}>
+            <View style={styles.barcodeTop} />
+            <View style={styles.barcodeMiddle}>
+              <View style={styles.barcodeSide} />
+              <View style={styles.barcodeViewfinder}>
+                <View style={[styles.barcodeCorner, styles.bcTL]} />
+                <View style={[styles.barcodeCorner, styles.bcTR]} />
+                <View style={[styles.barcodeCorner, styles.bcBL]} />
+                <View style={[styles.barcodeCorner, styles.bcBR]} />
+                <View style={styles.barcodeLine} />
+              </View>
+              <View style={styles.barcodeSide} />
+            </View>
+            <View style={styles.barcodeBottom}>
+              <Text style={styles.barcodeHint}>Point at a product barcode</Text>
+              <Pressable onPress={() => setFlashOn((v) => !v)} style={styles.barcodeFlash}>
+                <Text style={styles.barcodeFlashText}>{flashOn ? '⚡ Flash ON' : '💡 Flash'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
       </CameraView>
     </View>
   );
@@ -376,4 +446,60 @@ const styles = StyleSheet.create({
   // Add more banner (on camera)
   addMoreBanner: { backgroundColor: Colors.primary.default, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
   addMoreText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: '#fff', textAlign: 'center' },
+
+  // Mode toggle
+  modeToggle: {
+    position: 'absolute', top: 60, left: 0, right: 0, zIndex: 20,
+    flexDirection: 'row', justifyContent: 'center', gap: 4,
+    paddingHorizontal: Spacing.xl,
+  },
+  modeBtn: {
+    flex: 1, paddingVertical: 10, borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center',
+  },
+  modeBtnActive: {
+    backgroundColor: 'rgba(255,255,255,0.92)',
+  },
+  modeBtnText: {
+    fontFamily: 'DMSans_600SemiBold', fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  modeBtnTextActive: {
+    color: '#1A1A1A',
+  },
+
+  // Barcode overlay
+  barcodeOverlay: { ...StyleSheet.absoluteFillObject },
+  barcodeTop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
+  barcodeMiddle: { flexDirection: 'row', height: 160 },
+  barcodeSide: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
+  barcodeViewfinder: {
+    width: 300, height: 160, borderRadius: 12, position: 'relative',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  barcodeCorner: {
+    position: 'absolute', width: 24, height: 24,
+    borderColor: '#3CB371', borderWidth: 3,
+  },
+  bcTL: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 8 },
+  bcTR: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 8 },
+  bcBL: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 8 },
+  bcBR: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 8 },
+  barcodeLine: {
+    width: '80%', height: 2, backgroundColor: '#3CB371', opacity: 0.6,
+  },
+  barcodeBottom: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center', paddingTop: 28, gap: 16,
+  },
+  barcodeHint: {
+    fontFamily: 'DMSans_500Medium', fontSize: 15, color: 'rgba(255,255,255,0.7)',
+  },
+  barcodeFlash: {
+    backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 20,
+    paddingHorizontal: 16, paddingVertical: 8,
+  },
+  barcodeFlashText: {
+    fontFamily: 'DMSans_500Medium', fontSize: 13, color: 'rgba(255,255,255,0.7)',
+  },
 });
