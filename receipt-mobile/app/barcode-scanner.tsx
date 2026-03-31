@@ -88,6 +88,8 @@ export default function BarcodeScannerScreen() {
     setSearchQuery('');
     setSearchResults([]);
     setContributed(false);
+    setShowPhotoCamera(false);
+    setIsIdentifying(false);
     lastScanned.current = '';
     cooldown.current = false;
   }, []);
@@ -114,6 +116,11 @@ export default function BarcodeScannerScreen() {
   const [isContributing, setIsContributing] = useState(false);
   const [contributed, setContributed] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Photo AI identification
+  const [showPhotoCamera, setShowPhotoCamera] = useState(false);
+  const [isIdentifying, setIsIdentifying] = useState(false);
+  const photoCameraRef = useRef<CameraView>(null);
 
   // Debounced autocomplete search
   const handleSearch = useCallback((text: string) => {
@@ -166,6 +173,42 @@ export default function BarcodeScannerScreen() {
       setIsContributing(false);
     }
   }, [searchQuery, scannedBarcode]);
+
+  // Take photo → AI identifies → auto-search
+  const handlePhotoCapture = useCallback(async () => {
+    if (!photoCameraRef.current) return;
+    setIsIdentifying(true);
+    try {
+      const photo = await photoCameraRef.current.takePictureAsync({ quality: 0.6, base64: true });
+      if (!photo?.base64) { setIsIdentifying(false); return; }
+
+      setShowPhotoCamera(false);
+
+      // Send to AI
+      const { data } = await api.post('/prices/barcode-identify-photo', {
+        image: photo.base64,
+      });
+
+      if (data.identified && data.product_name) {
+        // Auto-fill search with AI result
+        setSearchQuery(data.product_name);
+        // Trigger search
+        try {
+          const res = await api.get('/prices/product-autocomplete', { params: { q: data.product_name } });
+          setSearchResults(res.data.results || []);
+        } catch {
+          setSearchResults([]);
+        }
+        Alert.alert('Product identified', `AI thinks this is: "${data.product_name}". Select the correct match below.`);
+      } else {
+        Alert.alert('Could not identify', 'AI could not recognise this product. Try typing the name manually.');
+      }
+    } catch {
+      Alert.alert('Error', 'Could not process photo');
+    } finally {
+      setIsIdentifying(false);
+    }
+  }, []);
 
   // Permission handling
   if (!permission) {
@@ -234,6 +277,28 @@ export default function BarcodeScannerScreen() {
           </View>
         </View>
       ) : (
+        <>
+        {/* Photo camera for AI identification */}
+        {showPhotoCamera && (
+          <View style={styles.photoCameraWrap}>
+            <CameraView ref={photoCameraRef} style={styles.photoCamera} facing="back">
+              <View style={styles.photoCameraOverlay}>
+                <Text style={styles.photoCameraHint}>Point at the product label</Text>
+                <View style={styles.photoCameraActions}>
+                  <Pressable onPress={() => setShowPhotoCamera(false)} style={styles.photoCancelBtn}>
+                    <Text style={styles.photoCancelText}>Cancel</Text>
+                  </Pressable>
+                  <Pressable onPress={handlePhotoCapture} style={styles.photoCaptureBtn}>
+                    <View style={styles.photoCaptureInner} />
+                  </Pressable>
+                  <View style={{ width: 60 }} />
+                </View>
+              </View>
+            </CameraView>
+          </View>
+        )}
+
+        {!showPhotoCamera && (
         <ScrollView style={styles.resultScroll} contentContainerStyle={styles.resultContent}>
           {/* Loading */}
           {isLoading && (
@@ -298,8 +363,25 @@ export default function BarcodeScannerScreen() {
                   {searchQuery.length >= 2 && searchResults.length === 0 && !isSearching && (
                     <View style={styles.noResultsBox}>
                       <Text style={styles.noResultsText}>No matching products found</Text>
+
+                      {/* Photo AI identification */}
+                      {!showPhotoCamera && !isIdentifying && (
+                        <Pressable onPress={() => setShowPhotoCamera(true)} style={styles.photoBtn}>
+                          <Feather name="camera" size={18} color="#FFF" />
+                          <Text style={styles.photoBtnText}>Take a photo of the product</Text>
+                        </Pressable>
+                      )}
+
+                      {isIdentifying && (
+                        <View style={styles.identifyingRow}>
+                          <ActivityIndicator size="small" color={Colors.primary.default} />
+                          <Text style={styles.identifyingText}>AI is identifying the product...</Text>
+                        </View>
+                      )}
+
+                      <Text style={styles.orText}>or add manually:</Text>
                       <Button
-                        title={isContributing ? 'Saving...' : `Add "${searchQuery}" as new (+10 pts)`}
+                        title={isContributing ? 'Saving...' : `Add "${searchQuery}" (+10 pts)`}
                         onPress={contributeCustom}
                         size="sm"
                       />
@@ -385,6 +467,8 @@ export default function BarcodeScannerScreen() {
             </>
           )}
         </ScrollView>
+        )}
+        </>
       )}
     </SafeAreaView>
   );
@@ -477,6 +561,39 @@ const styles = StyleSheet.create({
   },
   noResultsBox: { alignItems: 'center', gap: 8, marginVertical: 8, width: '100%' },
   noResultsText: { fontFamily: Fonts.body, fontSize: 13, color: Colors.text.secondary },
+  photoBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.primary.default, borderRadius: 12,
+    paddingHorizontal: 16, paddingVertical: 10,
+  },
+  photoBtnText: { fontFamily: Fonts.bodySemiBold, fontSize: 14, color: '#FFF' },
+  identifyingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
+  identifyingText: { fontFamily: Fonts.body, fontSize: 13, color: Colors.primary.default },
+  orText: { fontFamily: Fonts.body, fontSize: 12, color: Colors.text.tertiary, marginTop: 4 },
+  photoCameraWrap: { flex: 1 },
+  photoCamera: { flex: 1 },
+  photoCameraOverlay: {
+    flex: 1, justifyContent: 'flex-end', alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.1)', paddingBottom: 40,
+  },
+  photoCameraHint: {
+    fontFamily: Fonts.bodySemiBold, fontSize: 16, color: '#FFF',
+    marginBottom: 24, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4,
+  },
+  photoCameraActions: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
+    width: '100%', paddingHorizontal: 40,
+  },
+  photoCancelBtn: { padding: 12 },
+  photoCancelText: { fontFamily: Fonts.bodySemiBold, fontSize: 16, color: '#FFF' },
+  photoCaptureBtn: {
+    width: 72, height: 72, borderRadius: 36,
+    borderWidth: 4, borderColor: '#FFF',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  photoCaptureInner: {
+    width: 58, height: 58, borderRadius: 29, backgroundColor: '#FFF',
+  },
   contributeActions: { alignItems: 'center', gap: Spacing.sm, width: '100%' },
   skipLink: { paddingVertical: 8 },
   skipText: { fontFamily: Fonts.body, fontSize: 14, color: Colors.text.secondary },

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from app.utils.auth_utils import get_current_user
 from app.utils.text_utils import generate_product_key
 from app.database import get_service_client
@@ -986,6 +986,72 @@ async def product_autocomplete(
 
     results = sorted(seen.values(), key=lambda x: x["product_name"])[:limit]
     return {"results": results}
+
+
+@router.post("/barcode-identify-photo")
+async def barcode_identify_photo(
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    """AI identifies a product from a photo of it. Returns the product name."""
+    import base64
+
+    body = await request.json()
+    image_b64 = body.get("image")
+    if not image_b64:
+        raise HTTPException(status_code=400, detail="Missing 'image' (base64)")
+
+    # Try Gemini first
+    try:
+        from app.services.ocr_service import _gemini_model
+        if _gemini_model is None:
+            raise Exception("Gemini not available")
+
+        import google.generativeai as genai
+
+        image_bytes = base64.b64decode(image_b64)
+        image_part = {"mime_type": "image/jpeg", "data": image_bytes}
+
+        prompt = (
+            "You are looking at a photo of a grocery product sold in Ireland. "
+            "Identify the product and return ONLY the product name including brand and size. "
+            "Example: 'Brennans Wholemeal Bread 800g' or 'Avonmore Fresh Milk 2L'. "
+            "If you can't identify it, return 'unknown'. Return ONLY the name, nothing else."
+        )
+        response = _gemini_model.generate_content([prompt, image_part])
+        product_name = response.text.strip().strip('"').strip("'")
+
+        if not product_name or product_name.lower() == "unknown":
+            return {"identified": False, "product_name": None}
+
+        return {"identified": True, "product_name": product_name}
+
+    except Exception as e:
+        # Fallback to OpenAI Vision
+        try:
+            from app.services.ocr_service import openai_client
+            response = await openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": (
+                            "You are looking at a photo of a grocery product sold in Ireland. "
+                            "Identify the product and return ONLY the product name including brand and size. "
+                            "Example: 'Brennans Wholemeal Bread 800g'. "
+                            "If you can't identify it, return 'unknown'. Return ONLY the name."
+                        )},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+                    ],
+                }],
+                max_tokens=100,
+            )
+            product_name = response.choices[0].message.content.strip().strip('"').strip("'")
+            if not product_name or product_name.lower() == "unknown":
+                return {"identified": False, "product_name": None}
+            return {"identified": True, "product_name": product_name}
+        except Exception:
+            return {"identified": False, "product_name": None}
 
 
 @router.post("/barcode-contribute")
