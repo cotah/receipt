@@ -11,7 +11,7 @@ import { Feather } from '@expo/vector-icons';
 import ProfileAvatar from '../../components/ui/ProfileAvatar';
 import ReceiptCard from '../../components/receipts/ReceiptCard';
 import { Colors, Shadows } from '../../constants/colors';
-import { Spacing } from '../../constants/typography';
+import { Spacing, BorderRadius, Fonts } from '../../constants/typography';
 
 import { formatCurrency, formatCurrencyChange } from '../../utils/formatCurrency';
 import { useAuthStore } from '../../stores/authStore';
@@ -175,6 +175,18 @@ export default function HomeScreen() {
           </Card>
         </View>
 
+        {/* My Usual Shop shortcut */}
+        <Pressable onPress={() => router.push('/usual-shop')} style={styles.usualShopBtn}>
+          <View style={styles.usualShopLeft}>
+            <Feather name="shopping-bag" size={18} color={Colors.primary.default} />
+            <View>
+              <Text style={styles.usualShopTitle}>My usual shop</Text>
+              <Text style={styles.usualShopSub}>See where your regulars are cheapest</Text>
+            </View>
+          </View>
+          <Feather name="chevron-right" size={18} color={Colors.text.tertiary} />
+        </Pressable>
+
         {/* Running Low */}
         {runningLow.length > 0 && (
           <View style={styles.section}>
@@ -293,8 +305,17 @@ const styles = StyleSheet.create({
   mainLabel: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: 'rgba(255,255,255,0.65)' },
   mainAmount: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 42, color: Colors.accent.amber, marginVertical: 6 },
   mainSub: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.5)' },
-  statsRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.lg },
+  statsRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
   statCard: { flex: 1, alignItems: 'center', paddingVertical: Spacing.md, borderRadius: 20 },
+  usualShopBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.surface.card, borderRadius: BorderRadius.lg,
+    padding: Spacing.md, marginBottom: Spacing.lg,
+    borderWidth: 1, borderColor: Colors.surface.border,
+  },
+  usualShopLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  usualShopTitle: { fontFamily: Fonts.bodyBold, fontSize: 14, color: Colors.text.primary },
+  usualShopSub: { fontFamily: Fonts.body, fontSize: 12, color: Colors.text.secondary },
   statValue: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 20, color: Colors.text.primary },
   statLabel: { fontFamily: 'DMSans_500Medium', fontSize: 11, color: Colors.text.secondary, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
   comingSoon: { fontFamily: 'DMSans_400Regular', fontSize: 9, color: Colors.text.tertiary, marginTop: 1 },

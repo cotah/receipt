@@ -752,6 +752,154 @@ Pairs:
         return []
 
 
+@router.get("/my-usual-shop")
+async def get_my_usual_shop(
+    limit: int = Query(20, ge=1, le=50),
+    user_id: str = Depends(get_current_user),
+):
+    """My Usual Shop — user's frequent products with best prices per store.
+
+    Returns:
+    - items: list of frequent products with cheapest price per store
+    - store_totals: total basket cost at each store
+    - cheapest_store: store with lowest total
+    - total_saving: saving vs most expensive store
+    """
+    from app.utils.text_utils import generate_product_key
+
+    cache_key = f"usual_shop:{user_id}:{limit}"
+    cached = get_cache(cache_key)
+    if cached:
+        return cached
+
+    db = get_service_client()
+    now = datetime.now(timezone.utc)
+
+    # 1. Get user's top products by purchase count
+    try:
+        patterns = (
+            db.table("user_product_patterns")
+            .select("normalized_name, category, purchase_count, avg_price, last_purchased_at")
+            .eq("user_id", user_id)
+            .order("purchase_count", desc=True)
+            .limit(limit)
+            .execute()
+        )
+    except Exception:
+        patterns = type("R", (), {"data": []})()
+
+    if not patterns.data:
+        result = {"items": [], "store_totals": [], "cheapest_store": None, "total_saving": 0, "item_count": 0}
+        set_cache(cache_key, result, ttl_seconds=300)
+        return result
+
+    # 2. For each product, find current prices across all stores
+    items = []
+    store_prices: dict[str, float] = {}  # store → running total
+    store_item_count: dict[str, int] = {}
+
+    for p in patterns.data:
+        name = p["normalized_name"]
+        if not name or len(name) < 3:
+            continue
+
+        product_key = generate_product_key(name)
+
+        # Get current prices for this product from all stores
+        prices = (
+            db.table("collective_prices")
+            .select("store_name, unit_price, is_on_offer, promotion_text, image_url, expires_at")
+            .eq("product_key", product_key)
+            .gte("expires_at", now.isoformat())
+            .order("unit_price")
+            .execute()
+        )
+
+        if not prices.data:
+            # Try fuzzy search by name
+            prices = (
+                db.table("collective_prices")
+                .select("store_name, unit_price, is_on_offer, promotion_text, image_url, expires_at")
+                .ilike("product_name", f"%{name[:20]}%")
+                .gte("expires_at", now.isoformat())
+                .order("unit_price")
+                .limit(10)
+                .execute()
+            )
+
+        store_list = []
+        cheapest_price = None
+        cheapest_store = None
+
+        # Deduplicate by store (take cheapest per store)
+        seen_stores: set[str] = set()
+        for row in (prices.data or []):
+            store = row["store_name"]
+            if store in seen_stores:
+                continue
+            seen_stores.add(store)
+
+            price = float(row["unit_price"])
+            store_list.append({
+                "store_name": store,
+                "unit_price": price,
+                "is_on_offer": row.get("is_on_offer", False),
+                "promotion_text": row.get("promotion_text"),
+                "image_url": row.get("image_url"),
+            })
+
+            if cheapest_price is None or price < cheapest_price:
+                cheapest_price = price
+                cheapest_store = store
+
+            # Add to store running totals
+            store_prices[store] = store_prices.get(store, 0) + price
+            store_item_count[store] = store_item_count.get(store, 0) + 1
+
+        # Check if price dropped vs what user usually pays
+        avg_paid = float(p.get("avg_price") or 0)
+        price_dropped = cheapest_price is not None and avg_paid > 0 and cheapest_price < avg_paid * 0.95
+
+        items.append({
+            "product_name": name,
+            "product_key": product_key,
+            "category": p.get("category", "Other"),
+            "purchase_count": p["purchase_count"],
+            "avg_price_paid": round(avg_paid, 2) if avg_paid else None,
+            "cheapest_price": round(cheapest_price, 2) if cheapest_price else None,
+            "cheapest_store": cheapest_store,
+            "price_dropped": price_dropped,
+            "stores": store_list,
+        })
+
+    # 3. Calculate store totals (only stores that have most items)
+    min_items = max(1, len(items) // 2)  # Store must have at least half the items
+    store_totals = []
+    for store, total in sorted(store_prices.items(), key=lambda x: x[1]):
+        if store_item_count.get(store, 0) >= min_items:
+            store_totals.append({
+                "store_name": store,
+                "total": round(total, 2),
+                "item_count": store_item_count[store],
+            })
+
+    cheapest = store_totals[0] if store_totals else None
+    most_expensive = store_totals[-1] if len(store_totals) > 1 else None
+    saving = round(most_expensive["total"] - cheapest["total"], 2) if cheapest and most_expensive else 0
+
+    result = {
+        "items": items,
+        "store_totals": store_totals,
+        "cheapest_store": cheapest["store_name"] if cheapest else None,
+        "cheapest_total": cheapest["total"] if cheapest else None,
+        "total_saving": saving,
+        "item_count": len(items),
+    }
+
+    set_cache(cache_key, result, ttl_seconds=300)
+    return result
+
+
 @router.get("/smart-timing")
 async def get_smart_timing(
     product_name: str | None = Query(None, description="Product to check timing for"),
