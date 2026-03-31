@@ -2478,16 +2478,18 @@ def _parse_tesco_price(text: str) -> float | None:
 def _save_tesco_apify_items(db, items: list) -> int:
     """Save items from Apify actor pasquetto/my-actor.
 
-    The custom Playwright actor returns:
-      {"name": "...", "price": "€3.00", "promotion": "Clubcard Price...", "page": 1}
+    Handles BOTH formats:
+    - Old HTML format: {"name", "price", "promotion", "page"}
+    - New API format:  {"product_id", "gtin", "brand_name", "name", "price", ...57 fields}
 
     IMPORTANT: Some items have multi-buy deals (e.g. "Any 2 for €6.50")
     where the actor captures the DEAL price instead of the UNIT price.
     We detect and correct this.
     """
     now = datetime.now(timezone.utc)
-    expires_at = now + timedelta(days=7)
+    expires_at = now + timedelta(days=14)
     count = 0
+    barcodes = 0
     errors = 0
 
     # Pattern to detect multi-buy deals: "Any 2 for €6.50", "3 for €5"
@@ -2503,7 +2505,6 @@ def _save_tesco_apify_items(db, items: list) -> int:
             promo = item.get("promotion") or ""
 
             # Try to get the actual unit price from multiple fields
-            # Some actors return regularPrice, unitPrice, retailPrice separately
             regular_price_raw = (
                 item.get("regularPrice")
                 or item.get("unitPrice")
@@ -2512,23 +2513,31 @@ def _save_tesco_apify_items(db, items: list) -> int:
                 or ""
             )
 
-            # Parse the main price
-            price_str = str(price_raw).replace(",", ".")
-            price_match = re.search(r"[\d]+\.[\d]{2}", price_str)
-            price = float(price_match.group()) if price_match else None
+            # Parse the main price — handle both numeric and string formats
+            if isinstance(price_raw, (int, float)):
+                price = float(price_raw)
+            else:
+                price_str = str(price_raw).replace(",", ".")
+                price_match = re.search(r"[\d]+\.?\d*", price_str)
+                price = float(price_match.group()) if price_match else None
 
             # Parse regular price if available
             reg_price = None
             if regular_price_raw:
-                reg_str = str(regular_price_raw).replace(",", ".")
-                reg_match = re.search(r"[\d]+\.[\d]{2}", reg_str)
-                reg_price = float(reg_match.group()) if reg_match else None
+                if isinstance(regular_price_raw, (int, float)):
+                    reg_price = float(regular_price_raw)
+                else:
+                    reg_str = str(regular_price_raw).replace(",", ".")
+                    reg_match = re.search(r"[\d]+\.[\d]{2}", reg_str)
+                    reg_price = float(reg_match.group()) if reg_match else None
 
             if not name or price is None:
                 continue
 
+            if price <= 0 or price > 500:
+                continue
+
             # Check for multi-buy deals in promotion text
-            # e.g. "Any 2 for €6.50 Clubcard Price"
             promotion_text = str(promo).strip() if promo else None
             multibuy = _MULTIBUY_RE.search(promo) if promo else None
 
@@ -2536,11 +2545,8 @@ def _save_tesco_apify_items(db, items: list) -> int:
                 deal_count = int(multibuy.group(1))
                 deal_total = float(multibuy.group(2))
 
-                # If captured price matches the deal total, it's WRONG
-                # e.g. price=6.50, deal="2 for 6.50" → unit should be ~3.25
                 if abs(price - deal_total) < 0.05 and deal_count > 1:
                     if reg_price and reg_price > 0:
-                        # Use the regular price (€4.00)
                         price = reg_price
                         log.info(
                             "Tesco: corrected multi-buy price '%s': "
@@ -2548,7 +2554,6 @@ def _save_tesco_apify_items(db, items: list) -> int:
                             name, deal_count, deal_total, price,
                         )
                     else:
-                        # No regular price available → calculate per-item from deal
                         price = round(deal_total / deal_count, 2)
                         log.info(
                             "Tesco: corrected multi-buy price '%s': "
@@ -2557,12 +2562,10 @@ def _save_tesco_apify_items(db, items: list) -> int:
                         )
 
             # Sanity check: reject per-kg prices (€20+ for small items)
-            # Jelly 23g at €41.30 is clearly per-kg (real price ~€0.95)
             weight_match = re.search(r"(\d+)\s*[Gg]$", name)
             if weight_match:
                 weight_g = int(weight_match.group(1))
                 if weight_g < 500 and price > 15:
-                    # Likely per-kg price, estimate real price
                     estimated = round(price * weight_g / 1000, 2)
                     if estimated < price:
                         log.info(
@@ -2573,12 +2576,21 @@ def _save_tesco_apify_items(db, items: list) -> int:
 
             is_on_offer = bool(promo)
             product_key = generate_product_key(name)
+
+            # Category — prefer rich API data, fallback to generic
             category = (
-                item.get("category")
-                or item.get("main_category")
+                item.get("main_category")
+                or item.get("category")
                 or item.get("product_category")
+                or item.get("category_source")
                 or "Other"
             )
+            # Clean category name: "fresh-food" → "Fresh Food"
+            if "-" in category:
+                category = category.replace("-", " ").title()
+
+            # Source: catalog for category items, leaflet for promotions
+            source = "catalog" if item.get("source_type") == "api" else "leaflet"
 
             upsert_data = {
                 "product_key": product_key,
@@ -2587,7 +2599,7 @@ def _save_tesco_apify_items(db, items: list) -> int:
                 "store_name": "Tesco",
                 "unit_price": float(price),
                 "is_on_offer": is_on_offer,
-                "source": "leaflet",
+                "source": source,
                 "observed_at": now.isoformat(),
                 "expires_at": expires_at.isoformat(),
             }
@@ -2599,6 +2611,31 @@ def _save_tesco_apify_items(db, items: list) -> int:
                 on_conflict="product_key,store_name,source",
             ).execute()
             count += 1
+
+            # ── Save barcode to barcode_catalog if available ──
+            gtin = item.get("gtin") or item.get("barcode")
+            if gtin:
+                gtin = str(gtin).strip().lstrip("0") or str(gtin).strip()
+                if len(gtin) >= 8:
+                    try:
+                        db.table("barcode_catalog").upsert(
+                            {
+                                "barcode": gtin,
+                                "product_name": name,
+                                "product_key": product_key,
+                                "brand": item.get("brand_name") or "",
+                                "category": category,
+                                "package_size": str(item.get("netContents") or ""),
+                                "image_url": item.get("image_url") or "",
+                                "store_name": "Tesco",
+                                "last_seen": now.isoformat(),
+                            },
+                            on_conflict="barcode",
+                        ).execute()
+                        barcodes += 1
+                    except Exception:
+                        pass  # barcode_catalog may not exist yet
+
         except Exception as e:
             errors += 1
             log.warning("_save_tesco_apify_items: item error: %s", e)
@@ -2610,18 +2647,18 @@ def _save_tesco_apify_items(db, items: list) -> int:
                     pass
 
     log.info(
-        "_save_tesco_apify_items: saved %d/%d items (%d errors)",
-        count, len(items), errors,
+        "_save_tesco_apify_items: saved %d/%d items, %d barcodes (%d errors)",
+        count, len(items), barcodes, errors,
     )
     return count
 
 
 async def scrape_tesco_promotions() -> None:
-    """Scrape Tesco Ireland via Apify actor."""
+    """Scrape Tesco Ireland via Apify actor (full catalog + promotions)."""
     db = get_service_client()
     run_id = _start_run(db, "Tesco")
 
-    log.info("Tesco scraper: starting via Apify...")
+    log.info("Tesco scraper: starting via Apify (full catalog mode)...")
 
     if not (settings.APIFY_API_TOKEN and settings.APIFY_ACTOR_TESCO):
         log.error("Tesco scraper: APIFY_API_TOKEN or APIFY_ACTOR_TESCO not set")
@@ -2631,7 +2668,8 @@ async def scrape_tesco_promotions() -> None:
     try:
         items = await _run_apify_actor(
             settings.APIFY_ACTOR_TESCO,
-            {"maxPages": 24},
+            {"maxPages": 30, "mode": "full"},
+            timeout_secs=3600,
         )
         if items:
             saved = _save_tesco_apify_items(db, items)

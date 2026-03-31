@@ -49,14 +49,12 @@ async def lifespan(app: FastAPI):
         log.info("All required API keys loaded")
 
     from app.workers.intelligence_worker import setup_intelligence_scheduler
-    from app.workers.catalog_worker import setup_catalog_scheduler
 
     setup_leaflet_scheduler(scheduler)
     setup_alert_scheduler(scheduler)
     setup_price_scheduler(scheduler)
     setup_email_report_scheduler(scheduler)
     setup_intelligence_scheduler(scheduler)
-    setup_catalog_scheduler(scheduler)
 
     # Deals engine — every 2 days at 04:00 UTC (after scrapers)
     from app.workers.deals_worker import generate_all_deals, snapshot_prices_to_history
@@ -229,16 +227,6 @@ async def debug_embed_products(request: Request):
 
     asyncio.create_task(_run())
     return {"status": "started", "message": "Embedding generation running in background"}
-
-
-@app.post("/api/v1/debug/run-catalog")
-async def debug_run_catalog(request: Request):
-    """Force-run full Tesco IE catalog scrape — requires X-Admin-Key header."""
-    _verify_admin_key(request)
-    from app.workers.catalog_worker import run_tesco_catalog_scraper
-
-    asyncio.create_task(run_tesco_catalog_scraper())
-    return {"status": "started", "message": "Tesco catalog scraper running in background"}
 
 
 def _verify_admin_key(request: Request):
