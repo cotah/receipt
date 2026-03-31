@@ -793,9 +793,86 @@ async def barcode_lookup(
             )
 
     if not bc_result.data:
-        result = {"found": False, "barcode": barcode, "product": None, "stores": []}
-        set_cache(cache_key, result, ttl_seconds=120)
-        return result
+        # Not in our DB — try Open Food Facts + UPCitemdb in real-time
+        import httpx
+        found_name = None
+        found_brand = None
+        found_image = None
+        found_category = None
+
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                # Try Open Food Facts first
+                off_resp = await client.get(
+                    f"https://world.openfoodfacts.org/api/v2/product/{barcode}.json",
+                    params={"fields": "product_name,brands,image_url,categories"},
+                    headers={"User-Agent": "SmartDocket/1.0"},
+                )
+                if off_resp.status_code == 200:
+                    off_data = off_resp.json()
+                    if off_data.get("status") == 1:
+                        p = off_data.get("product", {})
+                        found_name = p.get("product_name")
+                        found_brand = p.get("brands")
+                        found_image = p.get("image_url")
+                        found_category = (p.get("categories") or "").split(",")[0].strip() or None
+
+                # If OFF didn't find it, try UPCitemdb
+                if not found_name:
+                    upc_resp = await client.get(
+                        "https://api.upcitemdb.com/prod/trial/lookup",
+                        params={"upc": barcode},
+                        headers={"Accept": "application/json", "User-Agent": "SmartDocket/1.0"},
+                    )
+                    if upc_resp.status_code == 200:
+                        upc_data = upc_resp.json()
+                        items = upc_data.get("items", [])
+                        if items:
+                            found_name = items[0].get("title")
+                            found_brand = items[0].get("brand")
+                            found_category = items[0].get("category")
+                            images = items[0].get("images", [])
+                            if images:
+                                found_image = images[0]
+        except Exception:
+            pass  # Network failures are ok — just means we can't auto-find
+
+        if found_name:
+            # Save to barcode_catalog automatically
+            product_key = generate_product_key(found_name)
+            try:
+                db.table("barcode_catalog").upsert({
+                    "barcode": barcode,
+                    "product_name": found_name,
+                    "product_key": product_key,
+                    "brand": found_brand or "",
+                    "category": found_category or "Other",
+                    "image_url": found_image or "",
+                    "source": "user_scan",
+                }).execute()
+            except Exception:
+                pass
+            # Now continue with normal flow using this data
+            bc_result = type("R", (), {"data": [{
+                "barcode": barcode,
+                "product_name": found_name,
+                "product_key": product_key,
+                "brand": found_brand or "",
+                "category": found_category or "Other",
+                "package_size": "",
+                "image_url": found_image or "",
+            }]})()
+        else:
+            # Not found anywhere — return not_found so frontend can ask user
+            result = {
+                "found": False,
+                "barcode": barcode,
+                "product": None,
+                "stores": [],
+                "can_contribute": True,
+            }
+            set_cache(cache_key, result, ttl_seconds=60)
+            return result
 
     product = bc_result.data[0]
     product_key = product["product_key"]
@@ -865,6 +942,40 @@ async def barcode_lookup(
 
     set_cache(cache_key, result, ttl_seconds=300)
     return result
+
+
+@router.post("/barcode-contribute")
+async def barcode_contribute(
+    barcode: str = Query(..., min_length=8),
+    product_name: str = Query(..., min_length=2),
+    user_id: str = Depends(get_current_user),
+):
+    """User manually enters product name for an unknown barcode. Awards 10 points."""
+    from app.utils.text_utils import generate_product_key
+
+    db = get_service_client()
+    product_key = generate_product_key(product_name)
+
+    try:
+        db.table("barcode_catalog").upsert({
+            "barcode": barcode,
+            "product_name": product_name,
+            "product_key": product_key,
+            "category": "Other",
+            "source": "user_contribution",
+        }).execute()
+    except Exception:
+        raise HTTPException(status_code=500, detail="Could not save barcode")
+
+    # Award 10 points
+    try:
+        profile = db.table("profiles").select("points").eq("id", user_id).single().execute()
+        current = (profile.data or {}).get("points") or 0
+        db.table("profiles").update({"points": current + 10}).eq("id", user_id).execute()
+    except Exception:
+        pass
+
+    return {"status": "ok", "points_earned": 10, "product_key": product_key}
 
 
 @router.get("/my-usual-shop")

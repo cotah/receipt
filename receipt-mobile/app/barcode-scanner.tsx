@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Alert, Vibration } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Alert, Vibration, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
@@ -85,6 +85,8 @@ export default function BarcodeScannerScreen() {
   const resetScan = useCallback(() => {
     setScannedBarcode(null);
     setResult(null);
+    setManualName('');
+    setContributed(false);
     lastScanned.current = '';
     cooldown.current = false;
   }, []);
@@ -103,6 +105,27 @@ export default function BarcodeScannerScreen() {
       Alert.alert('Error', 'Could not add to list');
     }
   }, [result]);
+
+  // Manual contribution state
+  const [manualName, setManualName] = useState('');
+  const [isContributing, setIsContributing] = useState(false);
+  const [contributed, setContributed] = useState(false);
+
+  const contributeBarcode = useCallback(async () => {
+    if (!manualName.trim() || !scannedBarcode) return;
+    setIsContributing(true);
+    try {
+      await api.post('/prices/barcode-contribute', null, {
+        params: { barcode: scannedBarcode, product_name: manualName.trim() },
+      });
+      setContributed(true);
+      Alert.alert('Thanks!', 'Product added to our database. You earned 10 points!');
+    } catch {
+      Alert.alert('Error', 'Could not save product');
+    } finally {
+      setIsContributing(false);
+    }
+  }, [manualName, scannedBarcode]);
 
   // Permission handling
   if (!permission) {
@@ -183,12 +206,41 @@ export default function BarcodeScannerScreen() {
           {/* Result: Not found */}
           {result && !result.found && (
             <Card style={styles.notFoundCard}>
-              <Feather name="search" size={40} color={Colors.text.tertiary} />
-              <Text style={styles.notFoundTitle}>Product not found</Text>
-              <Text style={styles.notFoundText}>
-                Barcode {result.barcode} is not in our database yet.
-              </Text>
-              <Button title="Scan another" onPress={resetScan} />
+              {contributed ? (
+                <>
+                  <Feather name="check-circle" size={40} color="#3CB371" />
+                  <Text style={styles.notFoundTitle}>Thanks for contributing!</Text>
+                  <Text style={styles.notFoundText}>
+                    +10 points earned. Next time someone scans this barcode, they'll find it.
+                  </Text>
+                  <Button title="Scan another" onPress={resetScan} />
+                </>
+              ) : (
+                <>
+                  <Feather name="plus-circle" size={40} color={Colors.primary.default} />
+                  <Text style={styles.notFoundTitle}>New product found!</Text>
+                  <Text style={styles.notFoundText}>
+                    Barcode {result.barcode} isn't in our database yet. Help us by entering the product name and earn 10 points!
+                  </Text>
+                  <TextInput
+                    style={styles.contributeInput}
+                    placeholder="e.g. Brennans Sliced Pan 800g"
+                    placeholderTextColor={Colors.text.tertiary}
+                    value={manualName}
+                    onChangeText={setManualName}
+                    autoFocus
+                  />
+                  <View style={styles.contributeActions}>
+                    <Button
+                      title={isContributing ? 'Saving...' : 'Add product (+10 pts)'}
+                      onPress={contributeBarcode}
+                    />
+                    <Pressable onPress={resetScan} style={styles.skipLink}>
+                      <Text style={styles.skipText}>Skip</Text>
+                    </Pressable>
+                  </View>
+                </>
+              )}
             </Card>
           )}
 
@@ -331,6 +383,15 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body, fontSize: 14, color: Colors.text.secondary,
     textAlign: 'center', marginBottom: Spacing.sm,
   },
+  contributeInput: {
+    width: '100%', borderWidth: 1, borderColor: Colors.surface.border,
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+    fontFamily: Fonts.bodySemiBold, fontSize: 15, color: Colors.text.primary,
+    marginBottom: Spacing.sm,
+  },
+  contributeActions: { alignItems: 'center', gap: Spacing.sm, width: '100%' },
+  skipLink: { paddingVertical: 8 },
+  skipText: { fontFamily: Fonts.body, fontSize: 14, color: Colors.text.secondary },
   productCard: { marginBottom: Spacing.md },
   productHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8,
