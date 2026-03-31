@@ -716,7 +716,7 @@ Pairs:
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4.1-nano",
+            model="gpt-5.4-nano",
             temperature=0,
             max_completion_tokens=200,
             messages=[{"role": "user", "content": prompt}],
@@ -1576,7 +1576,7 @@ Products:
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4.1-nano",
+            model="gpt-5.4-nano",
             max_completion_tokens=batch_size * 15,
             messages=[{"role": "user", "content": prompt}],
         )

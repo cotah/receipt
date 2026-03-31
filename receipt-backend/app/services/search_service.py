@@ -542,7 +542,7 @@ Reply ONLY with number and YES/NO:
 {chr(10).join(pairs)}"""
 
         response = await client.chat.completions.create(
-            model="gpt-4.1-nano",
+            model="gpt-5.4-nano",
             temperature=0,
             max_completion_tokens=150,
             messages=[{"role": "user", "content": verify_prompt}],

@@ -162,7 +162,7 @@ async def extract_receipt_data(raw_text: str) -> dict:
     price_lines = len(re.findall(r'€\d+\.\d{2}\s*$', raw_text, re.MULTILINE))
 
     response = await client.chat.completions.create(
-        model="gpt-4.1-nano",
+        model="gpt-5.4-nano",
         messages=[
             {"role": "user", "content": EXTRACTION_PROMPT.format(raw_text=raw_text)}
         ],
@@ -181,7 +181,7 @@ async def extract_receipt_data(raw_text: str) -> dict:
             len(items), price_lines,
         )
         response = await client.chat.completions.create(
-            model="gpt-4.1-nano",
+            model="gpt-5.4-nano",
             messages=[
                 {"role": "user", "content": EXTRACTION_PROMPT.format(raw_text=raw_text)},
                 {"role": "assistant", "content": response.choices[0].message.content},
@@ -206,7 +206,7 @@ async def extract_receipt_data(raw_text: str) -> dict:
 async def extract_leaflet_products(raw_text: str, store_name: str) -> list[dict]:
     """Extract products from leaflet OCR text."""
     response = await client.chat.completions.create(
-        model="gpt-4.1-nano",
+        model="gpt-5.4-nano",
         messages=[
             {
                 "role": "user",
