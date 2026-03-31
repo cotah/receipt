@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     WEBSHARE_PROXY_URL: str = ""
     APIFY_API_TOKEN: str = ""
     APIFY_ACTOR_TESCO: str = "t36eNfgaUdCTqMetE"
+    APIFY_ACTOR_TESCO_CATALOG: str = "radeance/tesco-scraper"
     APIFY_ACTOR_DUNNES: str = ""
     APIFY_ACTOR_SUPERVALU: str = ""
     APIFY_ACTOR_ALDI: str = ""
