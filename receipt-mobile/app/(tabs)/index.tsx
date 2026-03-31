@@ -187,6 +187,18 @@ export default function HomeScreen() {
           <Feather name="chevron-right" size={18} color={Colors.text.tertiary} />
         </Pressable>
 
+        {/* Barcode Scanner shortcut */}
+        <Pressable onPress={() => router.push('/barcode-scanner')} style={styles.usualShopBtn}>
+          <View style={styles.usualShopLeft}>
+            <Feather name="maximize" size={18} color={Colors.accent.blue} />
+            <View>
+              <Text style={styles.usualShopTitle}>Scan barcode</Text>
+              <Text style={styles.usualShopSub}>Compare prices instantly in-store</Text>
+            </View>
+          </View>
+          <Feather name="chevron-right" size={18} color={Colors.text.tertiary} />
+        </Pressable>
+
         {/* Running Low */}
         {runningLow.length > 0 && (
           <View style={styles.section}>

@@ -752,6 +752,121 @@ Pairs:
         return []
 
 
+@router.get("/barcode-lookup")
+async def barcode_lookup(
+    barcode: str = Query(..., min_length=8, description="EAN/UPC barcode to look up"),
+    user_id: str = Depends(get_current_user),
+):
+    """Barcode Scanner — look up a product by barcode and return prices across all stores.
+
+    Flow: barcode → barcode_catalog → product_key → collective_prices (all stores)
+    """
+    from app.utils.text_utils import generate_product_key
+
+    cache_key = f"barcode:{barcode}"
+    cached = get_cache(cache_key)
+    if cached:
+        return cached
+
+    db = get_service_client()
+    now = datetime.now(timezone.utc)
+
+    # 1. Look up barcode in barcode_catalog
+    bc_result = (
+        db.table("barcode_catalog")
+        .select("barcode, product_name, product_key, brand, category, package_size, image_url")
+        .eq("barcode", barcode)
+        .limit(1)
+        .execute()
+    )
+
+    # Also try with leading zeros stripped/added
+    if not bc_result.data:
+        stripped = barcode.lstrip("0")
+        if stripped != barcode:
+            bc_result = (
+                db.table("barcode_catalog")
+                .select("barcode, product_name, product_key, brand, category, package_size, image_url")
+                .eq("barcode", stripped)
+                .limit(1)
+                .execute()
+            )
+
+    if not bc_result.data:
+        result = {"found": False, "barcode": barcode, "product": None, "stores": []}
+        set_cache(cache_key, result, ttl_seconds=120)
+        return result
+
+    product = bc_result.data[0]
+    product_key = product["product_key"]
+
+    # 2. Find prices across all stores
+    prices = (
+        db.table("collective_prices")
+        .select("store_name, product_name, unit_price, is_on_offer, promotion_text, image_url, expires_at, source")
+        .eq("product_key", product_key)
+        .gte("expires_at", now.isoformat())
+        .order("unit_price")
+        .execute()
+    )
+
+    # If no exact product_key match, try fuzzy by name
+    if not prices.data:
+        name_search = product["product_name"][:25]
+        prices = (
+            db.table("collective_prices")
+            .select("store_name, product_name, unit_price, is_on_offer, promotion_text, image_url, expires_at, source")
+            .ilike("product_name", f"%{name_search}%")
+            .gte("expires_at", now.isoformat())
+            .order("unit_price")
+            .limit(10)
+            .execute()
+        )
+
+    # Deduplicate by store (cheapest per store)
+    stores = []
+    seen_stores: set[str] = set()
+    for row in (prices.data or []):
+        store = row["store_name"]
+        if store in seen_stores:
+            continue
+        seen_stores.add(store)
+
+        price = float(row["unit_price"])
+        stores.append({
+            "store_name": store,
+            "product_name": row["product_name"],
+            "unit_price": price,
+            "is_on_offer": row.get("is_on_offer", False),
+            "promotion_text": row.get("promotion_text"),
+            "image_url": row.get("image_url") or product.get("image_url"),
+            "is_cheapest": len(stores) == 0,  # First = cheapest (sorted by price)
+        })
+
+    cheapest = stores[0] if stores else None
+    most_expensive = stores[-1] if len(stores) > 1 else None
+    saving = round(most_expensive["unit_price"] - cheapest["unit_price"], 2) if cheapest and most_expensive else 0
+
+    result = {
+        "found": True,
+        "barcode": barcode,
+        "product": {
+            "name": product["product_name"],
+            "brand": product.get("brand", ""),
+            "category": product.get("category", "Other"),
+            "package_size": product.get("package_size", ""),
+            "image_url": product.get("image_url", ""),
+        },
+        "stores": stores,
+        "cheapest_store": cheapest["store_name"] if cheapest else None,
+        "cheapest_price": cheapest["unit_price"] if cheapest else None,
+        "saving": saving,
+    }
+
+    set_cache(cache_key, result, ttl_seconds=300)
+    return result
+
+
 @router.get("/my-usual-shop")
 async def get_my_usual_shop(
     limit: int = Query(20, ge=1, le=50),
