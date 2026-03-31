@@ -9,6 +9,7 @@ import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import StoreTag from '../../components/prices/StoreTag';
+import ExpiryBadge from '../../components/prices/ExpiryBadge';
 import { Colors, Shadows } from '../../constants/colors';
 import { Spacing, BorderRadius, Fonts } from '../../constants/typography';
 import { formatCurrency } from '../../utils/formatCurrency';
@@ -369,6 +370,7 @@ export default function PricesScreen() {
                             {deal.promotion_text && (
                               <Text style={styles.goldenPromo}>{deal.promotion_text}</Text>
                             )}
+                            <ExpiryBadge validUntil={deal.valid_until} />
                           </View>
                           <View style={styles.dealRight}>
                             <Text style={styles.goldenPrice}>{formatCurrency(deal.current_price)}</Text>
@@ -407,6 +409,7 @@ export default function PricesScreen() {
                             {deal.promotion_text && (
                               <Text style={styles.dealPromo} numberOfLines={2}>{deal.promotion_text}</Text>
                             )}
+                            <ExpiryBadge validUntil={deal.valid_until} />
                           </View>
                           <View style={styles.dealRight}>
                             <Text style={styles.dealPrice}>{formatCurrency(deal.current_price)}</Text>
@@ -442,6 +445,7 @@ export default function PricesScreen() {
                             {deal.promotion_text && (
                               <Text style={styles.dealPromo} numberOfLines={2}>{deal.promotion_text}</Text>
                             )}
+                            <ExpiryBadge validUntil={deal.valid_until} />
                           </View>
                           <View style={styles.dealRight}>
                             <Text style={styles.dealPrice}>{formatCurrency(deal.current_price)}</Text>
