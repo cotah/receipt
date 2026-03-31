@@ -11,10 +11,11 @@ import { useAuthStore } from '../../stores/authStore';
 import api from '../../services/api';
 
 const EARN_METHODS = [
-  { icon: 'camera', title: 'Scan a receipt', points: '15', desc: 'Upload your shopping receipt' },
-  { icon: 'check-circle', title: 'Verify a price', points: '5', desc: 'Confirm a price is still accurate' },
-  { icon: 'tag', title: 'Report an offer', points: '10', desc: 'Spotted a deal? Share it first' },
-  { icon: 'users', title: 'Refer a friend', points: '50', desc: 'Both you and your friend earn points' },
+  { icon: 'camera', title: 'Scan a receipt', points: '10–25', desc: 'Take a photo of your shopping receipt' },
+  { icon: 'maximize', title: 'Link barcodes', points: '30', desc: 'Scan product barcodes after a receipt (2x points!)' },
+  { icon: 'plus-circle', title: 'Add a product', points: '10', desc: 'Scan an unknown barcode and name it' },
+  { icon: 'users', title: 'Refer a friend', points: '50', desc: 'You earn when your friend goes Pro' },
+  { icon: 'thumbs-up', title: 'Confirm a saving', points: '10', desc: 'Confirm SmartDocket helped you save' },
 ];
 
 interface ContributeData {

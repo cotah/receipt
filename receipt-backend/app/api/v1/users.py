@@ -125,7 +125,13 @@ async def redeem_referral(
     body: RedeemReferralRequest,
     user_id: str = Depends(get_current_user),
 ):
-    """Redeem a referral code. Both referrer and referee get 50 points."""
+    """Redeem a referral code.
+
+    - Referee (person using code): ALWAYS gets 50 points immediately.
+    - Referrer (person who shared code):
+      - If referrer is PRO → gets 50 points immediately
+      - If referrer is FREE → gets 50 points when referee subscribes to Pro
+    """
     db = get_service_client()
     code = body.referral_code.strip().upper()
 
@@ -142,36 +148,49 @@ async def redeem_referral(
 
     # Find referrer
     referrer = db.table("profiles").select(
-        "id, points"
+        "id, points, plan"
     ).eq("referral_code", code).single().execute()
     if not referrer.data:
         raise HTTPException(status_code=404, detail="Invalid referral code")
 
     referrer_id = referrer.data["id"]
-    referrer_points = (referrer.data.get("points") or 0) + 50
+    referrer_plan = referrer.data.get("plan", "free")
 
-    # Get current user points
+    # Referee ALWAYS gets 50 pts
     my_points_q = db.table("profiles").select(
         "points"
     ).eq("id", user_id).single().execute()
     my_points = ((my_points_q.data or {}).get("points") or 0) + 50
 
-    # Update both
     db.table("profiles").update({
         "referred_by": code,
         "points": my_points,
     }).eq("id", user_id).execute()
 
-    db.table("profiles").update({
-        "points": referrer_points,
-    }).eq("id", referrer_id).execute()
+    # Referrer: PRO gets 50 pts now. FREE gets pts when referee goes Pro.
+    referrer_earned = 0
+    if referrer_plan == "pro":
+        referrer_points = (referrer.data.get("points") or 0) + 50
+        db.table("profiles").update({
+            "points": referrer_points,
+        }).eq("id", referrer_id).execute()
+        referrer_earned = 50
+        log.info(
+            "Referral redeemed: %s used code %s (PRO referrer %s). +50 pts each.",
+            user_id, code, referrer_id,
+        )
+    else:
+        log.info(
+            "Referral redeemed: %s used code %s (FREE referrer %s). Referee +50 pts. Referrer deferred until Pro upgrade.",
+            user_id, code, referrer_id,
+        )
 
-    log.info(
-        "Referral redeemed: %s used code %s (referrer %s). +50 pts each.",
-        user_id, code, referrer_id,
-    )
-
-    return {"status": "ok", "points_earned": 50}
+    return {
+        "status": "ok",
+        "points_earned": 50,
+        "referrer_earned": referrer_earned,
+        "referrer_deferred": referrer_earned == 0,
+    }
 
 
 @router.get("/me/contribute")
@@ -213,10 +232,11 @@ async def get_contribute_status(user_id: str = Depends(get_current_user)):
 
     # How to earn points
     actions = [
-        {"action": "Scan a receipt", "points": 15, "icon": "camera", "description": "Upload your shopping receipt"},
-        {"action": "Verify a price", "points": 5, "icon": "check-circle", "description": "Confirm a price is still accurate"},
-        {"action": "Report an offer", "points": 10, "icon": "tag", "description": "Spotted a deal? Share it first"},
-        {"action": "Refer a friend", "points": 50, "icon": "users", "description": "Both you and your friend earn points"},
+        {"action": "Scan a receipt", "points": 10, "icon": "camera", "description": "Take a photo of your shopping receipt"},
+        {"action": "Link barcodes", "points": 30, "icon": "maximize", "description": "Scan product barcodes after a receipt (2x points!)"},
+        {"action": "Add a product", "points": 10, "icon": "plus-circle", "description": "Scan an unknown barcode and name it"},
+        {"action": "Refer a friend", "points": 50, "icon": "users", "description": "You earn when your friend goes Pro"},
+        {"action": "Confirm a saving", "points": 10, "icon": "thumbs-up", "description": "Confirm SmartDocket helped you save"},
     ]
 
     # Leaderboard — top 10 users by points this month

@@ -99,11 +99,20 @@ async def stripe_webhook(request: Request):
         if user_id:
             db.table("profiles").update(update_data).eq("id", user_id).execute()
             log.info("Stripe: user %s upgraded to Pro (by id)", user_id)
+            # Award deferred referral points to FREE referrer
+            _award_deferred_referral(db, user_id)
         elif customer_email:
             db.table("profiles").update(update_data).eq(
                 "email", customer_email
             ).execute()
             log.info("Stripe: user %s upgraded to Pro (by email)", customer_email)
+            # Try to find user_id by email for referral check
+            try:
+                user_q = db.table("profiles").select("id").eq("email", customer_email).single().execute()
+                if user_q.data:
+                    _award_deferred_referral(db, user_q.data["id"])
+            except Exception:
+                pass
 
     elif event["type"] == "customer.subscription.deleted":
         subscription = event["data"]["object"]
@@ -123,3 +132,36 @@ async def stripe_webhook(request: Request):
             log.error("Stripe: failed to process cancellation: %s", e)
 
     return {"status": "ok"}
+
+
+def _award_deferred_referral(db, user_id: str):
+    """When a user upgrades to Pro, check if their referrer was FREE and award deferred 50 pts."""
+    try:
+        profile = db.table("profiles").select(
+            "referred_by"
+        ).eq("id", user_id).single().execute()
+
+        referred_by = (profile.data or {}).get("referred_by")
+        if not referred_by:
+            return  # Not referred by anyone
+
+        # Find the referrer
+        referrer = db.table("profiles").select(
+            "id, points, plan"
+        ).eq("referral_code", referred_by).single().execute()
+
+        if not referrer.data:
+            return
+
+        # Only award if referrer is FREE (PRO referrers already got points at redeem time)
+        if referrer.data.get("plan") != "pro":
+            current_pts = referrer.data.get("points") or 0
+            db.table("profiles").update({
+                "points": current_pts + 50,
+            }).eq("id", referrer.data["id"]).execute()
+            log.info(
+                "Deferred referral: awarded 50 pts to FREE referrer %s (referee %s went Pro)",
+                referrer.data["id"], user_id,
+            )
+    except Exception as e:
+        log.warning("Deferred referral check failed: %s", e)
