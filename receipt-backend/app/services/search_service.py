@@ -527,24 +527,41 @@ async def find_alternatives(
         for i, alt in enumerate(candidates):
             pairs.append(f'{i+1}. "{product_name}" vs "{alt["product_name"]}"')
 
-        verify_prompt = f"""Are these the EXACT SAME type of grocery product? Only different brand/size is OK.
+        verify_prompt = f"""You are a deterministic grocery product comparator. Your sole function is to decide whether pairs of supermarket products are the SAME product type. You operate inside a production price-comparison pipeline — your output is parsed programmatically.
 
-STRICT: Same product type, same cut, same form = YES. Different type/cut/form = NO.
-- "Chicken Breast 500g" vs "Chicken Breast Fillets 1kg" = YES (same cut)
-- "Chicken Breast" vs "Chicken Thighs" = NO (different cut!)
-- "Apple Juice 1L" vs "Pure Apple Juice 500ml" = YES (same juice)
-- "Apple Juice" vs "Orange Juice" = NO (different fruit!)
-- "Milk 2L" vs "Low Fat Milk 1L" = YES (same product)
-- "Milk" vs "Oat Drink" = NO (different product!)
+ABSOLUTE OUTPUT CONTRACT:
+For each numbered pair, return EXACTLY: the pair number, a period, a space, then YES or NO.
+One pair per line. No blank lines. Zero text before or after. No explanations. No reasoning.
 
-Reply ONLY with number and YES/NO:
+THE CORE QUESTION:
+"Would a consumer doing a weekly grocery shop consider these interchangeable?"
+YES = same product type, same form, same essential variant. Buying one instead of the other satisfies the same meal/recipe need.
+NO = different product type, different animal cut, different fruit/vegetable, different form, or different core function.
+
+THE 8 MATCHING LAWS:
+
+LAW 1 — IGNORE THESE (never affect answer): Brand name, pack size/weight/volume, price, organic/non-organic, free range/standard, fat level (whole/low fat/skimmed milk = all milk), salt modifier (salted/unsalted butter = butter), packaging format, "fresh" label, country of origin, sliced/unsliced, marketing words (premium, finest, classic).
+
+LAW 2 — CORE PRODUCT IDENTITY MUST MATCH: Extract core product noun(s). "Chicken Breast Fillets" and "Chicken Breast 1kg" = both chicken breast = YES. "Chicken Breast" and "Chicken Thighs" = different cuts = NO. "Apple Juice" and "Orange Juice" = different fruit = NO.
+
+LAW 3 — CRITICAL DIFFERENTIATORS (any difference = NO): Animal species (chicken/turkey/beef/pork/lamb/salmon/cod). Meat cut (breast/thigh/leg/wing/mince/fillet/steak/diced/drumstick/loin/chop). Fruit/veg type (apple/orange/banana/strawberry/tomato/potato/onion). Grain type (white rice/brown rice/pasta/noodles). Bread type (white/brown/sourdough/wholemeal/wrap/pitta/tortilla). Cheese type (cheddar/mozzarella/brie/feta/cream cheese). Drink base (milk/oat drink/soy drink/juice/water/cola). Juice fruit (apple/orange/cranberry/pineapple). Flavour (salt&vinegar vs cheese&onion crisps, strawberry vs vanilla yoghurt). Product form (fresh/frozen/tinned/dried/smoked). Product function (butter/margarine, sugar/sweetener). Preparation state (raw vs cooked chicken, fresh vs dried pasta).
+
+LAW 4 — SUB-VARIANTS ARE SAME PRODUCT: Mature Cheddar vs Mild Cheddar = YES. Red Onions vs White Onions = YES. Cherry Tomatoes vs Vine Tomatoes = YES. Penne vs Fusilli = YES (both pasta). Whole Milk vs Semi-Skimmed = YES. Greek Yoghurt vs Natural Yoghurt = YES. Salted vs Unsalted Butter = YES. Still vs Sparkling Water = YES. Back Rashers vs Streaky Rashers = YES.
+
+LAW 5 — FORM BOUNDARY (different form = NO): Fresh vs Frozen = NO. Fresh vs Tinned = NO. Fresh vs Smoked = NO. Block Cheese vs Grated Cheese = NO. Whole Chicken vs Chicken Breast = NO. EXCEPTION: pre-packed vs loose = YES, sliced vs unsliced = YES, fresh OJ vs from-concentrate OJ = YES.
+
+LAW 6 — COMPOSITE PRODUCTS MATCH ONLY IF SAME RECIPE: Margherita Pizza vs Margherita Pizza = YES. Margherita vs Pepperoni = NO. Chicken Curry vs Beef Curry = NO. Vegetable Soup vs Chicken Soup = NO.
+
+LAW 7 — AMBIGUITY: "Chicken" alone vs "Chicken Breast" = NO (vague vs specific). "Mince" alone = assume beef mince. "Sausages" alone = assume pork. "Bread" alone vs "White Bread" = NO. Both equally vague ("Cheese" vs "Cheese") = YES.
+
+LAW 8 — FINAL GATE: "If I sent someone to buy Product A and they came back with Product B, would I send them back?" Accept = YES. Send back = NO. When uncertain, default to NO.
 
 {chr(10).join(pairs)}"""
 
         response = await client.chat.completions.create(
             model="gpt-5.4-nano",
             temperature=0,
-            max_completion_tokens=150,
+            max_completion_tokens=200,
             messages=[{"role": "user", "content": verify_prompt}],
         )
         answer = response.choices[0].message.content.strip()
