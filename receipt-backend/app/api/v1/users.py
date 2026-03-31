@@ -1,7 +1,7 @@
 import logging
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.utils.auth_utils import get_current_user
@@ -172,3 +172,107 @@ async def redeem_referral(
     )
 
     return {"status": "ok", "points_earned": 50}
+
+
+@router.get("/me/contribute")
+async def get_contribute_status(user_id: str = Depends(get_current_user)):
+    """Gamification status — points, level, weekly challenge, leaderboard."""
+    db = get_service_client()
+
+    # Get user points
+    profile = db.table("profiles").select(
+        "points, scans_this_month, plan, created_at"
+    ).eq("id", user_id).single().execute()
+    points = (profile.data or {}).get("points") or 0
+    scans = (profile.data or {}).get("scans_this_month") or 0
+
+    # Level calculation
+    if points >= 1000:
+        level = {"name": "Price Master", "emoji": "🏆", "min": 1000}
+    elif points >= 500:
+        level = {"name": "Smart Shopper", "emoji": "⭐", "min": 500}
+    elif points >= 200:
+        level = {"name": "Bargain Hunter", "emoji": "🎯", "min": 200}
+    elif points >= 100:
+        level = {"name": "Saver", "emoji": "💚", "min": 100}
+    elif points >= 25:
+        level = {"name": "Newcomer", "emoji": "🌱", "min": 25}
+    else:
+        level = {"name": "Getting Started", "emoji": "👋", "min": 0}
+
+    # Weekly challenge: scan X receipts this week
+    challenge_target = 5
+    challenge = {
+        "title": "Price Hunter",
+        "description": f"Scan & verify {challenge_target} products this week",
+        "progress": min(scans, challenge_target),
+        "target": challenge_target,
+        "bonus_points": 100,
+        "complete": scans >= challenge_target,
+    }
+
+    # How to earn points
+    actions = [
+        {"action": "Scan a receipt", "points": 15, "icon": "camera", "description": "Upload your shopping receipt"},
+        {"action": "Verify a price", "points": 5, "icon": "check-circle", "description": "Confirm a price is still accurate"},
+        {"action": "Report an offer", "points": 10, "icon": "tag", "description": "Spotted a deal? Share it first"},
+        {"action": "Refer a friend", "points": 50, "icon": "users", "description": "Both you and your friend earn points"},
+    ]
+
+    # Leaderboard — top 10 users by points this month
+    try:
+        top_users = (
+            db.table("profiles")
+            .select("id, full_name, points")
+            .order("points", desc=True)
+            .limit(10)
+            .execute()
+        )
+        leaderboard = []
+        my_rank = None
+        for i, u in enumerate(top_users.data or []):
+            name = u.get("full_name") or "Anonymous"
+            # Abbreviate: "John Smith" → "John S."
+            parts = name.split()
+            display = f"{parts[0]} {parts[1][0]}." if len(parts) > 1 else parts[0]
+            entry = {
+                "rank": i + 1,
+                "name": display,
+                "points": u.get("points") or 0,
+                "is_me": u["id"] == user_id,
+            }
+            leaderboard.append(entry)
+            if u["id"] == user_id:
+                my_rank = i + 1
+    except Exception:
+        leaderboard = []
+        my_rank = None
+
+    return {
+        "points": points,
+        "level": level,
+        "challenge": challenge,
+        "actions": actions,
+        "leaderboard": leaderboard,
+        "my_rank": my_rank,
+    }
+
+
+@router.post("/me/verify-price")
+async def verify_price(
+    product_key: str = Query(...),
+    store_name: str = Query(...),
+    user_id: str = Depends(get_current_user),
+):
+    """User confirms a price is still accurate — earns 5 points."""
+    db = get_service_client()
+
+    # Award points
+    try:
+        profile = db.table("profiles").select("points").eq("id", user_id).single().execute()
+        current = (profile.data or {}).get("points") or 0
+        db.table("profiles").update({"points": current + 5}).eq("id", user_id).execute()
+    except Exception as e:
+        log.warning("verify_price points error: %s", e)
+
+    return {"status": "ok", "points_earned": 5}
