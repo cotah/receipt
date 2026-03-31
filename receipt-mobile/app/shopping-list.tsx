@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Alert, ActivityIndicator, TextInput, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import Card from '../components/ui/Card';
 import StoreTag from '../components/prices/StoreTag';
 import { Colors } from '../constants/colors';
-import { Spacing } from '../constants/typography';
+import { Spacing, BorderRadius, Fonts } from '../constants/typography';
 import { formatCurrency } from '../utils/formatCurrency';
 import api from '../services/api';
 
@@ -35,6 +35,13 @@ export default function ShoppingListScreen() {
   const [estimatedTotal, setEstimatedTotal] = useState(0);
   const [checkedCount, setCheckedCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [sharedWith, setSharedWith] = useState<string | null>(null);
+
+  // Sharing state
+  const [showShare, setShowShare] = useState(false);
+  const [shareCode, setShareCode] = useState<string | null>(null);
+  const [joinCode, setJoinCode] = useState('');
+  const [isSharing, setIsSharing] = useState(false);
 
   const fetchList = useCallback(async () => {
     try {
@@ -43,15 +50,64 @@ export default function ShoppingListScreen() {
       setTotalItems(data.total_items || 0);
       setEstimatedTotal(data.estimated_total || 0);
       setCheckedCount(data.checked_count || 0);
+      setSharedWith(data.shared_with || null);
     } catch {
-      // Silent fail
     } finally {
       setIsLoading(false);
     }
   }, []);
 
+  const fetchShareStatus = useCallback(async () => {
+    try {
+      const { data } = await api.get('/shopping-list/share-status');
+      setShareCode(data.share_code || null);
+      setSharedWith(data.partner_name || null);
+    } catch {}
+  }, []);
+
+  const generateShareCode = async () => {
+    try {
+      const { data } = await api.post('/shopping-list/share');
+      setShareCode(data.share_code);
+      Share.share({ message: `Join my SmartDocket shopping list! Use code: ${data.share_code}` });
+    } catch {
+      Alert.alert('Error', 'Could not generate share code');
+    }
+  };
+
+  const joinList = async () => {
+    if (!joinCode.trim()) return;
+    setIsSharing(true);
+    try {
+      const { data } = await api.post('/shopping-list/join', null, { params: { code: joinCode.trim() } });
+      setSharedWith(data.shared_with);
+      setShowShare(false);
+      setJoinCode('');
+      fetchList();
+      Alert.alert('Linked!', `Now sharing with ${data.shared_with}`);
+    } catch (e: any) {
+      Alert.alert('Error', e?.response?.data?.detail || 'Invalid code');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const unlinkList = async () => {
+    Alert.alert('Stop sharing?', 'You will no longer see each other\'s items.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Unlink', style: 'destructive', onPress: async () => {
+        try {
+          await api.delete('/shopping-list/unlink');
+          setSharedWith(null);
+          fetchList();
+        } catch {}
+      }},
+    ]);
+  };
+
   useEffect(() => {
     fetchList();
+    fetchShareStatus();
     // Safety: never stay loading forever
     const timeout = setTimeout(() => setIsLoading(false), 8000);
     return () => clearTimeout(timeout);
@@ -124,8 +180,63 @@ export default function ShoppingListScreen() {
           <Feather name="arrow-left" size={24} color={Colors.text.primary} />
         </Pressable>
         <Text style={styles.headerTitle}>Shopping List</Text>
-        <View style={{ width: 24 }} />
+        <Pressable onPress={() => setShowShare(!showShare)} hitSlop={12}>
+          <Feather name="users" size={22} color={sharedWith ? Colors.primary.default : Colors.text.secondary} />
+        </Pressable>
       </View>
+
+      {/* Sharing panel */}
+      {showShare && (
+        <Card style={styles.sharePanel}>
+          {sharedWith ? (
+            <View>
+              <View style={styles.shareRow}>
+                <Feather name="link" size={16} color={Colors.primary.default} />
+                <Text style={styles.shareLinked}>Sharing with {sharedWith}</Text>
+              </View>
+              <Pressable onPress={unlinkList} style={styles.unlinkBtn}>
+                <Text style={styles.unlinkText}>Stop sharing</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.shareOptions}>
+              <Pressable onPress={generateShareCode} style={styles.shareCodeBtn}>
+                <Feather name="share-2" size={16} color="#FFF" />
+                <Text style={styles.shareCodeBtnText}>
+                  {shareCode ? `Code: ${shareCode}` : 'Share my list'}
+                </Text>
+              </Pressable>
+              <Text style={styles.shareOr}>or join someone:</Text>
+              <View style={styles.joinRow}>
+                <TextInput
+                  style={styles.joinInput}
+                  placeholder="Enter code"
+                  placeholderTextColor={Colors.text.tertiary}
+                  value={joinCode}
+                  onChangeText={setJoinCode}
+                  autoCapitalize="characters"
+                  maxLength={8}
+                />
+                <Pressable
+                  onPress={joinList}
+                  style={[styles.joinBtn, isSharing && { opacity: 0.5 }]}
+                  disabled={isSharing}
+                >
+                  <Text style={styles.joinBtnText}>Join</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+        </Card>
+      )}
+
+      {/* Shared indicator */}
+      {sharedWith && !showShare && (
+        <View style={styles.sharedBanner}>
+          <Feather name="users" size={13} color={Colors.primary.default} />
+          <Text style={styles.sharedBannerText}>Shared with {sharedWith}</Text>
+        </View>
+      )}
 
       {/* Summary bar */}
       {totalItems > 0 && (
@@ -251,4 +362,36 @@ const styles = StyleSheet.create({
   itemPrice: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 13, color: Colors.accent.green },
   itemSource: { fontFamily: 'DMSans_400Regular', fontSize: 11, color: Colors.text.tertiary },
   removeBtn: { padding: 8 },
+
+  // Sharing
+  sharePanel: { marginHorizontal: Spacing.md, marginBottom: Spacing.sm, padding: Spacing.md },
+  shareRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  shareLinked: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.primary, flex: 1 },
+  unlinkBtn: { marginTop: 8, alignSelf: 'flex-start' },
+  unlinkText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: '#C74343' },
+  shareOptions: { gap: 8 },
+  shareCodeBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.primary.default, borderRadius: 10,
+    paddingHorizontal: 16, paddingVertical: 10, alignSelf: 'flex-start',
+  },
+  shareCodeBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: '#FFF' },
+  shareOr: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.secondary },
+  joinRow: { flexDirection: 'row', gap: 8 },
+  joinInput: {
+    flex: 1, borderWidth: 1, borderColor: Colors.surface.border,
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+    fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: Colors.text.primary,
+    letterSpacing: 2,
+  },
+  joinBtn: {
+    backgroundColor: Colors.primary.default, borderRadius: 10,
+    paddingHorizontal: 20, justifyContent: 'center',
+  },
+  joinBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: '#FFF' },
+  sharedBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: Spacing.md, paddingVertical: 4,
+  },
+  sharedBannerText: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.primary.default },
 });

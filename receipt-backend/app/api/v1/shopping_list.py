@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.database import get_service_client
@@ -33,18 +33,48 @@ async def get_shopping_list(
 ):
     """Get user's shopping list, grouped by store.
 
+    Includes items from shared partner (if linked via list_shared_with).
+
     Returns:
     - items grouped by store_name (null store = "Any Store")
     - total estimated cost per store
     - overall total
     - checked/unchecked counts
+    - shared_with: partner name (if sharing)
     """
     db = get_service_client()
 
+    # Check if user has a shared partner
+    user_ids = [user_id]
+    shared_with_name = None
+    try:
+        profile = (
+            db.table("profiles")
+            .select("list_shared_with")
+            .eq("id", user_id)
+            .single()
+            .execute()
+        )
+        partner_id = (profile.data or {}).get("list_shared_with")
+        if partner_id:
+            user_ids.append(partner_id)
+            # Get partner's name
+            partner = (
+                db.table("profiles")
+                .select("full_name")
+                .eq("id", partner_id)
+                .single()
+                .execute()
+            )
+            shared_with_name = (partner.data or {}).get("full_name", "Partner")
+    except Exception:
+        pass
+
+    # Get items from both users
     items = (
         db.table("shopping_list_items")
         .select("*")
-        .eq("user_id", user_id)
+        .in_("user_id", user_ids)
         .eq("is_checked", False)
         .order("store_name")
         .order("category")
@@ -89,6 +119,7 @@ async def get_shopping_list(
         "total_items": sum(len(s["items"]) for s in stores),
         "estimated_total": round(overall_total, 2),
         "checked_count": checked.count or 0,
+        "shared_with": shared_with_name,
     }
 
 
@@ -343,4 +374,123 @@ async def optimize_shopping_list(
             "savings_vs_single": max(savings_vs_single, 0),
         },
         "items": item_prices,
+    }
+
+
+# ─── Sharing endpoints ───
+
+@router.post("/share")
+async def share_list(user_id: str = Depends(get_current_user)):
+    """Generate a share code for the user's shopping list."""
+    import secrets
+    db = get_service_client()
+
+    # Check if user already has a share code
+    profile = (
+        db.table("profiles")
+        .select("list_share_code, full_name")
+        .eq("id", user_id)
+        .single()
+        .execute()
+    )
+
+    existing_code = (profile.data or {}).get("list_share_code")
+    if existing_code:
+        return {"share_code": existing_code}
+
+    # Generate unique 6-char code
+    code = secrets.token_hex(3).upper()  # e.g. "A1B2C3"
+    db.table("profiles").update({"list_share_code": code}).eq("id", user_id).execute()
+
+    return {"share_code": code}
+
+
+@router.post("/join")
+async def join_shared_list(
+    code: str = Query(..., min_length=4),
+    user_id: str = Depends(get_current_user),
+):
+    """Join someone's shared shopping list using their code."""
+    db = get_service_client()
+
+    # Find the owner of this code
+    owner = (
+        db.table("profiles")
+        .select("id, full_name")
+        .eq("list_share_code", code.upper().strip())
+        .single()
+        .execute()
+    )
+
+    if not owner.data:
+        raise HTTPException(status_code=404, detail="Invalid share code")
+
+    owner_id = owner.data["id"]
+    if owner_id == user_id:
+        raise HTTPException(status_code=400, detail="Cannot join your own list")
+
+    # Link both users
+    db.table("profiles").update({"list_shared_with": owner_id}).eq("id", user_id).execute()
+    db.table("profiles").update({"list_shared_with": user_id}).eq("id", owner_id).execute()
+
+    return {
+        "status": "ok",
+        "shared_with": owner.data.get("full_name", "Partner"),
+    }
+
+
+@router.delete("/unlink")
+async def unlink_shared_list(user_id: str = Depends(get_current_user)):
+    """Stop sharing shopping list with partner."""
+    db = get_service_client()
+
+    # Get current partner
+    profile = (
+        db.table("profiles")
+        .select("list_shared_with")
+        .eq("id", user_id)
+        .single()
+        .execute()
+    )
+    partner_id = (profile.data or {}).get("list_shared_with")
+
+    # Unlink both sides
+    db.table("profiles").update({"list_shared_with": None}).eq("id", user_id).execute()
+    if partner_id:
+        db.table("profiles").update({"list_shared_with": None}).eq("id", partner_id).execute()
+
+    return {"status": "ok"}
+
+
+@router.get("/share-status")
+async def share_status(user_id: str = Depends(get_current_user)):
+    """Check sharing status — who you're sharing with."""
+    db = get_service_client()
+
+    profile = (
+        db.table("profiles")
+        .select("list_share_code, list_shared_with")
+        .eq("id", user_id)
+        .single()
+        .execute()
+    )
+
+    data = profile.data or {}
+    partner_id = data.get("list_shared_with")
+    partner_name = None
+
+    if partner_id:
+        partner = (
+            db.table("profiles")
+            .select("full_name")
+            .eq("id", partner_id)
+            .single()
+            .execute()
+        )
+        partner_name = (partner.data or {}).get("full_name", "Partner")
+
+    return {
+        "share_code": data.get("list_share_code"),
+        "is_sharing": partner_id is not None,
+        "partner_name": partner_name,
     }
