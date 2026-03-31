@@ -70,12 +70,16 @@ def _token_similarity(a: str, b: str) -> float:
 def _group_products(rows: list[dict]) -> list[dict]:
     """Group products that are likely the same item across stores.
 
+    SIZE-AWARE: Products with different weights/sizes are NOT grouped together.
+    e.g. "Honey 1kg" and "Honey 340g" stay separate because they're different products.
+
     Returns a list of product groups, each with store prices.
     """
-    groups: list[dict] = []  # [{norm_name, display_name, stores: [...]}]
+    groups: list[dict] = []  # [{norm_name, display_name, weight_g, stores: [...]}]
 
     for row in rows:
         norm = _normalize_for_grouping(row["product_name"])
+        weight_g = _extract_weight_grams(row["product_name"])
         store_entry = {
             "store_name": row["store_name"],
             "product_name": row["product_name"],
@@ -91,6 +95,22 @@ def _group_products(rows: list[dict]) -> list[dict]:
         for group in groups:
             sim = _token_similarity(norm, group["norm_name"])
             if sim >= 0.6:
+                # SIZE CHECK: don't group products with significantly different weights
+                g_weight = group.get("weight_g")
+                if weight_g and g_weight:
+                    # Both have weights — only group if within 30% of each other
+                    ratio = max(weight_g, g_weight) / min(weight_g, g_weight)
+                    if ratio > 1.3:
+                        continue  # Different sizes → skip, try next group or create new
+                elif (weight_g and not g_weight) or (g_weight and not weight_g):
+                    # One has weight, other doesn't — check price ratio as proxy
+                    existing_price = group["stores"][0]["unit_price"]
+                    new_price = store_entry["unit_price"]
+                    if existing_price > 0 and new_price > 0:
+                        price_ratio = max(existing_price, new_price) / min(existing_price, new_price)
+                        if price_ratio > 1.8:
+                            continue  # Price too different → likely different sizes
+
                 # Check this store isn't already in the group
                 existing_stores = {s["store_name"] for s in group["stores"]}
                 if store_entry["store_name"] not in existing_stores:
@@ -114,6 +134,7 @@ def _group_products(rows: list[dict]) -> list[dict]:
                 "norm_name": norm,
                 "display_name": row["product_name"],
                 "product_key": row.get("product_key", ""),
+                "weight_g": weight_g,
                 "stores": [store_entry],
             })
 

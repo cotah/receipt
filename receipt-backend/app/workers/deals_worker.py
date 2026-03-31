@@ -39,7 +39,7 @@ async def _generate_trending_deals(db, count: int = 4) -> list[dict]:
     - Products with is_on_offer=true
     - Cross-store savings opportunities
     """
-    from app.services.search_service import _normalize_for_grouping, _token_similarity
+    from app.services.search_service import _normalize_for_grouping, _token_similarity, _extract_weight_grams
 
     now = datetime.now(timezone.utc)
     deals = []
@@ -62,9 +62,11 @@ async def _generate_trending_deals(db, count: int = 4) -> list[dict]:
         return []
 
     # Smart grouping: normalize names and find same product across stores
+    # SIZE-AWARE: products with different weights are NOT grouped
     groups: list[dict] = []
     for row in offers.data or []:
         norm = _normalize_for_grouping(row["product_name"])
+        weight_g = _extract_weight_grams(row["product_name"])
         entry = {
             "product_key": row["product_key"],
             "product_name": row["product_name"],
@@ -76,6 +78,18 @@ async def _generate_trending_deals(db, count: int = 4) -> list[dict]:
         matched = False
         for group in groups:
             if _token_similarity(norm, group["norm"]) >= 0.6:
+                # SIZE CHECK: don't group different weights
+                g_weight = group.get("weight_g")
+                if weight_g and g_weight:
+                    ratio = max(weight_g, g_weight) / min(weight_g, g_weight)
+                    if ratio > 1.3:
+                        continue
+                elif (weight_g and not g_weight) or (g_weight and not weight_g):
+                    existing_price = group["stores"][0]["unit_price"]
+                    price_ratio = max(existing_price, entry["unit_price"]) / min(existing_price, entry["unit_price"]) if min(existing_price, entry["unit_price"]) > 0 else 99
+                    if price_ratio > 1.8:
+                        continue
+
                 existing_stores = {s["store_name"] for s in group["stores"]}
                 if entry["store_name"] not in existing_stores:
                     group["stores"].append(entry)
@@ -83,7 +97,7 @@ async def _generate_trending_deals(db, count: int = 4) -> list[dict]:
                 break
 
         if not matched:
-            groups.append({"norm": norm, "stores": [entry]})
+            groups.append({"norm": norm, "weight_g": weight_g, "stores": [entry]})
 
     # Find groups with biggest cross-store savings
     savings_list: list[tuple[float, dict]] = []
