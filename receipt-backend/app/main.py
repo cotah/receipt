@@ -75,6 +75,19 @@ async def lifespan(app: FastAPI):
     )
     log.info("Deals engine scheduled: every 2 days at 04:00 UTC")
 
+    # Product enrichment — daily at 05:00 UTC (after scrapers + deals)
+    from app.services.enrichment_service import run_full_enrichment
+
+    scheduler.add_job(
+        run_full_enrichment,
+        "cron",
+        hour=5,
+        minute=0,
+        id="product_enrichment",
+        replace_existing=True,
+    )
+    log.info("Product enrichment scheduled: daily at 05:00 UTC")
+
     scheduler.start()
     log.info("Background workers started")
 
@@ -227,6 +240,16 @@ async def debug_embed_products(request: Request):
 
     asyncio.create_task(_run())
     return {"status": "started", "message": "Embedding generation running in background"}
+
+
+@app.post("/api/v1/debug/run-enrichment")
+async def debug_run_enrichment(request: Request):
+    """Run product enrichment (barcode_catalog + Open Food Facts) — requires X-Admin-Key."""
+    _verify_admin_key(request)
+    from app.services.enrichment_service import run_full_enrichment
+
+    result = await run_full_enrichment()
+    return {"status": "done", **result}
 
 
 def _verify_admin_key(request: Request):

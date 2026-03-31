@@ -2079,6 +2079,7 @@ def _parse_supervalu_page(
             # Name — use img alt (cleaner than aria text)
             img = card.find("img")
             name = img.get("alt", "").strip() if img else ""
+            image_url = img.get("src", "") if img else ""
             if not name:
                 # Fallback: AriaProductTitle
                 aria = card.find(
@@ -2123,18 +2124,22 @@ def _parse_supervalu_page(
 
             product_key = generate_product_key(name)
 
+            upsert_data = {
+                "product_key": product_key,
+                "product_name": name,
+                "category": "Other",
+                "store_name": "SuperValu",
+                "unit_price": price,
+                "is_on_offer": is_on_offer,
+                "source": "leaflet",
+                "observed_at": now.isoformat(),
+                "expires_at": expires_at.isoformat(),
+            }
+            if image_url:
+                upsert_data["image_url"] = image_url
+
             db.table("collective_prices").upsert(
-                {
-                    "product_key": product_key,
-                    "product_name": name,
-                    "category": "Other",
-                    "store_name": "SuperValu",
-                    "unit_price": price,
-                    "is_on_offer": is_on_offer,
-                    "source": "leaflet",
-                    "observed_at": now.isoformat(),
-                    "expires_at": expires_at.isoformat(),
-                },
+                upsert_data,
                 on_conflict="product_key,store_name,source",
             ).execute()
             count += 1
@@ -2432,18 +2437,23 @@ def _save_supervalu_apify_items(db, items: list) -> int:
 
             product_key = generate_product_key(name)
 
+            upsert_data = {
+                "product_key": product_key,
+                "product_name": name,
+                "category": "Other",
+                "store_name": "SuperValu",
+                "unit_price": float(price),
+                "is_on_offer": is_on_offer,
+                "source": "leaflet",
+                "observed_at": now.isoformat(),
+                "expires_at": expires_at.isoformat(),
+            }
+            image_url = item.get("image_url") or item.get("imageUrl") or ""
+            if image_url:
+                upsert_data["image_url"] = image_url
+
             db.table("collective_prices").upsert(
-                {
-                    "product_key": product_key,
-                    "product_name": name,
-                    "category": "Other",
-                    "store_name": "SuperValu",
-                    "unit_price": float(price),
-                    "is_on_offer": is_on_offer,
-                    "source": "leaflet",
-                    "observed_at": now.isoformat(),
-                    "expires_at": expires_at.isoformat(),
-                },
+                upsert_data,
                 on_conflict="product_key,store_name,source",
             ).execute()
             count += 1
@@ -2605,6 +2615,10 @@ def _save_tesco_apify_items(db, items: list) -> int:
             }
             if promotion_text:
                 upsert_data["promotion_text"] = promotion_text
+
+            img_url = item.get("image_url") or item.get("imageUrl") or ""
+            if img_url:
+                upsert_data["image_url"] = img_url
 
             db.table("collective_prices").upsert(
                 upsert_data,
