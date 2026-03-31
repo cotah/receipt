@@ -944,23 +944,68 @@ async def barcode_lookup(
     return result
 
 
+@router.get("/product-autocomplete")
+async def product_autocomplete(
+    q: str = Query(..., min_length=2),
+    limit: int = Query(8, ge=1, le=20),
+    user_id: str = Depends(get_current_user),
+):
+    """Lightweight product name search for barcode linking autocomplete."""
+    from app.utils.text_utils import generate_product_key
+
+    db = get_service_client()
+    safe_q = q[:30].replace("%", "").replace("'", "")
+    if len(safe_q) < 2:
+        return {"results": []}
+
+    try:
+        rows = (
+            db.table("collective_prices")
+            .select("product_name, product_key, store_name, unit_price, image_url")
+            .ilike("product_name", f"%{safe_q}%")
+            .order("product_name")
+            .limit(50)
+            .execute()
+        )
+    except Exception:
+        return {"results": []}
+
+    # Deduplicate by product_key, keep cheapest
+    seen: dict[str, dict] = {}
+    for r in (rows.data or []):
+        key = r["product_key"]
+        price = float(r.get("unit_price") or 0)
+        if key not in seen or price < seen[key]["price"]:
+            seen[key] = {
+                "product_name": r["product_name"],
+                "product_key": key,
+                "store_name": r["store_name"],
+                "price": price,
+                "image_url": r.get("image_url"),
+            }
+
+    results = sorted(seen.values(), key=lambda x: x["product_name"])[:limit]
+    return {"results": results}
+
+
 @router.post("/barcode-contribute")
 async def barcode_contribute(
     barcode: str = Query(..., min_length=8),
     product_name: str = Query(..., min_length=2),
+    product_key: str | None = Query(None),
     user_id: str = Depends(get_current_user),
 ):
-    """User manually enters product name for an unknown barcode. Awards 10 points."""
+    """User links a barcode to a product (existing or new). Awards 10 points."""
     from app.utils.text_utils import generate_product_key
 
     db = get_service_client()
-    product_key = generate_product_key(product_name)
+    key = product_key or generate_product_key(product_name)
 
     try:
         db.table("barcode_catalog").upsert({
             "barcode": barcode,
             "product_name": product_name,
-            "product_key": product_key,
+            "product_key": key,
             "category": "Other",
             "source": "user_contribution",
         }).execute()

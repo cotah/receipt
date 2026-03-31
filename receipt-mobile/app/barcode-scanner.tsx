@@ -85,7 +85,8 @@ export default function BarcodeScannerScreen() {
   const resetScan = useCallback(() => {
     setScannedBarcode(null);
     setResult(null);
-    setManualName('');
+    setSearchQuery('');
+    setSearchResults([]);
     setContributed(false);
     lastScanned.current = '';
     cooldown.current = false;
@@ -107,25 +108,64 @@ export default function BarcodeScannerScreen() {
   }, [result]);
 
   // Manual contribution state
-  const [manualName, setManualName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<{product_name: string; product_key: string; store_name: string; price: number}[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [isContributing, setIsContributing] = useState(false);
   const [contributed, setContributed] = useState(false);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const contributeBarcode = useCallback(async () => {
-    if (!manualName.trim() || !scannedBarcode) return;
+  // Debounced autocomplete search
+  const handleSearch = useCallback((text: string) => {
+    setSearchQuery(text);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (text.length < 2) { setSearchResults([]); return; }
+    searchTimer.current = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const { data } = await api.get('/prices/product-autocomplete', { params: { q: text } });
+        setSearchResults(data.results || []);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+  }, []);
+
+  // Link barcode to selected product
+  const linkToProduct = useCallback(async (productName: string, productKey: string) => {
+    if (!scannedBarcode) return;
     setIsContributing(true);
     try {
       await api.post('/prices/barcode-contribute', null, {
-        params: { barcode: scannedBarcode, product_name: manualName.trim() },
+        params: { barcode: scannedBarcode, product_name: productName, product_key: productKey },
       });
       setContributed(true);
-      Alert.alert('Thanks!', 'Product added to our database. You earned 10 points!');
+      Alert.alert('Linked!', `${productName} linked to this barcode. +10 points!`);
+    } catch {
+      Alert.alert('Error', 'Could not link product');
+    } finally {
+      setIsContributing(false);
+    }
+  }, [scannedBarcode]);
+
+  // Submit custom name (fallback)
+  const contributeCustom = useCallback(async () => {
+    if (!searchQuery.trim() || !scannedBarcode) return;
+    setIsContributing(true);
+    try {
+      await api.post('/prices/barcode-contribute', null, {
+        params: { barcode: scannedBarcode, product_name: searchQuery.trim() },
+      });
+      setContributed(true);
+      Alert.alert('Thanks!', 'Product added to our database. +10 points!');
     } catch {
       Alert.alert('Error', 'Could not save product');
     } finally {
       setIsContributing(false);
     }
-  }, [manualName, scannedBarcode]);
+  }, [searchQuery, scannedBarcode]);
 
   // Permission handling
   if (!permission) {
@@ -217,28 +257,58 @@ export default function BarcodeScannerScreen() {
                 </>
               ) : (
                 <>
-                  <Feather name="plus-circle" size={40} color={Colors.primary.default} />
-                  <Text style={styles.notFoundTitle}>New product found!</Text>
+                  <Feather name="link" size={32} color={Colors.primary.default} />
+                  <Text style={styles.notFoundTitle}>Link this barcode</Text>
                   <Text style={styles.notFoundText}>
-                    Barcode {result.barcode} isn't in our database yet. Help us by entering the product name and earn 10 points!
+                    Search for the product to link it to this barcode. Earn 10 points!
                   </Text>
                   <TextInput
                     style={styles.contributeInput}
-                    placeholder="e.g. Brennans Sliced Pan 800g"
+                    placeholder="Search product name..."
                     placeholderTextColor={Colors.text.tertiary}
-                    value={manualName}
-                    onChangeText={setManualName}
+                    value={searchQuery}
+                    onChangeText={handleSearch}
                     autoFocus
                   />
-                  <View style={styles.contributeActions}>
-                    <Button
-                      title={isContributing ? 'Saving...' : 'Add product (+10 pts)'}
-                      onPress={contributeBarcode}
-                    />
-                    <Pressable onPress={resetScan} style={styles.skipLink}>
-                      <Text style={styles.skipText}>Skip</Text>
-                    </Pressable>
-                  </View>
+
+                  {/* Autocomplete results */}
+                  {isSearching && (
+                    <ActivityIndicator size="small" color={Colors.primary.default} style={{ marginVertical: 8 }} />
+                  )}
+
+                  {searchResults.length > 0 && (
+                    <View style={styles.autocompleteList}>
+                      {searchResults.map((item) => (
+                        <Pressable
+                          key={item.product_key}
+                          style={styles.autocompleteItem}
+                          onPress={() => linkToProduct(item.product_name, item.product_key)}
+                          disabled={isContributing}
+                        >
+                          <View style={styles.autocompleteInfo}>
+                            <Text style={styles.autocompleteName} numberOfLines={1}>{item.product_name}</Text>
+                            <Text style={styles.autocompleteStore}>{item.store_name} · €{item.price.toFixed(2)}</Text>
+                          </View>
+                          <Feather name="link" size={16} color={Colors.primary.default} />
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+
+                  {searchQuery.length >= 2 && searchResults.length === 0 && !isSearching && (
+                    <View style={styles.noResultsBox}>
+                      <Text style={styles.noResultsText}>No matching products found</Text>
+                      <Button
+                        title={isContributing ? 'Saving...' : `Add "${searchQuery}" as new (+10 pts)`}
+                        onPress={contributeCustom}
+                        size="sm"
+                      />
+                    </View>
+                  )}
+
+                  <Pressable onPress={resetScan} style={styles.skipLink}>
+                    <Text style={styles.skipText}>Cancel</Text>
+                  </Pressable>
                 </>
               )}
             </Card>
@@ -387,8 +457,26 @@ const styles = StyleSheet.create({
     width: '100%', borderWidth: 1, borderColor: Colors.surface.border,
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
     fontFamily: Fonts.bodySemiBold, fontSize: 15, color: Colors.text.primary,
-    marginBottom: Spacing.sm,
+    marginBottom: 4,
   },
+  autocompleteList: {
+    width: '100%', borderWidth: 1, borderColor: Colors.surface.border,
+    borderRadius: 12, overflow: 'hidden', marginBottom: Spacing.sm,
+  },
+  autocompleteItem: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 12, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: Colors.surface.border,
+  },
+  autocompleteInfo: { flex: 1, marginRight: 8 },
+  autocompleteName: {
+    fontFamily: Fonts.bodySemiBold, fontSize: 14, color: Colors.text.primary,
+  },
+  autocompleteStore: {
+    fontFamily: Fonts.body, fontSize: 12, color: Colors.text.secondary, marginTop: 1,
+  },
+  noResultsBox: { alignItems: 'center', gap: 8, marginVertical: 8, width: '100%' },
+  noResultsText: { fontFamily: Fonts.body, fontSize: 13, color: Colors.text.secondary },
   contributeActions: { alignItems: 'center', gap: Spacing.sm, width: '100%' },
   skipLink: { paddingVertical: 8 },
   skipText: { fontFamily: Fonts.body, fontSize: 14, color: Colors.text.secondary },
