@@ -1,24 +1,49 @@
-import React from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import Card from '../../components/ui/Card';
+import Badge from '../../components/ui/Badge';
 import { Colors } from '../../constants/colors';
-import { Spacing } from '../../constants/typography';
+import { Spacing, BorderRadius, Fonts } from '../../constants/typography';
 import { useAuthStore } from '../../stores/authStore';
+import api from '../../services/api';
 
 const EARN_METHODS = [
-  { icon: 'camera', title: 'Scan a receipt', points: '10-25', desc: 'Free: 10 pts · Pro: 25 pts' },
-  { icon: 'users', title: 'Refer a friend', points: '50', desc: 'Both you and your friend earn 50' },
-  { icon: 'check-circle', title: 'Confirm a saving', points: '10', desc: 'Confirm SmartDocket helped you save' },
-  { icon: 'tag', title: 'Report a price', points: 'Soon', desc: 'Photo shelf labels for bonus points' },
+  { icon: 'camera', title: 'Scan a receipt', points: '15', desc: 'Upload your shopping receipt' },
+  { icon: 'check-circle', title: 'Verify a price', points: '5', desc: 'Confirm a price is still accurate' },
+  { icon: 'tag', title: 'Report an offer', points: '10', desc: 'Spotted a deal? Share it first' },
+  { icon: 'users', title: 'Refer a friend', points: '50', desc: 'Both you and your friend earn points' },
 ];
+
+interface ContributeData {
+  points: number;
+  level: { name: string; emoji: string; min: number };
+  challenge: { title: string; description: string; progress: number; target: number; bonus_points: number; complete: boolean };
+  leaderboard: { rank: number; name: string; points: number; is_me: boolean }[];
+  my_rank: number | null;
+}
 
 export default function RewardsScreen() {
   const router = useRouter();
   const profile = useAuthStore((s) => s.profile);
   const points = profile?.points || 0;
+  const [data, setData] = useState<ContributeData | null>(null);
+
+  const fetchContribute = useCallback(async () => {
+    try {
+      const { data: res } = await api.get<ContributeData>('/users/me/contribute');
+      setData(res);
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchContribute(); }, [fetchContribute]);
+
+  const displayPoints = data?.points ?? points;
+  const level = data?.level;
+  const challenge = data?.challenge;
+  const leaderboard = data?.leaderboard ?? [];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -31,12 +56,40 @@ export default function RewardsScreen() {
         {/* Points hero */}
         <Card variant="elevated" style={styles.heroCard}>
           <Feather name="star" size={36} color={Colors.accent.amber} />
-          <Text style={styles.heroPoints}>{points}</Text>
+          <Text style={styles.heroPoints}>{displayPoints}</Text>
           <Text style={styles.heroLabel}>points earned</Text>
+          {level && (
+            <View style={styles.levelPill}>
+              <Text style={styles.levelText}>{level.emoji} {level.name}</Text>
+            </View>
+          )}
         </Card>
 
+        {/* Weekly Challenge */}
+        {challenge && (
+          <>
+            <Text style={styles.sectionTitle}>Weekly Challenge</Text>
+            <Card style={styles.challengeCard}>
+              <View style={styles.challengeHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.challengeTitle}>{challenge.title}</Text>
+                  <Text style={styles.challengeDesc}>{challenge.description}</Text>
+                </View>
+                <View style={styles.challengeRight}>
+                  <Text style={styles.challengeCount}>{challenge.progress}/{challenge.target}</Text>
+                  <Text style={styles.challengeBonus}>+{challenge.bonus_points} bonus</Text>
+                </View>
+              </View>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${Math.min(100, (challenge.progress / challenge.target) * 100)}%` }]} />
+              </View>
+              {challenge.complete && <Badge text="Challenge complete!" variant="success" size="sm" />}
+            </Card>
+          </>
+        )}
+
         {/* How to earn */}
-        <Text style={styles.sectionTitle}>How to earn points</Text>
+        <Text style={styles.sectionTitle}>Earn points</Text>
         {EARN_METHODS.map((method) => (
           <Card key={method.title} style={styles.earnCard}>
             <View style={styles.earnRow}>
@@ -48,12 +101,27 @@ export default function RewardsScreen() {
                 <Text style={styles.earnDesc}>{method.desc}</Text>
               </View>
               <View style={styles.earnPoints}>
-                <Text style={styles.earnPts}>{method.points}</Text>
-                <Text style={styles.earnPtsLabel}>pts</Text>
+                <Text style={styles.earnPts}>+{method.points}</Text>
               </View>
             </View>
           </Card>
         ))}
+
+        {/* Leaderboard */}
+        {leaderboard.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Top Contributors</Text>
+            <Card style={styles.leaderCard}>
+              {leaderboard.map((entry, i) => (
+                <View key={entry.rank} style={[styles.leaderRow, entry.is_me && styles.leaderRowMe, i < leaderboard.length - 1 && styles.leaderBorder]}>
+                  <Text style={[styles.leaderRank, entry.rank === 1 && { color: '#E8A020' }, entry.rank === 2 && { color: '#9CA3AF' }, entry.rank === 3 && { color: '#CD7F32' }]}>{entry.rank}</Text>
+                  <Text style={[styles.leaderName, entry.is_me && styles.leaderNameMe]}>{entry.is_me ? 'You' : entry.name}</Text>
+                  <Text style={[styles.leaderPts, entry.is_me && styles.leaderPtsMe]}>{entry.points} pts</Text>
+                </View>
+              ))}
+            </Card>
+          </>
+        )}
 
         {/* Prizes */}
         <Text style={styles.sectionTitle}>Prizes & Rewards</Text>
@@ -61,7 +129,7 @@ export default function RewardsScreen() {
           <Feather name="gift" size={32} color={Colors.text.tertiary} />
           <Text style={styles.prizeTitle}>Coming soon!</Text>
           <Text style={styles.prizeDesc}>
-            We're preparing exciting prizes you can redeem with your points. Stay tuned — scan receipts and collect points now!
+            We're preparing exciting prizes you can redeem with your points. Keep scanning and collecting!
           </Text>
         </Card>
       </ScrollView>
@@ -80,7 +148,21 @@ const styles = StyleSheet.create({
   },
   heroPoints: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 56, color: Colors.accent.amber, marginTop: 8 },
   heroLabel: { fontFamily: 'DMSans_500Medium', fontSize: 16, color: 'rgba(255,255,255,0.5)', marginTop: -4 },
+  levelPill: {
+    backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 4, marginTop: 8,
+  },
+  levelText: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: 'rgba(255,255,255,0.7)' },
   sectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm, marginTop: Spacing.sm },
+  challengeCard: { marginBottom: Spacing.sm, backgroundColor: Colors.primary.default, padding: Spacing.md },
+  challengeHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.sm },
+  challengeTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#FFF' },
+  challengeDesc: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
+  challengeRight: { alignItems: 'flex-end' },
+  challengeCount: { fontFamily: 'DMSans_700Bold', fontSize: 22, color: '#FFF' },
+  challengeBonus: { fontFamily: 'DMSans_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.6)' },
+  progressTrack: { height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.2)', marginBottom: Spacing.xs },
+  progressFill: { height: 6, borderRadius: 3, backgroundColor: '#E8A020' },
   earnCard: { marginBottom: Spacing.xs },
   earnRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   earnIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.accent.greenSoft, alignItems: 'center', justifyContent: 'center' },
@@ -88,8 +170,16 @@ const styles = StyleSheet.create({
   earnTitle: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: Colors.text.primary },
   earnDesc: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.secondary, marginTop: 2 },
   earnPoints: { alignItems: 'center' },
-  earnPts: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 18, color: Colors.accent.amber },
-  earnPtsLabel: { fontFamily: 'DMSans_400Regular', fontSize: 10, color: Colors.text.tertiary },
+  earnPts: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 16, color: Colors.accent.amber },
+  leaderCard: { marginBottom: Spacing.sm, paddingVertical: 0, paddingHorizontal: 0 },
+  leaderRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: Spacing.md },
+  leaderRowMe: { backgroundColor: Colors.primary.pale },
+  leaderBorder: { borderBottomWidth: 1, borderBottomColor: Colors.surface.border },
+  leaderRank: { fontFamily: 'DMSans_700Bold', fontSize: 14, color: Colors.text.tertiary, width: 24 },
+  leaderName: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.primary, flex: 1 },
+  leaderNameMe: { color: Colors.primary.default },
+  leaderPts: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: Colors.text.secondary },
+  leaderPtsMe: { color: Colors.primary.default },
   prizesCard: { alignItems: 'center', paddingVertical: 32 },
   prizeTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginTop: 12 },
   prizeDesc: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.secondary, textAlign: 'center', lineHeight: 20, marginTop: 8, paddingHorizontal: 16 },

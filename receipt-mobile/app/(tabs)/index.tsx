@@ -199,18 +199,6 @@ export default function HomeScreen() {
           <Feather name="chevron-right" size={18} color={Colors.text.tertiary} />
         </Pressable>
 
-        {/* Contribute shortcut */}
-        <Pressable onPress={() => router.push('/contribute')} style={styles.usualShopBtn}>
-          <View style={styles.usualShopLeft}>
-            <Feather name="star" size={18} color="#E8A020" />
-            <View>
-              <Text style={styles.usualShopTitle}>Contribute</Text>
-              <Text style={styles.usualShopSub}>Earn points, complete challenges</Text>
-            </View>
-          </View>
-          <Feather name="chevron-right" size={18} color={Colors.text.tertiary} />
-        </Pressable>
-
         {/* Running Low */}
         {runningLow.length > 0 && (
           <View style={styles.section}>

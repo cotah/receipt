@@ -894,7 +894,7 @@ async def get_my_usual_shop(
     try:
         patterns = (
             db.table("user_product_patterns")
-            .select("normalized_name, category, purchase_count, avg_price, last_purchased_at")
+            .select("normalized_name, category, purchase_count, avg_price")
             .eq("user_id", user_id)
             .order("purchase_count", desc=True)
             .limit(limit)
@@ -920,27 +920,32 @@ async def get_my_usual_shop(
 
         product_key = generate_product_key(name)
 
-        # Get current prices for this product from all stores
-        prices = (
-            db.table("collective_prices")
-            .select("store_name, unit_price, is_on_offer, promotion_text, image_url, expires_at")
-            .eq("product_key", product_key)
-            .gte("expires_at", now.isoformat())
-            .order("unit_price")
-            .execute()
-        )
-
-        if not prices.data:
-            # Try fuzzy search by name
+        try:
+            # Get current prices for this product from all stores
             prices = (
                 db.table("collective_prices")
                 .select("store_name, unit_price, is_on_offer, promotion_text, image_url, expires_at")
-                .ilike("product_name", f"%{name[:20]}%")
+                .eq("product_key", product_key)
                 .gte("expires_at", now.isoformat())
                 .order("unit_price")
-                .limit(10)
                 .execute()
             )
+
+            if not prices.data:
+                # Try fuzzy search by name (escape special chars)
+                safe_name = name[:20].replace("%", "").replace("'", "''")
+                if len(safe_name) >= 3:
+                    prices = (
+                        db.table("collective_prices")
+                        .select("store_name, unit_price, is_on_offer, promotion_text, image_url, expires_at")
+                        .ilike("product_name", f"%{safe_name}%")
+                        .gte("expires_at", now.isoformat())
+                        .order("unit_price")
+                        .limit(10)
+                        .execute()
+                    )
+        except Exception:
+            continue
 
         store_list = []
         cheapest_price = None

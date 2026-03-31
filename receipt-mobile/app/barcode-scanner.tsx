@@ -264,7 +264,8 @@ export default function BarcodeScannerScreen() {
 }
 
 const OVERLAY_COLOR = 'rgba(0,0,0,0.55)';
-const VIEWFINDER_SIZE = 260;
+const VIEWFINDER_W = 300;
+const VIEWFINDER_H = 160;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
@@ -285,10 +286,10 @@ const styles = StyleSheet.create({
   camera: { flex: 1 },
   overlay: { ...StyleSheet.absoluteFillObject },
   overlayTop: { flex: 1, backgroundColor: OVERLAY_COLOR },
-  overlayMiddle: { flexDirection: 'row', height: VIEWFINDER_SIZE },
+  overlayMiddle: { flexDirection: 'row', height: VIEWFINDER_H },
   overlaySide: { flex: 1, backgroundColor: OVERLAY_COLOR },
   viewfinder: {
-    width: VIEWFINDER_SIZE, height: VIEWFINDER_SIZE,
+    width: VIEWFINDER_W, height: VIEWFINDER_H,
     borderRadius: 12, position: 'relative',
   },
   overlayBottom: {
