@@ -183,12 +183,29 @@ async def enrich_from_upcitemdb(batch_size: int = 100) -> int:
 # --- Source 4: Google Custom Search Images ---
 
 async def enrich_from_google_cse(batch_size: int = 100) -> int:
-    """Search Google Images for products without photos (100/day free)."""
+    """Search Google Images for products without photos (100/day free).
+    Only accepts images from trusted Irish supermarket domains.
+    """
     api_key = settings.GOOGLE_CSE_API_KEY
     cse_id = settings.GOOGLE_CSE_ID
     if not api_key or not cse_id:
         log.info("Google CSE: not configured, skipping")
         return 0
+
+    # Only accept images from these trusted domains
+    TRUSTED_DOMAINS = [
+        "tesco.ie", "tesco.com",           # Tesco Ireland & UK
+        "supervalu.ie",                      # SuperValu Ireland
+        "lidl.ie", "lidl.co.uk",            # Lidl Ireland & UK
+        "aldi.ie", "aldi.co.uk",            # Aldi Ireland & UK
+        "dunnesstores.com",                  # Dunnes Stores
+        "digitalcontent.api.tesco.com",      # Tesco product images CDN
+        "images.openfoodfacts.org",          # Open Food Facts (trusted)
+    ]
+
+    def _is_trusted_url(url: str) -> bool:
+        url_lower = url.lower()
+        return any(domain in url_lower for domain in TRUSTED_DOMAINS)
 
     db = get_service_client()
     updated = 0
@@ -219,9 +236,9 @@ async def enrich_from_google_cse(batch_size: int = 100) -> int:
                         params={
                             "key": api_key,
                             "cx": cse_id,
-                            "q": f"{p['product_name']} grocery product",
+                            "q": f"{p['product_name']} Ireland grocery",
                             "searchType": "image",
-                            "num": 1,
+                            "num": 5,
                             "imgSize": "medium",
                             "safe": "active",
                         },
@@ -236,7 +253,14 @@ async def enrich_from_google_cse(batch_size: int = 100) -> int:
                     if not items:
                         continue
 
-                    image_url = items[0].get("link")
+                    # Only use images from trusted supermarket domains
+                    image_url = None
+                    for item in items:
+                        link = item.get("link", "")
+                        if _is_trusted_url(link):
+                            image_url = link
+                            break
+
                     if not image_url:
                         continue
 
