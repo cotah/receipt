@@ -229,6 +229,41 @@ async def debug_embed_products(request: Request):
     return {"status": "started", "message": "Embedding generation running in background"}
 
 
+@app.post("/api/v1/debug/import-catalog-once")
+async def debug_import_catalog_once(request: Request):
+    """ONE-TIME: Import radeance catalog data then remove this endpoint."""
+    _verify_admin_key(request)
+    import httpx
+    from app.workers.leaflet_worker import _save_tesco_apify_items
+
+    ds_ids = [
+        "Sg2AH6ZNU0Z2SgZYu", "96K7hwjiBpaaPfanb", "M3RTKvgbfpmL2fkER",
+        "smk1hXdlCGShuGt7g", "IRZdnQpdQ1wBZ7M0v", "FZvCP9phJkEbbwiAI",
+        "Kdxc1bK3dcQ3xX62f", "vXJj2IJkyymDqKkZV", "JgkZqAW491bM1WEyY",
+        "lQsteTsAgK4S9Pq07",
+    ]
+    token = settings.APIFY_API_TOKEN
+    db = get_service_client()
+    all_items = []
+    seen = set()
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        for ds_id in ds_ids:
+            resp = await client.get(
+                f"https://api.apify.com/v2/datasets/{ds_id}/items",
+                params={"token": token, "limit": 1000, "format": "json"},
+            )
+            if resp.status_code == 200:
+                for item in resp.json():
+                    key = item.get("product_id") or item.get("name", "")
+                    if key not in seen:
+                        seen.add(key)
+                        all_items.append(item)
+
+    saved = _save_tesco_apify_items(db, all_items)
+    return {"status": "done", "fetched": len(all_items), "saved": saved}
+
+
 def _verify_admin_key(request: Request):
     """Check X-Admin-Key header matches ADMIN_KEY env var."""
     if not settings.ADMIN_KEY:
