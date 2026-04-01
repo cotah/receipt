@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   scroll: { padding: Spacing.md, paddingBottom: 100 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  bellWrap: { position: 'relative', padding: 6, backgroundColor: 'rgba(26,77,53,0.06)', borderRadius: 14 },
+  bellWrap: { position: 'relative', padding: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14 },
   bellBadge: {
     position: 'absolute', top: 0, right: -2,
     minWidth: 18, height: 18, borderRadius: 9,
