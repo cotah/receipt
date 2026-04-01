@@ -400,23 +400,29 @@ export default function BarcodeScannerScreen() {
           {/* Result: Found */}
           {result && result.found && result.product && (
             <>
-              {/* Product info */}
-              <Card style={styles.productCard}>
-                <View style={styles.productHeader}>
-                  <Feather name="check-circle" size={18} color="#7DDFAA" />
-                  <Text style={styles.foundLabel}>
-                    {result.barcode_in_db ? 'We already have this barcode!' : 'Product found & saved!'}
-                  </Text>
-                </View>
-                <Text style={styles.productName}>{result.product.name}</Text>
-                {result.product.brand ? (
-                  <Text style={styles.productBrand}>{result.product.brand}</Text>
-                ) : null}
-                <Text style={styles.barcodeText}>EAN: {result.barcode}</Text>
-                {!result.barcode_in_db && (
-                  <Text style={styles.savedMsg}>+10 points — thanks for contributing!</Text>
-                )}
-              </Card>
+              {/* Product info — tap to compare prices */}
+              <Pressable onPress={() => router.push({ pathname: '/(tabs)/prices', params: { search: result.product!.name } })}>
+                <Card style={styles.productCard}>
+                  <View style={styles.productHeader}>
+                    <Feather name="check-circle" size={18} color="#7DDFAA" />
+                    <Text style={styles.foundLabel}>
+                      {result.barcode_in_db ? 'We already have this barcode!' : 'Product found & saved!'}
+                    </Text>
+                  </View>
+                  <Text style={styles.productName}>{result.product.name}</Text>
+                  {result.product.brand ? (
+                    <Text style={styles.productBrand}>{result.product.brand}</Text>
+                  ) : null}
+                  <Text style={styles.barcodeText}>EAN: {result.barcode}</Text>
+                  {!result.barcode_in_db && (
+                    <Text style={styles.savedMsg}>+10 points — thanks for contributing!</Text>
+                  )}
+                  <View style={styles.tapHint}>
+                    <Text style={styles.tapHintText}>Tap to compare prices</Text>
+                    <Feather name="chevron-right" size={14} color="rgba(255,255,255,0.35)" />
+                  </View>
+                </Card>
+              </Pressable>
 
               {/* Price comparison */}
               {result.stores.length > 0 ? (
@@ -621,6 +627,14 @@ const styles = StyleSheet.create({
   },
   savedMsg: {
     fontFamily: Fonts.bodySemiBold, fontSize: 12, color: '#7DDFAA', marginTop: 6,
+  },
+  tapHint: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    marginTop: 10, paddingTop: 10,
+    borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  tapHintText: {
+    fontFamily: Fonts.bodySemiBold, fontSize: 12, color: 'rgba(255,255,255,0.35)',
   },
   storesSection: { gap: Spacing.xs },
   storeCard: { marginBottom: 0 },

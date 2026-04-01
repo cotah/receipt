@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 
 
@@ -31,6 +31,7 @@ export default function PricesScreen() {
   const [addedToList, setAddedToList] = useState<Map<string, string>>(new Map());
   const [timing, setTiming] = useState<any>(null);
   const router = useRouter();
+  const params = useLocalSearchParams<{ search?: string }>();
 
   const toggleShoppingList = useCallback(async (name: string, store: string, price: number, category?: string) => {
     const key = `${name}-${store}`;
@@ -129,6 +130,15 @@ export default function PricesScreen() {
       selectProduct(searchResults[0]);
     }
   }, [searchResults, isSearching, autoSelectFirst]);
+
+  // Handle incoming search from barcode scanner or deep link
+  useEffect(() => {
+    if (params.search && params.search.length > 0) {
+      setSearchText(params.search);
+      setAutoSelectFirst(true);
+      smartSearch(params.search);
+    }
+  }, [params.search]);
 
   const handleSearchChange = (text: string) => {
     setSearchText(text);
