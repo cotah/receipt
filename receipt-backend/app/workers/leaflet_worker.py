@@ -2706,144 +2706,153 @@ async def scrape_tesco_promotions() -> None:
 
 
 async def scrape_aldi_leaflet() -> None:
-    """Scrape Aldi Ireland leaflet using Apify Playwright actor + OCR.
+    """Scrape Aldi Ireland leaflet using direct HTTP + og:image + OCR.
 
-    Flow:
-    1. Apify actor navigates leaflet.aldi.ie pages 1-7 and captures images
-    2. Backend fetches page images from Apify dataset (base64)
-    3. Each image is OCR'd with Gemini, then products extracted with GPT
-    4. Products saved to collective_prices
+    Flow (NO Apify needed):
+    1. Fetch www.aldi.ie/leaflet → find leaflet.aldi.ie slug
+    2. For each page 1-7, fetch HTML → extract og:image URL
+    3. Download page image
+    4. OCR with Gemini Vision → extract products
+    5. Save to collective_prices
     """
     from app.services.ocr_service import direct_extract_products_from_image
+    import re as _re
+    from bs4 import BeautifulSoup
 
     db = get_service_client()
     run_id = _start_run(db, "Aldi")
     now = datetime.now(timezone.utc)
-    expires_at = now + timedelta(days=7)
     total_saved = 0
     errors = 0
+    max_pages = 7  # Only first 7 pages have grocery products
 
-    actor_id = settings.APIFY_ACTOR_ALDI
-    if not actor_id or not settings.APIFY_API_TOKEN:
-        log.info("Aldi scraper: Apify not configured — skipping")
-        _finish_run(
-            db, run_id, status="failed", fallback_level=0,
-            items_saved=0,
-            error_detail="APIFY_ACTOR_ALDI not configured",
-        )
-        return
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
 
-    log.info("Aldi scraper: starting Apify actor %s...", actor_id)
+    try:
+        # Step 1: Find current leaflet URL from aldi.ie
+        async with httpx.AsyncClient(follow_redirects=True, timeout=30, headers=headers) as client:
+            resp = await client.get("https://www.aldi.ie/leaflet")
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, "html.parser")
 
-    # Run actor (smart reuse will use recent dataset if available)
-    items = await _run_apify_actor(
-        actor_id,
-        {"maxPages": 7},
-        timeout_secs=600,
-        poll_interval=20,
-    )
+            leaflet_url = None
+            for a_tag in soup.find_all("a", href=True):
+                href = a_tag["href"]
+                if "leaflet.aldi.ie" in href and "aldi-ie" in href:
+                    leaflet_url = href.rstrip("/")
+                    break
 
-    if not items:
-        log.warning("Aldi scraper: Apify returned 0 items")
-        _finish_run(
-            db, run_id, status="failed", fallback_level=0,
-            items_saved=0,
-            error_detail="Apify actor returned 0 pages",
-        )
-        return
+            if not leaflet_url:
+                # Fallback: try the redirect URL from leaflet.aldi.ie directly
+                fallback = await client.get("https://leaflet.aldi.ie")
+                leaflet_url = str(fallback.url).rstrip("/")
 
-    log.info("Aldi scraper: processing %d page images...", len(items))
+            if not leaflet_url or "leaflet.aldi.ie" not in leaflet_url:
+                log.error("Aldi scraper: could not find leaflet URL")
+                _finish_run(db, run_id, status="failed", fallback_level=0, items_saved=0,
+                            error_detail="Could not find Aldi leaflet URL")
+                return
 
-    import base64
-    import re as _re
+            log.info("Aldi scraper: found leaflet at %s", leaflet_url)
 
-    # Dedup: same product can appear on multiple pages
-    _seen_names: set[str] = set()
+            # Step 2: For each page, get og:image and download
+            _seen_names: set[str] = set()
 
-    def _normalize_aldi_name(name: str) -> str:
-        n = name.lower().strip()
-        n = _re.sub(r'\s+\d+\s*x\s*\d+ml', '', n)
-        n = _re.sub(r'\s+\d+cl', '', n)
-        n = _re.sub(r'\s+\d+g', '', n)
-        n = _re.sub(r'\s+\d+ml', '', n)
-        n = _re.sub(r'\s+\d+kg', '', n)
-        n = _re.sub(r'\s+(each|unit|pack|tub|can|bottle)', '', n)
-        n = _re.sub(r'\s+large\s+(easter\s+)?egg', ' large egg', n)
-        n = _re.sub(r'\s+original.*', '', n)
-        n = _re.sub(r'\s+or\s+.*', '', n)
-        n = _re.sub(r'\s+delle\s+venezie.*', '', n)
-        n = _re.sub(r'[/]', ' ', n)
-        n = _re.sub(r'\s+', ' ', n).strip()
-        return n
+            def _normalize_aldi_name(name: str) -> str:
+                n = name.lower().strip()
+                n = _re.sub(r'\s+\d+\s*x\s*\d+ml', '', n)
+                n = _re.sub(r'\s+\d+cl', '', n)
+                n = _re.sub(r'\s+\d+g', '', n)
+                n = _re.sub(r'\s+\d+ml', '', n)
+                n = _re.sub(r'\s+\d+kg', '', n)
+                n = _re.sub(r'\s+(each|unit|pack|tub|can|bottle)', '', n)
+                n = _re.sub(r'\s+', ' ', n).strip()
+                return n
 
-    for item in items:
-        page_num = item.get("page", 0)
-        image_b64 = item.get("image_base64", "")
-
-        if not image_b64:
-            log.warning("Aldi scraper: page %d has no image", page_num)
-            continue
-
-        try:
-            # Decode base64 → bytes
-            # Handle data:image/jpeg;base64,... prefix
-            if "," in image_b64:
-                image_b64 = image_b64.split(",", 1)[1]
-            img_bytes = base64.b64decode(image_b64)
-
-            # Direct extraction: image → Gemini/OpenAI → JSON products
-            # Single step, more accurate than OCR→text→GPT two-step
-            products = await direct_extract_products_from_image(img_bytes, "Aldi")
-            log.info(
-                "Aldi scraper: page %d — %d products extracted",
-                page_num, len(products),
-            )
-
-            for product in products:
+            for page_num in range(1, max_pages + 1):
                 try:
-                    name = product.get("product_name", "")
-                    price = product.get("unit_price")
-                    if not name or price is None or float(price) <= 0:
+                    page_url = f"{leaflet_url}/page/{page_num}"
+                    page_resp = await client.get(page_url)
+
+                    if page_resp.status_code != 200:
+                        log.warning("Aldi scraper: page %d returned %d", page_num, page_resp.status_code)
                         continue
 
-                    # Dedup: skip if we already saved this product
-                    norm_name = _normalize_aldi_name(name)
-                    if norm_name in _seen_names:
+                    # Extract og:image from HTML
+                    page_soup = BeautifulSoup(page_resp.text, "html.parser")
+                    og_tag = page_soup.find("meta", property="og:image")
+                    if not og_tag or not og_tag.get("content"):
+                        log.warning("Aldi scraper: page %d has no og:image", page_num)
                         continue
-                    _seen_names.add(norm_name)
 
-                    from app.utils.price_utils import get_ttl_days
-                    category = product.get("category", "Other")
-                    ttl_days = get_ttl_days(category)
+                    img_url = og_tag["content"].replace("&amp;", "&")
+                    log.info("Aldi scraper: page %d → downloading image...", page_num)
 
-                    product_key = generate_product_key(
-                        name, product.get("unit"),
-                    )
-                    db.table("collective_prices").upsert(
-                        {
-                            "product_key": product_key,
-                            "product_name": name,
-                            "category": category,
-                            "store_name": "Aldi",
-                            "unit_price": float(price),
-                            "unit": product.get("unit"),
-                            "is_on_offer": product.get("is_on_offer", True),
-                            "source": "leaflet",
-                            "observed_at": now.isoformat(),
-                            "expires_at": (
-                                now + timedelta(days=max(ttl_days, 7))
-                            ).isoformat(),
-                        },
-                        on_conflict="product_key,store_name,source",
-                    ).execute()
-                    total_saved += 1
+                    # Download the page image
+                    img_resp = await client.get(img_url, timeout=30)
+                    if img_resp.status_code != 200:
+                        log.warning("Aldi scraper: page %d image download failed (%d)", page_num, img_resp.status_code)
+                        continue
+
+                    img_bytes = img_resp.content
+                    if len(img_bytes) < 1000:
+                        log.warning("Aldi scraper: page %d image too small (%d bytes)", page_num, len(img_bytes))
+                        continue
+
+                    # Step 3: OCR the image
+                    products = await direct_extract_products_from_image(img_bytes, "Aldi")
+                    log.info("Aldi scraper: page %d → %d products extracted", page_num, len(products))
+
+                    # Step 4: Save products
+                    for product in products:
+                        try:
+                            name = product.get("product_name", "")
+                            price = product.get("unit_price")
+                            if not name or price is None or float(price) <= 0:
+                                continue
+
+                            norm_name = _normalize_aldi_name(name)
+                            if norm_name in _seen_names:
+                                continue
+                            _seen_names.add(norm_name)
+
+                            from app.utils.price_utils import get_ttl_days
+                            category = product.get("category", "Other")
+                            ttl_days = get_ttl_days(category)
+
+                            product_key = generate_product_key(name, product.get("unit"))
+                            db.table("collective_prices").upsert(
+                                {
+                                    "product_key": product_key,
+                                    "product_name": name,
+                                    "category": category,
+                                    "store_name": "Aldi",
+                                    "unit_price": float(price),
+                                    "unit": product.get("unit"),
+                                    "is_on_offer": product.get("is_on_offer", True),
+                                    "source": "leaflet",
+                                    "observed_at": now.isoformat(),
+                                    "expires_at": (now + timedelta(days=max(ttl_days, 7))).isoformat(),
+                                },
+                                on_conflict="product_key,store_name,source",
+                            ).execute()
+                            total_saved += 1
+                        except Exception as e:
+                            errors += 1
+                            log.warning("Aldi scraper: item save error: %s", e)
+
                 except Exception as e:
                     errors += 1
-                    log.warning("Aldi scraper: item save error: %s", e)
+                    log.warning("Aldi scraper: page %d error: %s", page_num, e)
 
-        except Exception as e:
-            errors += 1
-            log.warning("Aldi scraper: page %d processing error: %s", page_num, e)
+    except Exception as e:
+        log.error("Aldi scraper: fatal error: %s", e)
+        _finish_run(db, run_id, status="failed", fallback_level=0, items_saved=0,
+                    error_detail=str(e)[:200])
+        return
 
     _finish_run(
         db, run_id,
@@ -2852,13 +2861,10 @@ async def scrape_aldi_leaflet() -> None:
         items_saved=total_saved,
         error_detail=(
             None if total_saved > 0
-            else f"Zero items after OCR ({len(items)} pages processed)"
+            else f"Zero items after OCR ({max_pages} pages processed)"
         ),
     )
-    log.info(
-        "Aldi scraper: finished — %d items saved, %d errors",
-        total_saved, errors,
-    )
+    log.info("Aldi scraper: finished — %d items saved, %d errors", total_saved, errors)
 
 
 async def run_leaflet_job():
