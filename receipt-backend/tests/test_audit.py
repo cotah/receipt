@@ -192,7 +192,7 @@ class TestProductKey:
         key = generate_product_key("Ben & Jerry's Ice Cream")
         assert "&" not in key
         assert "'" not in key
-        assert key == "ben_jerry_s_ice_cream"
+        assert key == "ben_cream_ice_jerry_s"
 
     def test_unicode_normalized(self):
         key = generate_product_key("Café Latte")
