@@ -126,7 +126,7 @@ export default function LoginScreen() {
           </View>
         ) : resetSent ? (
           <View style={styles.sentBox}>
-            <Feather name="mail" size={48} color={Colors.accent.green} />
+            <Feather name="mail" size={48} color={Colors.primary.default} />
             <Text style={styles.sentTitle}>Password reset sent!</Text>
             <Text style={styles.sentText}>
               We sent a reset link to {email}.{'\n\n'}
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   content: { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.lg },
   header: { alignItems: 'center', marginBottom: Spacing.xxl },
   wordmark: { width: 260, height: 80 },
-  logo: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 48, color: '#FFFFFF' },
+  logo: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 48, color: Colors.primary.dark },
   subtitle: { fontFamily: 'DMSans_500Medium', fontSize: 16, color: Colors.text.secondary, marginTop: 4 },
   form: { gap: Spacing.sm },
   oauthBtnApple: {
@@ -226,26 +226,26 @@ const styles = StyleSheet.create({
   oauthBtnAppleText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#FFF' },
   oauthBtnGoogle: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: 'rgba(255,255,255,0.08)', paddingVertical: 14, borderRadius: 12,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: '#FFF', paddingVertical: 14, borderRadius: 12,
+    borderWidth: 1, borderColor: '#E5E7EB',
   },
   googleImg: { width: 20, height: 20 },
-  oauthBtnGoogleText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#FFFFFF' },
+  oauthBtnGoogleText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#333' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 4 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.12)' },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
   dividerText: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.tertiary, marginHorizontal: 12 },
   toggleText: {
     fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.tertiary,
     textAlign: 'center', textDecorationLine: 'underline',
   },
   forgotText: {
-    fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.accent.green,
+    fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.primary.default,
     textAlign: 'right', marginTop: -4, marginBottom: 4,
   },
-  link: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.accent.green, textAlign: 'center', marginTop: Spacing.sm },
+  link: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.primary.default, textAlign: 'center', marginTop: Spacing.sm },
   sentBox: { alignItems: 'center', padding: Spacing.lg },
   sentTitle: { fontFamily: 'DMSans_700Bold', fontSize: 20, color: Colors.text.primary, marginBottom: Spacing.sm },
   sentText: { fontFamily: 'DMSans_400Regular', fontSize: 15, color: Colors.text.secondary, textAlign: 'center', lineHeight: 22 },
-  backBtn: { marginTop: Spacing.md, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10, backgroundColor: 'rgba(80,200,120,0.20)' },
+  backBtn: { marginTop: Spacing.md, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10, backgroundColor: Colors.primary.default },
   backBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: '#FFF' },
 });

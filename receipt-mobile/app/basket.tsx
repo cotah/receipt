@@ -89,7 +89,7 @@ export default function BasketScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.accent.green} />
+          <ActivityIndicator size="large" color={Colors.primary.default} />
         </View>
       </SafeAreaView>
     );
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
   },
-  headerTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: '#FFFFFF' },
+  headerTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: Colors.primary.dark },
   scroll: { padding: Spacing.md, paddingBottom: 100 },
   inputRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
   input: {
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.surface.border,
   },
   addBtn: {
-    width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(80,200,120,0.20)',
+    width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.primary.default,
     alignItems: 'center', justifyContent: 'center',
   },
   itemsList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: Spacing.md },
@@ -301,15 +301,15 @@ const styles = StyleSheet.create({
   itemChipText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.primary, maxWidth: 150 },
   optimizeBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 12,
+    backgroundColor: Colors.primary.default, borderRadius: 12,
     paddingVertical: 14, marginBottom: Spacing.lg,
   },
   optimizeBtnDisabled: { opacity: 0.5 },
-  optimizeBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 16, color: '#FFFFFF' },
+  optimizeBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 16, color: '#fff' },
   results: { marginTop: Spacing.sm },
   resultsTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: 2 },
   resultsHint: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, marginBottom: Spacing.sm },
-  splitCard: { marginBottom: Spacing.md, padding: Spacing.md, borderWidth: 1, borderColor: 'rgba(80,200,120,0.25)', backgroundColor: 'rgba(80,200,120,0.10)' },
+  splitCard: { marginBottom: Spacing.md, padding: Spacing.md, borderWidth: 1, borderColor: '#A8D5B8', backgroundColor: '#F0F9F4' },
   splitHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   splitTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: Colors.text.primary },
   splitTotal: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 18, color: Colors.accent.green, marginBottom: 4 },
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
   storeLeft: { flex: 1, gap: 4 },
   storeStats: { flexDirection: 'row', gap: 8, marginTop: 2 },
   storeAvail: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.secondary },
-  storeMissing: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: '#F07B7B' },
+  storeMissing: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: '#E85D3A' },
   storeRight: { alignItems: 'flex-end' },
   storePrice: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 20, color: Colors.text.primary },
   cheapestPrice: { color: Colors.accent.green },

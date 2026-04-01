@@ -55,12 +55,10 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   toast: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: Colors.surface.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderLeftWidth: 4,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.10)',
   },
   message: {
     fontFamily: 'DMSans_500Medium',

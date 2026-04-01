@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, ViewStyle } from 'react-native';
+import { Animated, ViewStyle, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { BorderRadius } from '../../constants/typography';
 
@@ -27,13 +27,7 @@ export default function Skeleton({ width, height, borderRadius = BorderRadius.sm
   return (
     <Animated.View
       style={[
-        {
-          width: width as any,
-          height,
-          borderRadius,
-          backgroundColor: 'rgba(255,255,255,0.06)',
-          opacity,
-        },
+        { width: width as any, height, borderRadius, backgroundColor: Colors.surface.alt, opacity },
         style,
       ]}
     />

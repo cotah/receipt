@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#FFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: Spacing.xl,
@@ -104,6 +104,6 @@ const styles = StyleSheet.create({
     height: 62,
     borderRadius: 31,
     borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: Colors.primary.dark,
   },
 });

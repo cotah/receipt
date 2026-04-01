@@ -62,10 +62,12 @@ export default function HomeScreen() {
     fetchReceipts(1);
     fetchRunningLow();
     fetchAlerts();
+    // Fetch savings + price memory
     api.get('/prices/savings-summary').then(({ data }) => setSavings(data)).catch(() => {});
     api.get('/prices/price-memory?limit=3').then(({ data }) => setPriceMemories(data.memories || [])).catch(() => {});
   }, []);
 
+  // Refetch receipts every time Home gets focus (catches status changes like failed duplicates)
   useFocusEffect(
     useCallback(() => {
       fetchReceipts(1);
@@ -74,6 +76,7 @@ export default function HomeScreen() {
   );
 
   // Auto-detect location on first login if home_area is empty
+  // Delay 1s to let profile fully load (especially for new Google accounts)
   useEffect(() => {
     if (!profile?.id || profile.home_area || locationChecked) return;
     setLocationChecked(true);
@@ -113,6 +116,7 @@ export default function HomeScreen() {
 
   const name = profile?.full_name?.split(' ')[0] ?? '';
 
+  // Calculate month total from receipts
   const now = new Date();
   const monthReceipts = receipts.filter((r) => {
     const d = new Date(r.purchased_at);
@@ -120,6 +124,8 @@ export default function HomeScreen() {
   });
   const monthTotal = monthReceipts.reduce((s, r) => s + r.total_amount, 0);
   const monthDiscounts = monthReceipts.reduce((s, r) => s + (r.discount_total ?? 0), 0);
+
+  
 
   return (
     <>
@@ -130,7 +136,7 @@ export default function HomeScreen() {
           <Text style={styles.greeting}>Hi, {name}</Text>
           <View style={styles.headerRight}>
             <Pressable onPress={() => router.push('/alerts')} style={styles.bellWrap}>
-              <Feather name="bell" size={22} color="rgba(255,255,255,0.60)" />
+              <Feather name="bell" size={22} color={Colors.text.primary} />
               {unreadCount > 0 && (
                 <View style={styles.bellBadge}>
                   <Text style={styles.bellBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
@@ -141,8 +147,8 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Main card — glass bright */}
-        <Card variant="bright" style={styles.mainCard}>
+        {/* Main card */}
+        <Card variant="elevated" style={styles.mainCard}>
           <Text style={styles.mainLabel}>Spent this month</Text>
           <Text style={styles.mainAmount}>{formatCurrency(monthTotal)}</Text>
           <Text style={styles.mainSub}>{monthReceipts.length} shops</Text>
@@ -172,7 +178,7 @@ export default function HomeScreen() {
         {/* My Usual Shop shortcut */}
         <Pressable onPress={() => router.push('/usual-shop')} style={styles.usualShopBtn}>
           <View style={styles.usualShopLeft}>
-            <Feather name="shopping-bag" size={18} color={Colors.accent.green} />
+            <Feather name="shopping-bag" size={18} color={Colors.primary.default} />
             <View>
               <Text style={styles.usualShopTitle}>My usual shop</Text>
               <Text style={styles.usualShopSub}>See where your regulars are cheapest</Text>
@@ -199,10 +205,10 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Price Memory */}
+        {/* Price Memory — products you bought that are cheaper elsewhere */}
         {priceMemories.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Price Memory</Text>
+            <Text style={styles.sectionTitle}>💰 Price Memory</Text>
             {priceMemories.map((m, i) => (
               <Card key={i} style={styles.memoryCard}>
                 <Text style={styles.memoryProduct} numberOfLines={1}>{m.product_name}</Text>
@@ -235,13 +241,13 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Best saving highlight */}
+        {/* Best saving highlight — only if ratio is < 2x (avoids false matches) */}
         {savings?.best_saving && priceMemories.length === 0 && 
          savings.best_saving.paid > 0 && savings.best_saving.now > 0 &&
          (savings.best_saving.paid / savings.best_saving.now) < 2.0 &&
          savings.best_saving.saving > 0.20 && (
-          <Card variant="accent" style={styles.bestSavingCard}>
-            <Text style={styles.bestSavingTitle}>Best saving right now</Text>
+          <Card style={styles.bestSavingCard}>
+            <Text style={styles.bestSavingTitle}>💡 Best saving right now</Text>
             <Text style={styles.bestSavingText}>
               {savings.best_saving.product} — you paid {formatCurrency(savings.best_saving.paid)} at {savings.best_saving.paid_store}, 
               now {formatCurrency(savings.best_saving.now)} at {savings.best_saving.now_store}
@@ -252,7 +258,7 @@ export default function HomeScreen() {
         {/* Shopping List shortcut */}
         <Pressable style={styles.shoppingListBar} onPress={() => router.push('/shopping-list')}>
           <View style={styles.shoppingListLeft}>
-            <Feather name="shopping-cart" size={18} color={Colors.accent.green} />
+            <Feather name="shopping-cart" size={18} color={Colors.primary.default} />
             <Text style={styles.shoppingListText}>Shopping List</Text>
           </View>
           <Feather name="chevron-right" size={18} color={Colors.text.tertiary} />
@@ -279,98 +285,76 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface.background },
   scroll: { padding: Spacing.md, paddingBottom: 100 },
-
-  // Header
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  bellWrap: {
-    position: 'relative', padding: 6,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 14,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.10)',
-  },
+  bellWrap: { position: 'relative', padding: 6, backgroundColor: 'rgba(26,77,53,0.06)', borderRadius: 14 },
   bellBadge: {
     position: 'absolute', top: 0, right: -2,
     minWidth: 18, height: 18, borderRadius: 9,
-    backgroundColor: '#F07B7B',
+    backgroundColor: '#E53E3E',
     alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 4,
     borderWidth: 2, borderColor: Colors.surface.background,
   },
   bellBadgeText: { fontFamily: 'DMSans_700Bold', fontSize: 9, color: '#FFF' },
-  greeting: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: '#FFFFFF' },
-
-  // Main card
+  greeting: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: Colors.primary.dark },
   mainCard: {
     marginBottom: Spacing.md, alignItems: 'center', paddingVertical: 28,
-    borderRadius: 24,
+    backgroundColor: Colors.primary.dark, borderRadius: 24,
   },
-  mainLabel: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: 'rgba(255,255,255,0.50)' },
+  mainLabel: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: 'rgba(255,255,255,0.65)' },
   mainAmount: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 42, color: Colors.accent.amber, marginVertical: 6 },
-  mainSub: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.35)' },
-
-  // Stats
+  mainSub: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.5)' },
   statsRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
   statCard: { flex: 1, alignItems: 'center', paddingVertical: Spacing.md, borderRadius: 20 },
-  statValue: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 20, color: '#FFFFFF' },
-  statLabel: { fontFamily: 'DMSans_500Medium', fontSize: 11, color: 'rgba(255,255,255,0.50)', marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
-  comingSoon: { fontFamily: 'DMSans_400Regular', fontSize: 9, color: 'rgba(255,255,255,0.35)', marginTop: 1 },
-
-  // Shortcuts
   usualShopBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.surface.card, borderRadius: BorderRadius.lg,
     padding: Spacing.md, marginBottom: Spacing.lg,
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1, borderColor: Colors.surface.border,
   },
   usualShopLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  usualShopTitle: { fontFamily: Fonts.bodyBold, fontSize: 14, color: '#FFFFFF' },
-  usualShopSub: { fontFamily: Fonts.body, fontSize: 12, color: 'rgba(255,255,255,0.50)' },
-
-  // Sections
+  usualShopTitle: { fontFamily: Fonts.bodyBold, fontSize: 14, color: Colors.text.primary },
+  usualShopSub: { fontFamily: Fonts.body, fontSize: 12, color: Colors.text.secondary },
+  statValue: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 20, color: Colors.text.primary },
+  statLabel: { fontFamily: 'DMSans_500Medium', fontSize: 11, color: Colors.text.secondary, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+  comingSoon: { fontFamily: 'DMSans_400Regular', fontSize: 9, color: Colors.text.tertiary, marginTop: 1 },
   section: { marginBottom: Spacing.lg },
-  sectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: '#FFFFFF', marginBottom: Spacing.sm },
+  sectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm },
   lowCard: { width: 140, padding: Spacing.sm, gap: 4 },
-  lowName: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: '#FFFFFF' },
+  lowName: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.primary },
   lowPrice: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 11, color: Colors.accent.green },
 
   // Price Memory
   memoryCard: { marginBottom: Spacing.xs, padding: Spacing.sm },
-  memoryProduct: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#FFFFFF' },
-  memoryDetail: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.50)', marginTop: 2 },
+  memoryProduct: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: Colors.text.primary },
+  memoryDetail: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary, marginTop: 2 },
   memoryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
-  memoryNow: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: '#FFFFFF' },
-  savingBadge: {
-    backgroundColor: 'rgba(80,200,120,0.15)',
-    borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4,
-    borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.25)',
-  },
+  memoryNow: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.primary },
+  savingBadge: { backgroundColor: Colors.accent.greenSoft, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
   savingBadgeText: { fontFamily: 'DMSans_700Bold', fontSize: 12, color: Colors.accent.green },
   memoryAddBtn: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(80,200,120,0.20)',
-    borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.30)',
-    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.primary.default, alignItems: 'center', justifyContent: 'center',
+    ...Shadows.card,
   },
   memoryAddBtnText: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#fff', lineHeight: 18 },
-  seeAll: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: Colors.accent.green, marginTop: Spacing.sm, textAlign: 'center' },
-
-  // Best saving
+  seeAll: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: Colors.primary.default, marginTop: Spacing.sm, textAlign: 'center' },
   bestSavingCard: {
     marginBottom: Spacing.lg, padding: Spacing.md,
-    borderRadius: 20,
+    borderWidth: 1.5, borderColor: Colors.accent.green, borderRadius: 20,
+    backgroundColor: Colors.accent.greenSoft,
   },
-  bestSavingTitle: { fontFamily: 'DMSans_700Bold', fontSize: 15, color: '#FFFFFF', marginBottom: 4 },
-  bestSavingText: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.60)', lineHeight: 18 },
+  bestSavingTitle: { fontFamily: 'DMSans_700Bold', fontSize: 15, color: Colors.text.primary, marginBottom: 4 },
+  bestSavingText: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary, lineHeight: 18 },
 
   // Shopping list shortcut
   shoppingListBar: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 20, padding: Spacing.md,
+    backgroundColor: Colors.surface.card, borderRadius: 20, padding: Spacing.md,
     marginBottom: Spacing.lg,
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.12)',
+    ...Shadows.card,
   },
   shoppingListLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  shoppingListText: { fontFamily: 'DMSans_700Bold', fontSize: 15, color: '#FFFFFF' },
+  shoppingListText: { fontFamily: 'DMSans_700Bold', fontSize: 15, color: Colors.text.primary },
 });

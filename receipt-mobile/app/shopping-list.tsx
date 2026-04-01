@@ -166,7 +166,7 @@ export default function ShoppingListScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.accent.green} />
+          <ActivityIndicator size="large" color={Colors.primary.default} />
         </View>
       </SafeAreaView>
     );
@@ -191,7 +191,7 @@ export default function ShoppingListScreen() {
           {sharedWith ? (
             <View>
               <View style={styles.shareRow}>
-                <Feather name="link" size={16} color={Colors.accent.green} />
+                <Feather name="link" size={16} color={Colors.primary.default} />
                 <Text style={styles.shareLinked}>Sharing with {sharedWith}</Text>
               </View>
               <Pressable onPress={unlinkList} style={styles.unlinkBtn}>
@@ -233,7 +233,7 @@ export default function ShoppingListScreen() {
       {/* Shared indicator */}
       {sharedWith && !showShare && (
         <View style={styles.sharedBanner}>
-          <Feather name="users" size={13} color={Colors.accent.green} />
+          <Feather name="users" size={13} color={Colors.primary.default} />
           <Text style={styles.sharedBannerText}>Shared with {sharedWith}</Text>
         </View>
       )}
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
   },
-  headerTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: '#FFFFFF' },
+  headerTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: Colors.primary.dark },
 
   // Summary
   summaryBar: {
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 48, marginBottom: Spacing.md },
   emptyTitle: { fontFamily: 'DMSans_700Bold', fontSize: 20, color: Colors.text.primary, marginBottom: Spacing.xs },
   emptyText: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.secondary, textAlign: 'center', paddingHorizontal: Spacing.xl, marginBottom: Spacing.lg },
-  browseBtn: { backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 },
+  browseBtn: { backgroundColor: Colors.primary.default, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 },
   browseBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#fff' },
 
   // Store section
@@ -368,11 +368,11 @@ const styles = StyleSheet.create({
   shareRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   shareLinked: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.primary, flex: 1 },
   unlinkBtn: { marginTop: 8, alignSelf: 'flex-start' },
-  unlinkText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: '#F07B7B' },
+  unlinkText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: '#C74343' },
   shareOptions: { gap: 8 },
   shareCodeBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 10,
+    backgroundColor: Colors.primary.default, borderRadius: 10,
     paddingHorizontal: 16, paddingVertical: 10, alignSelf: 'flex-start',
   },
   shareCodeBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: '#FFF' },
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   joinBtn: {
-    backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 10,
+    backgroundColor: Colors.primary.default, borderRadius: 10,
     paddingHorizontal: 20, justifyContent: 'center',
   },
   joinBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: '#FFF' },
@@ -393,5 +393,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: Spacing.md, paddingVertical: 4,
   },
-  sharedBannerText: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.accent.green },
+  sharedBannerText: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.primary.default },
 });

@@ -181,7 +181,7 @@ export default function PricesScreen() {
             {/* Loading */}
             {isSearching && (
               <View style={styles.loadingRow}>
-                <ActivityIndicator size="small" color={Colors.accent.green} />
+                <ActivityIndicator size="small" color={Colors.primary.default} />
                 <Text style={styles.loadingText}>Searching...</Text>
               </View>
             )}
@@ -368,7 +368,7 @@ export default function PricesScreen() {
           <>
             {isLoadingDeals && (
               <View style={styles.loadingRow}>
-                <ActivityIndicator size="small" color={Colors.accent.green} />
+                <ActivityIndicator size="small" color={Colors.primary.default} />
                 <Text style={styles.loadingText}>Loading your deals...</Text>
               </View>
             )}
@@ -577,170 +577,154 @@ export default function PricesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface.background },
-  title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: '#FFFFFF', paddingHorizontal: Spacing.md, paddingTop: Spacing.md },
-
-  // Glass tabs
+  title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: Colors.primary.dark, paddingHorizontal: Spacing.md, paddingTop: Spacing.md },
   tabs: { flexDirection: 'row', paddingHorizontal: Spacing.md, marginTop: Spacing.md, gap: Spacing.sm },
-  tab: {
-    flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: 9999,
-    backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.10)',
-  },
-  tabActive: { backgroundColor: 'rgba(80,200,120,0.15)', borderColor: 'rgba(80,200,120,0.25)' },
-  tabText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: 'rgba(255,255,255,0.50)' },
-  tabTextActive: { color: '#7DDFAA' },
+  tab: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: 9999, backgroundColor: Colors.surface.card },
+  tabActive: { backgroundColor: Colors.primary.dark },
+  tabText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.secondary },
+  tabTextActive: { color: Colors.text.inverse },
   content: { padding: Spacing.md, paddingBottom: 100 },
 
   // Loading
   loadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.lg, gap: Spacing.sm },
-  loadingText: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.35)' },
+  loadingText: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.tertiary },
 
-  // Search results
+  // Search results list
   resultsSection: { marginTop: Spacing.sm },
-  resultsCount: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: 'rgba(255,255,255,0.35)', marginBottom: Spacing.sm },
+  resultsCount: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.tertiary, marginBottom: Spacing.sm },
   resultCard: { marginBottom: Spacing.sm, padding: Spacing.md },
   resultTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: Spacing.sm },
-  resultName: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#FFFFFF', flex: 1 },
-  resultPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 18, color: Colors.accent.amber },
+  resultName: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: Colors.text.primary, flex: 1 },
+  resultPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 18, color: Colors.primary.default },
   resultBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.sm },
   resultStores: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1 },
-  resultHint: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 6 },
-
-  // Value tips — glass green
+  resultHint: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, marginTop: 6 },
   valueTip: {
-    marginTop: 6, backgroundColor: 'rgba(80,200,120,0.10)',
+    marginTop: 6, backgroundColor: 'rgba(60,179,113,0.08)',
     borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
-    borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.20)',
   },
-  valueTipText: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: '#7DDFAA', lineHeight: 16 },
+  valueTipText: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: '#1A7D45', lineHeight: 16 },
   valueTipDetail: {
-    backgroundColor: 'rgba(80,200,120,0.10)', borderRadius: 12,
+    backgroundColor: 'rgba(60,179,113,0.08)', borderRadius: 12,
     padding: Spacing.sm, marginBottom: Spacing.sm,
-    borderLeftWidth: 3, borderLeftColor: '#7DDFAA',
-    borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.20)',
+    borderLeftWidth: 3, borderLeftColor: '#3CB371',
   },
-  valueTipDetailTitle: { fontFamily: 'DMSans_700Bold', fontSize: 13, color: '#7DDFAA', marginBottom: 4 },
-  valueTipDetailText: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.60)', lineHeight: 18 },
+  valueTipDetailTitle: { fontFamily: 'DMSans_700Bold', fontSize: 13, color: '#1A7D45', marginBottom: 4 },
+  valueTipDetailText: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: '#1A7D45', lineHeight: 18 },
 
   // Product detail
   detailSection: { marginTop: Spacing.sm },
   backBtn: { paddingVertical: Spacing.xs, marginBottom: Spacing.sm },
   backText: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.accent.blue },
-  detailTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, color: '#FFFFFF', marginBottom: Spacing.sm },
+  detailTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, color: Colors.text.primary, marginBottom: Spacing.sm },
 
   savingChip: {
-    backgroundColor: 'rgba(80,200,120,0.12)',
+    backgroundColor: '#E8F5EE',
     borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     marginBottom: Spacing.md,
-    borderWidth: 0.5,
-    borderColor: 'rgba(80,200,120,0.25)',
+    borderWidth: 1,
+    borderColor: '#A8D5B8',
   },
-  savingChipText: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: '#7DDFAA' },
+  savingChipText: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: Colors.primary.default },
 
   storeRow: { marginBottom: Spacing.sm },
-  storeRowCheapest: { borderWidth: 1.5, borderColor: 'rgba(80,200,120,0.40)', borderRadius: BorderRadius.md },
+  storeRowCheapest: { borderWidth: 2, borderColor: Colors.accent.green, borderRadius: BorderRadius.md },
   storeRowInner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   storeRowLeft: { flex: 1, gap: 6 },
-  storeProductName: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.50)' },
+  storeProductName: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary },
   storeRowRight: { alignItems: 'flex-end', gap: 4 },
   storePrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 20, color: Colors.accent.amber },
-  perUnitText: { fontFamily: 'DMSans_400Regular', fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 1 },
+  perUnitText: { fontFamily: 'DMSans_400Regular', fontSize: 10, color: Colors.text.tertiary, marginTop: 1 },
   promoText: { fontFamily: 'DMSans_500Medium', fontSize: 10, color: Colors.accent.amber, marginTop: 2 },
   weightNote: { fontFamily: 'DMSans_500Medium', fontSize: 10, color: Colors.accent.blue, marginTop: 2 },
   storeActions: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   compareAddBtn: {
     width: 28, height: 28, borderRadius: 14,
-    borderWidth: 1, borderColor: 'rgba(80,200,120,0.30)',
-    backgroundColor: 'rgba(80,200,120,0.10)',
+    borderWidth: 1.5, borderColor: Colors.primary.default,
     alignItems: 'center', justifyContent: 'center',
   },
   addBtnActive: {
-    backgroundColor: 'rgba(80,200,120,0.25)', borderColor: 'rgba(80,200,120,0.40)',
+    backgroundColor: Colors.primary.default, borderColor: Colors.primary.default,
   },
-  storePriceCheapest: { color: '#7DDFAA' },
+  storePriceCheapest: { color: Colors.accent.green },
 
   // Alternatives
-  altSection: { marginTop: Spacing.lg, paddingTop: Spacing.lg, borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.08)' },
+  altSection: { marginTop: Spacing.lg, paddingTop: Spacing.lg, borderTopWidth: 1, borderTopColor: Colors.surface.alt },
   altHeader: { marginBottom: Spacing.md },
-  altTitle: { fontFamily: 'DMSans_700Bold', fontSize: 17, color: '#FFFFFF' },
-  altSubtitle: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.35)', marginTop: 2 },
-  altEmpty: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.35)', textAlign: 'center', paddingVertical: Spacing.md },
+  altTitle: { fontFamily: 'DMSans_700Bold', fontSize: 17, color: Colors.text.primary },
+  altSubtitle: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.tertiary, marginTop: 2 },
+  altEmpty: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.tertiary, textAlign: 'center', paddingVertical: Spacing.md },
   altCard: { marginBottom: Spacing.xs },
   altRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   altLeft: { flex: 1, gap: 4 },
-  altName: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: '#FFFFFF' },
+  altName: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.text.primary },
   altRight: { alignItems: 'flex-end', gap: 4 },
   altPrice: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 16, color: Colors.accent.amber },
-  altPerUnit: { fontFamily: 'DMSans_400Regular', fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 1 },
+  altPerUnit: { fontFamily: 'DMSans_400Regular', fontSize: 10, color: Colors.text.tertiary, marginTop: 1 },
 
   // Empty states
   emptyState: { alignItems: 'center', paddingVertical: Spacing.xxl, paddingHorizontal: Spacing.lg },
   emptyEmoji: { fontSize: 48, marginBottom: Spacing.md },
-  emptyTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: '#FFFFFF', textAlign: 'center', marginBottom: Spacing.xs },
-  emptyText: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.35)', textAlign: 'center', lineHeight: 20 },
+  emptyTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, textAlign: 'center', marginBottom: Spacing.xs },
+  emptyText: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.tertiary, textAlign: 'center', lineHeight: 20 },
 
-  // Deals
+  // Deals sections
   dealSection: { marginBottom: Spacing.lg },
-  dealSectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: '#FFFFFF', marginBottom: 2 },
-  dealSectionSub: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.35)', marginBottom: Spacing.md },
+  dealSectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: 2 },
+  dealSectionSub: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.tertiary, marginBottom: Spacing.md },
 
   dealCard: { marginBottom: Spacing.sm },
   dealRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   dealLeft: { flex: 1, gap: 4 },
-  dealName: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#FFFFFF' },
-  dealPromo: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.50)' },
+  dealName: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: Colors.text.primary },
+  dealPromo: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.secondary },
   dealRight: { alignItems: 'flex-end', gap: 4, marginLeft: Spacing.sm },
   dealPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 18, color: Colors.accent.amber },
 
-  // Golden card — glass gold
-  goldenCard: {
-    marginBottom: Spacing.sm,
-    borderWidth: 1, borderColor: 'rgba(212,168,67,0.30)', borderRadius: BorderRadius.md,
-    backgroundColor: 'rgba(212,168,67,0.08)',
-  },
-  goldenName: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#FFFFFF' },
-  goldenPromo: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: '#F0D68A' },
-  goldenPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 20, color: '#F0D68A' },
-  goldenWas: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.35)', textDecorationLine: 'line-through' },
+  goldenCard: { marginBottom: Spacing.sm, borderWidth: 2, borderColor: '#E8A020', borderRadius: BorderRadius.md },
+  goldenName: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: Colors.text.primary },
+  goldenPromo: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.primary.default },
+  goldenPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 20, color: Colors.accent.amber },
+  goldenWas: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, textDecorationLine: 'line-through' },
 
-  refreshInfo: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.35)', textAlign: 'center', marginTop: Spacing.md, marginBottom: Spacing.lg },
+  refreshInfo: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, textAlign: 'center', marginTop: Spacing.md, marginBottom: Spacing.lg },
 
-  // Add to list — green glass
+  // Add to list button
   addBtn: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(80,200,120,0.20)',
-    borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.30)',
+    backgroundColor: Colors.primary.default,
     alignItems: 'center', justifyContent: 'center',
     marginTop: 4,
   },
   addBtnText: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: '#fff', lineHeight: 20 },
 
+  // Smart Timing
   timingCard: { marginBottom: Spacing.xs, padding: Spacing.sm },
 
-  // Shopping list button — green glass
+  // Shopping list button
   shoppingListBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 12,
-    borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.30)',
+    backgroundColor: Colors.primary.default, borderRadius: 12,
     paddingVertical: 12, marginBottom: Spacing.md,
   },
   shoppingListBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#fff' },
   timingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   timingLeft: { flex: 1, gap: 4 },
   timingRight: { alignItems: 'flex-end', marginLeft: Spacing.sm },
-  timingDetail: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.50)' },
-  timingValid: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: 'rgba(255,255,255,0.35)' },
-  timingUrgent: { fontFamily: 'DMSans_600SemiBold', fontSize: 12, color: '#F07B7B' },
-  timingProduct: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: '#FFFFFF', marginBottom: 2 },
+  timingDetail: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.secondary },
+  timingValid: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.text.tertiary },
+  timingUrgent: { fontFamily: 'DMSans_600SemiBold', fontSize: 12, color: '#E85D3A' },
+  timingProduct: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.primary, marginBottom: 2 },
 
-  // Savings banner — glass accent
+  // Savings banner
   savingsBanner: {
     marginHorizontal: Spacing.md,
     marginTop: Spacing.sm,
-    backgroundColor: 'rgba(80,200,120,0.10)',
-    borderWidth: 0.5,
-    borderColor: 'rgba(80,200,120,0.25)',
+    backgroundColor: '#F0F9F4',
+    borderWidth: 1,
+    borderColor: '#A8D5B8',
     borderRadius: 12,
     padding: Spacing.md,
     flexDirection: 'row',
@@ -748,10 +732,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.sm,
   },
-  savingsText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: '#FFFFFF', flex: 1 },
-  savingsBtn: {
-    backgroundColor: 'rgba(80,200,120,0.20)', borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.30)',
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8,
-  },
+  savingsText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.primary, flex: 1 },
+  savingsBtn: { backgroundColor: Colors.primary.default, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
   savingsBtnText: { fontFamily: 'DMSans_700Bold', fontSize: 12, color: '#FFF' },
 });

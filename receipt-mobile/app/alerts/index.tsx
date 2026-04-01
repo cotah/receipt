@@ -49,7 +49,7 @@ export default function AlertsScreen() {
 
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={Colors.accent.green} />
+          <ActivityIndicator size="large" color={Colors.primary.default} />
         </View>
       ) : alerts.length === 0 ? (
         <View style={styles.center}>
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   markAllText: {
     fontFamily: 'DMSans_600SemiBold',
     fontSize: 13,
-    color: Colors.accent.green,
+    color: Colors.primary.default,
   },
   scroll: { padding: Spacing.md },
   center: {

@@ -19,36 +19,32 @@ export default function ExpiryBadge({ validUntil, size = 'sm' }: ExpiryBadgeProp
   const diffMs = expires.getTime() - now.getTime();
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays < 0) return null;
+  if (diffDays < 0) return null; // Already expired
 
   let label: string;
   let bg: string;
-  let border: string;
   let textColor: string;
 
   if (diffDays <= 1) {
     label = 'Ends tomorrow';
-    bg = 'rgba(240,123,123,0.15)';
-    border = 'rgba(240,123,123,0.25)';
-    textColor = '#F07B7B';
+    bg = 'rgba(217,79,79,0.10)';
+    textColor = '#C74343';
   } else if (diffDays <= 3) {
     label = `Ends in ${diffDays} days`;
-    bg = 'rgba(240,214,138,0.15)';
-    border = 'rgba(240,214,138,0.25)';
-    textColor = '#F0D68A';
+    bg = 'rgba(232,160,32,0.12)';
+    textColor = '#C28716';
   } else {
     label = `${diffDays} days left`;
-    bg = 'rgba(80,200,120,0.12)';
-    border = 'rgba(80,200,120,0.25)';
-    textColor = '#7DDFAA';
+    bg = 'rgba(60,179,113,0.08)';
+    textColor = '#1A7D45';
   }
 
   const fontSize = size === 'sm' ? 10 : 12;
-  const padV = size === 'sm' ? 3 : 4;
-  const padH = size === 'sm' ? 8 : 10;
+  const padV = size === 'sm' ? 2 : 3;
+  const padH = size === 'sm' ? 6 : 8;
 
   return (
-    <View style={[styles.badge, { backgroundColor: bg, borderColor: border, paddingVertical: padV, paddingHorizontal: padH }]}>
+    <View style={[styles.badge, { backgroundColor: bg, paddingVertical: padV, paddingHorizontal: padH }]}>
       <Text style={[styles.text, { color: textColor, fontSize }]}>{label}</Text>
     </View>
   );
@@ -58,7 +54,6 @@ const styles = StyleSheet.create({
   badge: {
     borderRadius: BorderRadius.full,
     alignSelf: 'flex-start',
-    borderWidth: 0.5,
   },
   text: {
     fontFamily: 'DMSans_600SemiBold',
