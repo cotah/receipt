@@ -769,6 +769,7 @@ async def barcode_lookup(
     now = datetime.now(timezone.utc)
 
     # 1. Look up barcode in barcode_catalog
+    barcode_in_db = False
     bc_result = (
         db.table("barcode_catalog")
         .select("barcode, product_name, product_key, brand, category, package_size, image_url")
@@ -776,6 +777,8 @@ async def barcode_lookup(
         .limit(1)
         .execute()
     )
+    if bc_result.data:
+        barcode_in_db = True
 
     # Also try with leading zeros stripped/added
     if not bc_result.data:
@@ -788,6 +791,8 @@ async def barcode_lookup(
                 .limit(1)
                 .execute()
             )
+            if bc_result.data:
+                barcode_in_db = True
 
     if not bc_result.data:
         # Not in our DB — try Open Food Facts + UPCitemdb in real-time
@@ -923,6 +928,7 @@ async def barcode_lookup(
     result = {
         "found": True,
         "barcode": barcode,
+        "barcode_in_db": barcode_in_db,
         "product": {
             "name": product["product_name"],
             "brand": product.get("brand", ""),

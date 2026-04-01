@@ -27,6 +27,7 @@ interface StoreResult {
 interface BarcodeResult {
   found: boolean;
   barcode: string;
+  barcode_in_db?: boolean;
   product: {
     name: string;
     brand: string;
@@ -402,14 +403,19 @@ export default function BarcodeScannerScreen() {
               {/* Product info */}
               <Card style={styles.productCard}>
                 <View style={styles.productHeader}>
-                  <Feather name="check-circle" size={18} color="#3CB371" />
-                  <Text style={styles.foundLabel}>Product found</Text>
+                  <Feather name="check-circle" size={18} color="#7DDFAA" />
+                  <Text style={styles.foundLabel}>
+                    {result.barcode_in_db ? 'We already have this barcode!' : 'Product found & saved!'}
+                  </Text>
                 </View>
                 <Text style={styles.productName}>{result.product.name}</Text>
                 {result.product.brand ? (
                   <Text style={styles.productBrand}>{result.product.brand}</Text>
                 ) : null}
                 <Text style={styles.barcodeText}>EAN: {result.barcode}</Text>
+                {!result.barcode_in_db && (
+                  <Text style={styles.savedMsg}>+10 points — thanks for contributing!</Text>
+                )}
               </Card>
 
               {/* Price comparison */}
@@ -612,6 +618,9 @@ const styles = StyleSheet.create({
   },
   barcodeText: {
     fontFamily: Fonts.body, fontSize: 12, color: Colors.text.tertiary, marginTop: 4,
+  },
+  savedMsg: {
+    fontFamily: Fonts.bodySemiBold, fontSize: 12, color: '#7DDFAA', marginTop: 6,
   },
   storesSection: { gap: Spacing.xs },
   storeCard: { marginBottom: 0 },
