@@ -659,6 +659,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(240,123,123,0.06)',
   },
   signOutText: {
-    fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#DC3545',
+    fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#F07B7B',
   },
 });

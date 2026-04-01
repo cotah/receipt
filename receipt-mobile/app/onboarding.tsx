@@ -322,7 +322,7 @@ const a = StyleSheet.create({
   pointsBottom: { position: 'absolute', bottom: 14, left: 14, right: 14 },
   pointsLabels: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   pointsLabel: { fontFamily: Fonts.body, fontSize: 9, color: 'rgba(255,255,255,0.35)' },
-  progressTrack: { height: 4, backgroundColor: '#E8E8E0', borderRadius: 2, overflow: 'hidden' },
+  progressTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.10)', borderRadius: 2, overflow: 'hidden' },
   progressFill: { height: '100%', width: '65%', backgroundColor: GREEN, borderRadius: 2 },
   pointsTotal: { fontFamily: Fonts.bodyBold, fontSize: 16, color: GREEN, textAlign: 'center', marginTop: 6 },
   // Raffle
