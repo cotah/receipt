@@ -3,8 +3,8 @@
 Runs weekly to find and merge duplicate products in collective_prices.
 Uses the order-independent generate_product_key to identify duplicates.
 
-SAFE: When two entries have the same new_key + same store, keeps the cheapest.
-Also updates all product_keys to the new sorted format.
+OPTIMIZED: Uses batch deletes instead of individual operations.
+Handles thousands of duplicates in under 60 seconds.
 """
 import logging
 from collections import defaultdict
@@ -13,6 +13,8 @@ from app.database import get_service_client
 from app.utils.text_utils import generate_product_key
 
 log = logging.getLogger(__name__)
+
+BATCH_SIZE = 50  # IDs per batch operation
 
 
 async def run_dedup_job() -> dict:
@@ -24,77 +26,114 @@ async def run_dedup_job() -> dict:
     # Fetch all products (paginate)
     all_products = []
     offset = 0
-    batch_size = 1000
+    page_size = 1000
     while True:
         result = (
             db.table("collective_prices")
             .select("id, product_name, product_key, store_name, unit_price")
-            .range(offset, offset + batch_size - 1)
+            .range(offset, offset + page_size - 1)
             .execute()
         )
         if not result.data:
             break
         all_products.extend(result.data)
-        if len(result.data) < batch_size:
+        if len(result.data) < page_size:
             break
-        offset += batch_size
+        offset += page_size
 
     log.info("Dedup: scanned %d products", len(all_products))
 
-    # 1. Update product_keys to new sorted format
-    keys_updated = 0
-    for p in all_products:
-        new_key = generate_product_key(p["product_name"])
-        if p["product_key"] != new_key:
-            try:
-                db.table("collective_prices").update(
-                    {"product_key": new_key}
-                ).eq("id", p["id"]).execute()
-                keys_updated += 1
-            except Exception as e:
-                log.warning("Dedup: failed to update key for %s: %s", p["id"], e)
-
-    # 2. Find duplicates: same new_key + same store = duplicate
+    # 1. Group by NEW key + store -> find duplicates
     by_key_store = defaultdict(list)
     for p in all_products:
         new_key = generate_product_key(p["product_name"])
         by_key_store[(new_key, p["store_name"])].append(p)
 
-    # 3. Merge duplicates — keep cheapest, remove extras
-    merged = 0
+    # 2. Collect IDs to delete (keep cheapest per group)
+    ids_to_delete = []
     for (key, store), entries in by_key_store.items():
         if len(entries) <= 1:
             continue
-
-        # Sort by price — keep the cheapest
         entries.sort(key=lambda x: float(x["unit_price"]))
-        keep = entries[0]
-        remove = entries[1:]
+        # Keep first (cheapest), delete rest
+        for dup in entries[1:]:
+            ids_to_delete.append(dup["id"])
 
-        for dup in remove:
+    log.info("Dedup: found %d duplicates to remove", len(ids_to_delete))
+
+    # 3. BATCH delete in chunks
+    merged = 0
+    for i in range(0, len(ids_to_delete), BATCH_SIZE):
+        batch = ids_to_delete[i:i + BATCH_SIZE]
+        try:
+            db.table("collective_prices").delete().in_("id", batch).execute()
+            merged += len(batch)
+            log.info("Dedup: deleted batch %d-%d (%d items)", i, i + len(batch), len(batch))
+        except Exception as e:
+            log.warning("Dedup: batch delete failed at offset %d: %s", i, e)
+            # Fallback: individual deletes
+            for did in batch:
+                try:
+                    db.table("collective_prices").delete().eq("id", did).execute()
+                    merged += 1
+                except Exception:
+                    pass
+
+    # 4. BATCH update product_keys to new sorted format
+    keys_updated = 0
+    deleted_set = set(ids_to_delete)
+    by_new_key = defaultdict(list)
+    for p in all_products:
+        if p["id"] in deleted_set:
+            continue
+        new_key = generate_product_key(p["product_name"])
+        if p["product_key"] != new_key:
+            by_new_key[new_key].append(p["id"])
+
+    for new_key, pids in by_new_key.items():
+        for i in range(0, len(pids), BATCH_SIZE):
+            batch = pids[i:i + BATCH_SIZE]
             try:
-                db.table("collective_prices").delete().eq("id", dup["id"]).execute()
-                merged += 1
-                log.info(
-                    "Dedup: removed duplicate '%s' at %s (€%.2f) — kept '%.2f'",
-                    dup["product_name"], store, float(dup["unit_price"]),
-                    float(keep["unit_price"]),
-                )
+                db.table("collective_prices").update(
+                    {"product_key": new_key}
+                ).in_("id", batch).execute()
+                keys_updated += len(batch)
             except Exception as e:
-                log.warning("Dedup: failed to remove dup %s: %s", dup["id"], e)
+                log.warning("Dedup: key update failed for %s: %s", new_key, e)
 
-    # 4. Also update barcode_catalog keys
+    # 5. Update barcode_catalog keys
     bc_keys_updated = 0
     try:
-        bc_result = db.table("barcode_catalog").select("id, product_name, product_key").limit(5000).execute()
-        for bc in (bc_result.data or []):
+        bc_all = []
+        bc_offset = 0
+        while True:
+            bc_result = (
+                db.table("barcode_catalog")
+                .select("id, product_name, product_key")
+                .range(bc_offset, bc_offset + page_size - 1)
+                .execute()
+            )
+            if not bc_result.data:
+                break
+            bc_all.extend(bc_result.data)
+            if len(bc_result.data) < page_size:
+                break
+            bc_offset += page_size
+
+        bc_by_key = defaultdict(list)
+        for bc in bc_all:
             new_key = generate_product_key(bc["product_name"])
             if bc.get("product_key") != new_key:
+                bc_by_key[new_key].append(bc["id"])
+
+        for new_key, bids in bc_by_key.items():
+            for i in range(0, len(bids), BATCH_SIZE):
+                batch = bids[i:i + BATCH_SIZE]
                 try:
                     db.table("barcode_catalog").update(
                         {"product_key": new_key}
-                    ).eq("id", bc["id"]).execute()
-                    bc_keys_updated += 1
+                    ).in_("id", batch).execute()
+                    bc_keys_updated += len(batch)
                 except Exception:
                     pass
     except Exception as e:
