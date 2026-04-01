@@ -189,108 +189,108 @@ export default function PricesScreen() {
             {/* Product Detail View */}
             {selectedProduct && !isSearching && (
               <View style={styles.detailSection}>
-                {/* Back button */}
-                <Pressable onPress={handleBack} style={styles.backBtn}>
-                  <Text style={styles.backText}>← Back to results</Text>
-                </Pressable>
+                {/* Back + Title */}
+                <View style={styles.detailHeader}>
+                  <Pressable onPress={handleBack} style={styles.detailBackBtn}>
+                    <Feather name="arrow-left" size={18} color="rgba(255,255,255,0.5)" />
+                  </Pressable>
+                  <Text style={styles.detailTitle}>{selectedProduct.display_name}</Text>
+                </View>
 
-                {/* Product card with all store prices */}
-                <Text style={styles.detailTitle}>{selectedProduct.display_name}</Text>
-
-                {selectedProduct.stores.length > 1 && selectedProduct.potential_saving && (
-                  <View style={styles.savingChip}>
-                    <Text style={styles.savingChipText}>
-                      Save {formatCurrency(selectedProduct.potential_saving)} by choosing {selectedProduct.cheapest_store}
-                    </Text>
+                {/* Comparison card with bars */}
+                <View style={styles.barsCard}>
+                  <View style={styles.barsHeader}>
+                    <Text style={styles.barsCount}>{selectedProduct.stores.length} stores compared</Text>
+                    {selectedProduct.potential_saving && selectedProduct.potential_saving > 0 && (
+                      <View style={styles.savePill}>
+                        <Text style={styles.savePillText}>Save {formatCurrency(selectedProduct.potential_saving ?? 0)}</Text>
+                      </View>
+                    )}
                   </View>
-                )}
 
+                  {/* Price bars */}
+                  {selectedProduct.stores
+                    .sort((a, b) => a.unit_price - b.unit_price)
+                    .map((store, i) => {
+                      const maxPrice = selectedProduct.stores[selectedProduct.stores.length - 1]?.unit_price || store.unit_price;
+                      const barWidth = Math.max(15, (store.unit_price / maxPrice) * 100);
+                      const storeKey = store.store_name.toLowerCase().replace(/\s/g, '');
+                      const barColor = (Colors.stores as any)[storeKey] || 'rgba(255,255,255,0.15)';
+                      return (
+                        <View key={store.store_name} style={styles.barRow}>
+                          <Text style={styles.barStoreName}>{store.store_name.length > 6 ? store.store_name.substring(0, 6) : store.store_name}</Text>
+                          <View style={styles.barTrack}>
+                            <View style={[styles.barFill, { width: `${barWidth}%` as any, backgroundColor: barColor }]} />
+                          </View>
+                          <Text style={[styles.barPrice, i === 0 && styles.barPriceCheapest]}>{formatCurrency(store.unit_price)}</Text>
+                          {i === 0 && (
+                            <View style={styles.barCheck}>
+                              <Feather name="check" size={10} color="#7DDFAA" />
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+                </View>
+
+                {/* Value tip */}
                 {selectedProduct.value_tip && (
                   <View style={styles.valueTipDetail}>
-                    <Text style={styles.valueTipDetailTitle}>💡 Better value</Text>
+                    <Feather name="trending-down" size={14} color="#7DDFAA" />
                     <Text style={styles.valueTipDetailText}>
                       {selectedProduct.value_tip.message}
                     </Text>
                   </View>
                 )}
 
-                {selectedProduct.stores.map((store, i) => (
-                  <Card key={store.store_name} style={[styles.storeRow, i === 0 && styles.storeRowCheapest] as any}>
-                    <View style={styles.storeRowInner}>
-                      <View style={styles.storeRowLeft}>
-                        <StoreTag storeName={store.store_name} size="md" />
-                        <Text style={styles.storeProductName} numberOfLines={2}>
-                          {store.product_name}
-                        </Text>
-                      </View>
-                      <View style={styles.storeRowRight}>
-                        <Text style={[styles.storePrice, i === 0 && styles.storePriceCheapest]}>
-                          {formatCurrency(store.unit_price)}
-                        </Text>
-                        {store.price_per_unit && (
-                          <Text style={styles.perUnitText}>€{(store.price_per_unit / 100).toFixed(2)}/100g</Text>
-                        )}
-                        {store.promotion_text && (
-                          <Text style={styles.promoText}>{store.promotion_text}</Text>
-                        )}
-                        {store.weight_note && (
-                          <Text style={styles.weightNote}>⚖️ {store.weight_note}</Text>
-                        )}
-                        <View style={styles.storeActions}>
-                          {store.is_cheapest && <Badge text="CHEAPEST" variant="success" size="sm" />}
-                          {store.is_on_offer && <Badge text="OFFER" variant="warning" size="sm" />}
-                          <Pressable
-                            onPress={() => toggleShoppingList(store.product_name, store.store_name, store.unit_price, '')}
-                            style={[styles.compareAddBtn, addedToList.has(`${store.product_name}-${store.store_name}`) && styles.addBtnActive]}
-                          >
-                            <Feather
-                              name={addedToList.has(`${store.product_name}-${store.store_name}`) ? 'check' : 'plus'}
-                              size={14}
-                              color={addedToList.has(`${store.product_name}-${store.store_name}`) ? '#FFF' : '#7DDFAA'}
-                            />
-                          </Pressable>
-                        </View>
-                      </View>
-                    </View>
-                  </Card>
-                ))}
-
-                {/* AI Alternatives Section */}
+                {/* AI Alternatives — "Also available" */}
                 <View style={styles.altSection}>
-                  <View style={styles.altHeader}>
-                    <Text style={styles.altTitle}>🔍 Same Product, Better Price</Text>
-                    <Text style={styles.altSubtitle}>Same product from different stores or sizes</Text>
-                  </View>
+                  <Text style={styles.altTitle}>Also available</Text>
 
                   {isLoadingAlts && (
                     <View style={styles.loadingRow}>
-                      <ActivityIndicator size="small" color={Colors.accent.blue} />
+                      <ActivityIndicator size="small" color="#7DDFAA" />
                       <Text style={styles.loadingText}>Finding alternatives...</Text>
                     </View>
                   )}
 
                   {!isLoadingAlts && alternatives.length === 0 && (
-                    <Text style={styles.altEmpty}>No alternatives found in current promotions</Text>
+                    <Text style={styles.altEmpty}>No alternatives found</Text>
                   )}
 
                   {alternatives.map((alt, i) => (
-                    <Card key={`${alt.product_key}-${i}`} style={styles.altCard}>
-                      <View style={styles.altRow}>
-                        <View style={styles.altLeft}>
-                          <StoreTag storeName={alt.store_name} size="sm" />
-                          <Text style={styles.altName} numberOfLines={2}>{alt.product_name}</Text>
-                        </View>
-                        <View style={styles.altRight}>
-                          <Text style={styles.altPrice}>{formatCurrency(alt.unit_price)}</Text>
-                          {alt.price_per_100 && (
-                            <Text style={styles.altPerUnit}>€{(alt.price_per_100 / 100).toFixed(2)}/100g</Text>
-                          )}
-                          {alt.is_on_offer && <Badge text="OFFER" variant="warning" size="sm" />}
-                        </View>
+                    <View key={`${alt.product_key}-${i}`} style={styles.altRow}>
+                      <View style={[styles.altDot, { backgroundColor: (Colors.stores as any)[alt.store_name.toLowerCase().replace(/\s/g, '')] || 'rgba(255,255,255,0.2)' }]} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.altName} numberOfLines={1}>{alt.product_name}</Text>
+                        <Text style={styles.altStore}>{alt.store_name}</Text>
                       </View>
-                    </Card>
+                      <View style={styles.altRight}>
+                        <Text style={styles.altPrice}>{formatCurrency(alt.unit_price)}</Text>
+                        {alt.price_per_100 && (
+                          <Text style={styles.altPerUnit}>{`€${(alt.price_per_100 / 100).toFixed(2)}/100g`}</Text>
+                        )}
+                      </View>
+                    </View>
                   ))}
                 </View>
+
+                {/* Add to shopping list button */}
+                {selectedProduct.stores.length > 0 && (
+                  <Pressable
+                    onPress={() => {
+                      const cheapest = selectedProduct.stores[0];
+                      if (cheapest) toggleShoppingList(cheapest.product_name, cheapest.store_name, cheapest.unit_price, '');
+                    }}
+                    style={styles.addToListBtn}
+                  >
+                    <Text style={styles.addToListText}>
+                      {addedToList.has(`${selectedProduct.stores[0]?.product_name}-${selectedProduct.stores[0]?.store_name}`) 
+                        ? '✓ Added to shopping list' 
+                        : 'Add to shopping list'}
+                    </Text>
+                  </Pressable>
+                )}
               </View>
             )}
 
@@ -614,57 +614,74 @@ const styles = StyleSheet.create({
   valueTipDetailTitle: { fontFamily: 'DMSans_700Bold', fontSize: 13, color: '#7DDFAA', marginBottom: 4 },
   valueTipDetailText: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(125,223,170,0.8)', lineHeight: 18 },
 
-  // Product detail
+  // Product detail — bar chart layout
   detailSection: { marginTop: Spacing.sm },
-  backBtn: { paddingVertical: Spacing.xs, marginBottom: Spacing.sm },
-  backText: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.accent.blue },
-  detailTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, color: Colors.text.primary, marginBottom: Spacing.sm },
-
-  savingChip: {
-    backgroundColor: 'rgba(80,200,120,0.12)',
-    borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    marginBottom: Spacing.md,
-    borderWidth: 0.5,
-    borderColor: 'rgba(80,200,120,0.25)',
-  },
-  savingChipText: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: '#7DDFAA' },
-
-  storeRow: { marginBottom: Spacing.sm },
-  storeRowCheapest: { borderWidth: 2, borderColor: Colors.accent.green, borderRadius: BorderRadius.md },
-  storeRowInner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  storeRowLeft: { flex: 1, gap: 6 },
-  storeProductName: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary },
-  storeRowRight: { alignItems: 'flex-end', gap: 4 },
-  storePrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 20, color: Colors.accent.amber },
-  perUnitText: { fontFamily: 'DMSans_400Regular', fontSize: 10, color: Colors.text.tertiary, marginTop: 1 },
-  promoText: { fontFamily: 'DMSans_500Medium', fontSize: 10, color: Colors.accent.amber, marginTop: 2 },
-  weightNote: { fontFamily: 'DMSans_500Medium', fontSize: 10, color: Colors.accent.blue, marginTop: 2 },
-  storeActions: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  compareAddBtn: {
-    width: 28, height: 28, borderRadius: 14,
-    borderWidth: 1.5, borderColor: 'rgba(80,200,120,0.25)',
+  detailHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  detailBackBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center', justifyContent: 'center',
   },
-  addBtnActive: {
-    backgroundColor: 'rgba(80,200,120,0.20)', borderColor: 'rgba(80,200,120,0.25)',
-  },
-  storePriceCheapest: { color: Colors.accent.green },
+  detailTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 20, color: '#FFFFFF', flex: 1 },
 
-  // Alternatives
-  altSection: { marginTop: Spacing.lg, paddingTop: Spacing.lg, borderTopWidth: 1, borderTopColor: Colors.surface.alt },
-  altHeader: { marginBottom: Spacing.md },
-  altTitle: { fontFamily: 'DMSans_700Bold', fontSize: 17, color: Colors.text.primary },
-  altSubtitle: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.tertiary, marginTop: 2 },
-  altEmpty: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.tertiary, textAlign: 'center', paddingVertical: Spacing.md },
-  altCard: { marginBottom: Spacing.xs },
-  altRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  altLeft: { flex: 1, gap: 4 },
-  altName: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.text.primary },
-  altRight: { alignItems: 'flex-end', gap: 4 },
-  altPrice: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 16, color: Colors.accent.amber },
-  altPerUnit: { fontFamily: 'DMSans_400Regular', fontSize: 10, color: Colors.text.tertiary, marginTop: 1 },
+  // Bars card
+  barsCard: {
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 18, padding: 16, marginBottom: 12,
+  },
+  barsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  barsCount: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: 'rgba(255,255,255,0.45)' },
+  savePill: {
+    backgroundColor: 'rgba(80,200,120,0.15)',
+    borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.25)',
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4,
+  },
+  savePillText: { fontFamily: 'DMSans_600SemiBold', fontSize: 12, color: '#7DDFAA' },
+
+  barRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  barStoreName: { fontFamily: 'DMSans_600SemiBold', fontSize: 11, width: 46, color: 'rgba(255,255,255,0.55)', textAlign: 'right' },
+  barTrack: {
+    flex: 1, height: 18, borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)',
+    overflow: 'hidden',
+  },
+  barFill: { height: '100%', borderRadius: 10 },
+  barPrice: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 13, color: 'rgba(255,255,255,0.6)', width: 44 },
+  barPriceCheapest: { color: '#7DDFAA' },
+  barCheck: {
+    width: 18, height: 18, borderRadius: 9,
+    backgroundColor: 'rgba(80,200,120,0.25)',
+    borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.35)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  // Add to shopping list button
+  addToListBtn: {
+    backgroundColor: 'rgba(80,200,120,0.15)',
+    borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.25)',
+    borderRadius: 14, paddingVertical: 14, alignItems: 'center',
+    marginBottom: 16,
+  },
+  addToListText: { fontFamily: 'DMSans_700Bold', fontSize: 15, color: '#7DDFAA' },
+
+  // Alternatives — "Also available"
+  altSection: { marginTop: 8, marginBottom: 12 },
+  altTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: 'rgba(255,255,255,0.7)', marginBottom: 8 },
+  altEmpty: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.35)', textAlign: 'center', paddingVertical: Spacing.md },
+  altRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 10,
+    borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  altDot: { width: 8, height: 8, borderRadius: 4 },
+  altName: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: 'rgba(255,255,255,0.85)' },
+  altStore: { fontFamily: 'DMSans_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.35)' },
+  altRight: { alignItems: 'flex-end' },
+  altPrice: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 14, color: '#FFFFFF' },
+  altPerUnit: { fontFamily: 'DMSans_400Regular', fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 1 },
 
   // Empty states
   emptyState: { alignItems: 'center', paddingVertical: Spacing.xxl, paddingHorizontal: Spacing.lg },

@@ -423,11 +423,6 @@ export default function ScanScreen() {
             </View>
             <View style={styles.barcodeBottom}>
               <Text style={styles.barcodeHint}>Point at a product barcode</Text>
-              <View style={styles.barcodeScanBtn}>
-                <View style={styles.barcodeScanBtnInner}>
-                  <Feather name="maximize" size={28} color="#7DDFAA" />
-                </View>
-              </View>
               <Pressable onPress={() => setFlashOn((v) => !v)} style={styles.barcodeFlash}>
                 <Text style={styles.barcodeFlashText}>{flashOn ? '⚡ Flash ON' : '💡 Flash'}</Text>
               </Pressable>
