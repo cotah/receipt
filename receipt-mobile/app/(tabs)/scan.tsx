@@ -3,6 +3,7 @@ import { View, Text, Image, StyleSheet, Alert, ScrollView, Pressable, Vibration 
 import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import { Feather } from '@expo/vector-icons';
 import ReceiptScanner from '../../components/receipts/ReceiptScanner';
 import ProcessingModal from '../../components/receipts/ProcessingModal';
 import Button from '../../components/ui/Button';
@@ -422,6 +423,11 @@ export default function ScanScreen() {
             </View>
             <View style={styles.barcodeBottom}>
               <Text style={styles.barcodeHint}>Point at a product barcode</Text>
+              <View style={styles.barcodeScanBtn}>
+                <View style={styles.barcodeScanBtnInner}>
+                  <Feather name="maximize" size={28} color="#7DDFAA" />
+                </View>
+              </View>
               <Pressable onPress={() => setFlashOn((v) => !v)} style={styles.barcodeFlash}>
                 <Text style={styles.barcodeFlashText}>{flashOn ? '⚡ Flash ON' : '💡 Flash'}</Text>
               </Pressable>
@@ -511,6 +517,18 @@ const styles = StyleSheet.create({
   },
   barcodeHint: {
     fontFamily: 'DMSans_500Medium', fontSize: 15, color: 'rgba(255,255,255,0.7)',
+  },
+  barcodeScanBtn: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: 'rgba(80,200,120,0.15)',
+    borderWidth: 2, borderColor: 'rgba(80,200,120,0.4)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  barcodeScanBtnInner: {
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: 'rgba(80,200,120,0.1)',
+    borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.3)',
+    alignItems: 'center', justifyContent: 'center',
   },
   barcodeFlash: {
     backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 20,
