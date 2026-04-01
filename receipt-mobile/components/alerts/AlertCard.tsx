@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
   },
   unread: {
     borderLeftWidth: 3,
-    borderLeftColor: Colors.primary.default,
+    borderLeftColor: '#7DDFAA',
     backgroundColor: Colors.primary.pale,
   },
   iconWrap: {

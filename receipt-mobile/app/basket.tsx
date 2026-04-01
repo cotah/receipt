@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.surface.border,
   },
   addBtn: {
-    width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.primary.default,
+    width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(80,200,120,0.20)',
     alignItems: 'center', justifyContent: 'center',
   },
   itemsList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: Spacing.md },
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   itemChipText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.primary, maxWidth: 150 },
   optimizeBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.primary.default, borderRadius: 12,
+    backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 12,
     paddingVertical: 14, marginBottom: Spacing.lg,
   },
   optimizeBtnDisabled: { opacity: 0.5 },

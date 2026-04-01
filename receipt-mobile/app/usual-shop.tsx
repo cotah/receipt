@@ -88,7 +88,7 @@ export default function UsualShopScreen() {
 
         {isLoading && (
           <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color={Colors.primary.default} />
+            <ActivityIndicator size="small" color={'#7DDFAA'} />
             <Text style={styles.loadingText}>Analysing your shopping habits...</Text>
           </View>
         )}
@@ -149,7 +149,7 @@ export default function UsualShopScreen() {
                             styles.storeBarFill,
                             {
                               width: `${Math.min(100, (st.total / (data.store_totals[data.store_totals.length - 1]?.total || 1)) * 100)}%`,
-                              backgroundColor: i === 0 ? Colors.primary.default : Colors.surface.alt,
+                              backgroundColor: i === 0 ? 'rgba(80,200,120,0.20)' : 'rgba(255,255,255,0.06)',
                             },
                           ]}
                         />
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   retryBtn: {
     paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)',
   },
   retryText: { fontFamily: Fonts.bodyBold, color: '#FFF', fontSize: 13 },
   emptyCard: {
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary, textAlign: 'center',
   },
   summaryCard: {
-    backgroundColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)',
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
   },

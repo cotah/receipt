@@ -110,7 +110,7 @@ export default function LinkBarcodesScreen() {
     return (
       <SafeAreaView style={styles.safeLight} edges={['top']}>
         <View style={styles.permBox}>
-          <ActivityIndicator size="large" color={Colors.primary.default} />
+          <ActivityIndicator size="large" color={'#7DDFAA'} />
           <Text style={styles.loadingText}>Loading products...</Text>
         </View>
       </SafeAreaView>
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
   safeLight: { flex: 1, backgroundColor: Colors.surface.background },
   permBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 32 },
   permText: { fontFamily: Fonts.body, fontSize: 15, color: Colors.text.secondary, textAlign: 'center' },
-  permBtn: { backgroundColor: Colors.primary.default, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 },
+  permBtn: { backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 },
   permBtnText: { fontFamily: Fonts.bodyBold, fontSize: 15, color: '#FFF' },
   loadingText: { fontFamily: Fonts.body, fontSize: 15, color: Colors.text.secondary },
 

@@ -41,7 +41,7 @@ export default function FeedbackScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.successContainer}>
           <View style={styles.successIcon}>
-            <Feather name="check-circle" size={48} color={Colors.primary.default} />
+            <Feather name="check-circle" size={48} color={'#7DDFAA'} />
           </View>
           <Text style={styles.successTitle}>Sent, thank you!</Text>
           <Text style={styles.successText}>
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
   },
   categoryChipActive: {
-    backgroundColor: Colors.primary.default, borderColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)', borderColor: 'rgba(80,200,120,0.25)',
   },
   categoryText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.secondary },
   categoryTextActive: { color: '#fff' },
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   },
   sendBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.primary.default, borderRadius: 12,
+    backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 12,
     paddingVertical: 14, marginTop: 24,
   },
   sendBtnDisabled: { opacity: 0.5 },
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   },
   successIcon: { marginBottom: 16 },
   successTitle: {
-    fontFamily: 'DMSans_700Bold', fontSize: 22, color: Colors.primary.default, marginBottom: 12,
+    fontFamily: 'DMSans_700Bold', fontSize: 22, color: '#7DDFAA', marginBottom: 12,
   },
   successText: {
     fontFamily: 'DMSans_400Regular', fontSize: 15, color: Colors.text.secondary,
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     marginTop: 24, paddingVertical: 12, paddingHorizontal: 32,
-    borderRadius: 10, backgroundColor: Colors.primary.default,
+    borderRadius: 10, backgroundColor: 'rgba(80,200,120,0.20)',
   },
   backBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#fff' },
 });

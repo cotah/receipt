@@ -246,7 +246,7 @@ export default function PricesScreen() {
                             <Feather
                               name={addedToList.has(`${store.product_name}-${store.store_name}`) ? 'check' : 'plus'}
                               size={14}
-                              color={addedToList.has(`${store.product_name}-${store.store_name}`) ? '#FFF' : Colors.primary.default}
+                              color={addedToList.has(`${store.product_name}-${store.store_name}`) ? '#FFF' : '#7DDFAA'}
                             />
                           </Pressable>
                         </View>

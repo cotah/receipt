@@ -136,7 +136,7 @@ function ReceiptScanAnim() {
 
 function PointsAnim() {
   const coins = [
-    { pts: '+15', color: Colors.primary.default, top: 16, left: 24 },
+    { pts: '+15', color: '#7DDFAA', top: 16, left: 24 },
     { pts: '+30', color: '#534AB7', top: 16, left: 148 },
     { pts: '+50', color: '#D4A843', top: 70, left: 84 },
   ];
@@ -169,7 +169,7 @@ function RaffleAnim() {
     { label: 'TICKET #3', bg: '#534AB7', top: 76, left: 70 },
   ];
   return (
-    <View style={[a.box, { backgroundColor: Colors.primary.default }]}>
+    <View style={[a.box, { backgroundColor: '#7DDFAA' }]}>
       {tickets.map((t, i) => (
         <View key={i} style={[a.ticket, { backgroundColor: t.bg, top: t.top, left: t.left }]}>
           <Text style={a.ticketText}>{t.label}</Text>
@@ -267,7 +267,7 @@ export default function OnboardingScreen() {
 
 // ─── Styles ───
 
-const GREEN = Colors.primary.default;
+const GREEN = '#7DDFAA';
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#0d2818' },

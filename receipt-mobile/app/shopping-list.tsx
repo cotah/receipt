@@ -166,7 +166,7 @@ export default function ShoppingListScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.primary.default} />
+          <ActivityIndicator size="large" color={'#7DDFAA'} />
         </View>
       </SafeAreaView>
     );
@@ -181,7 +181,7 @@ export default function ShoppingListScreen() {
         </Pressable>
         <Text style={styles.headerTitle}>Shopping List</Text>
         <Pressable onPress={() => setShowShare(!showShare)} hitSlop={12}>
-          <Feather name="users" size={22} color={sharedWith ? Colors.primary.default : Colors.text.secondary} />
+          <Feather name="users" size={22} color={sharedWith ? '#7DDFAA' : Colors.text.secondary} />
         </Pressable>
       </View>
 
@@ -191,7 +191,7 @@ export default function ShoppingListScreen() {
           {sharedWith ? (
             <View>
               <View style={styles.shareRow}>
-                <Feather name="link" size={16} color={Colors.primary.default} />
+                <Feather name="link" size={16} color={'#7DDFAA'} />
                 <Text style={styles.shareLinked}>Sharing with {sharedWith}</Text>
               </View>
               <Pressable onPress={unlinkList} style={styles.unlinkBtn}>
@@ -233,7 +233,7 @@ export default function ShoppingListScreen() {
       {/* Shared indicator */}
       {sharedWith && !showShare && (
         <View style={styles.sharedBanner}>
-          <Feather name="users" size={13} color={Colors.primary.default} />
+          <Feather name="users" size={13} color={'#7DDFAA'} />
           <Text style={styles.sharedBannerText}>Shared with {sharedWith}</Text>
         </View>
       )}
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
   },
-  headerTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: Colors.primary.dark },
+  headerTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: '#FFFFFF' },
 
   // Summary
   summaryBar: {
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 48, marginBottom: Spacing.md },
   emptyTitle: { fontFamily: 'DMSans_700Bold', fontSize: 20, color: Colors.text.primary, marginBottom: Spacing.xs },
   emptyText: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.secondary, textAlign: 'center', paddingHorizontal: Spacing.xl, marginBottom: Spacing.lg },
-  browseBtn: { backgroundColor: Colors.primary.default, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 },
+  browseBtn: { backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 },
   browseBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#fff' },
 
   // Store section
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   shareOptions: { gap: 8 },
   shareCodeBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: Colors.primary.default, borderRadius: 10,
+    backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 10,
     paddingHorizontal: 16, paddingVertical: 10, alignSelf: 'flex-start',
   },
   shareCodeBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: '#FFF' },
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   joinBtn: {
-    backgroundColor: Colors.primary.default, borderRadius: 10,
+    backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 10,
     paddingHorizontal: 20, justifyContent: 'center',
   },
   joinBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: '#FFF' },
@@ -393,5 +393,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: Spacing.md, paddingVertical: 4,
   },
-  sharedBannerText: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.primary.default },
+  sharedBannerText: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: '#7DDFAA' },
 });

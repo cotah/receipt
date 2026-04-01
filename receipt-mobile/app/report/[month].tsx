@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.md, paddingBottom: Spacing.xxl },
   skeletons: { padding: Spacing.md },
   back: { marginBottom: Spacing.sm },
-  title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 32, color: Colors.primary.dark, marginBottom: Spacing.md },
+  title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 32, color: '#FFFFFF', marginBottom: Spacing.md },
   section: { marginTop: Spacing.lg },
   sectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm },
   insightRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, marginBottom: Spacing.sm },

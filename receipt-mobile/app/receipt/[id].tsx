@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
 
   // Weight confirmation styles
   weightCard: {
-    marginTop: Spacing.md, backgroundColor: Colors.accent.greenSoft, borderWidth: 1, borderColor: Colors.primary.default,
+    marginTop: Spacing.md, backgroundColor: Colors.accent.greenSoft, borderWidth: 1, borderColor: 'rgba(80,200,120,0.25)',
     borderRadius: BorderRadius.md,
   },
   weightHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.15)',
   },
-  presetBtnActive: { backgroundColor: Colors.primary.default, borderColor: Colors.primary.default },
+  presetBtnActive: { backgroundColor: 'rgba(80,200,120,0.20)', borderColor: 'rgba(80,200,120,0.25)' },
   presetBtnText: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.text.secondary },
   presetBtnTextActive: { color: '#FFF' },
   weightInput: {
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   weightInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   confirmItemBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)',
     alignItems: 'center', justifyContent: 'center',
   },
   skipItemBtn: { paddingVertical: 8, paddingHorizontal: 4 },

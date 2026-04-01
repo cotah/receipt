@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Spacing.sm,
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   bubbleUser: {
-    backgroundColor: Colors.primary.dark,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: BorderRadius.lg,
     borderBottomRightRadius: BorderRadius.sm,
   },

@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
   hintText: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: '#7ec87e', textAlign: 'center' },
 
   // Add more banner (on camera)
-  addMoreBanner: { backgroundColor: Colors.primary.default, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
+  addMoreBanner: { backgroundColor: 'rgba(80,200,120,0.20)', paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
   addMoreText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: '#fff', textAlign: 'center' },
 
   // Mode toggle

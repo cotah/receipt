@@ -43,7 +43,7 @@ export default function ReceiptCard({
   const nStore = normalizeStore(store_name);
 
   return (
-    <Card onPress={onPress} style={[styles.card, { borderLeftColor: STORE_COLORS[nStore] || Colors.primary.default }]}>
+    <Card onPress={onPress} style={[styles.card, { borderLeftColor: STORE_COLORS[nStore] || '#7DDFAA' }]}>
       <View style={styles.row}>
         <View style={styles.left}>
           <View style={[styles.dot, { backgroundColor: dotColor }]} />

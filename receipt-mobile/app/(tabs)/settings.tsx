@@ -123,7 +123,7 @@ export default function SettingsScreen() {
               <Image source={{ uri: profile.avatar_url }} style={styles.avatarImg} />
             ) : (
               <View style={styles.avatar}>
-                <Feather name="user" size={32} color={Colors.primary.default} />
+                <Feather name="user" size={32} color={'#7DDFAA'} />
               </View>
             )}
             <View style={styles.cameraBadge}>
@@ -148,7 +148,7 @@ export default function SettingsScreen() {
               value={profile?.notify_alerts ?? false}
               onValueChange={handleToggleNotifications}
               trackColor={{ false: Colors.surface.alt, true: Colors.primary.light }}
-              thumbColor={profile?.notify_alerts ? Colors.primary.default : '#ccc'}
+              thumbColor={profile?.notify_alerts ? '#7DDFAA' : 'rgba(255,255,255,0.2)'}
             />
           </Card>
 
@@ -161,7 +161,7 @@ export default function SettingsScreen() {
               value={profile?.notify_reports ?? false}
               onValueChange={handleToggleReports}
               trackColor={{ false: Colors.surface.alt, true: Colors.primary.light }}
-              thumbColor={profile?.notify_reports ? Colors.primary.default : '#ccc'}
+              thumbColor={profile?.notify_reports ? '#7DDFAA' : 'rgba(255,255,255,0.2)'}
             />
           </Card>
 
@@ -182,7 +182,7 @@ export default function SettingsScreen() {
                   returnKeyType="done"
                 />
                 <Pressable onPress={handleSaveArea} hitSlop={8}>
-                  <Feather name="check" size={18} color={Colors.primary.default} />
+                  <Feather name="check" size={18} color={'#7DDFAA'} />
                 </Pressable>
               </View>
             ) : (
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.text.primary,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.primary.default,
+    borderBottomColor: 'rgba(255,255,255,0.10)',
     minWidth: 100,
     paddingVertical: 2,
   },

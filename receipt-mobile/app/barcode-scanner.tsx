@@ -303,7 +303,7 @@ export default function BarcodeScannerScreen() {
           {/* Loading */}
           {isLoading && (
             <View style={styles.loadingBox}>
-              <ActivityIndicator size="large" color={Colors.primary.default} />
+              <ActivityIndicator size="large" color={'#7DDFAA'} />
               <Text style={styles.loadingText}>Looking up barcode...</Text>
             </View>
           )}
@@ -322,7 +322,7 @@ export default function BarcodeScannerScreen() {
                 </>
               ) : (
                 <>
-                  <Feather name="link" size={32} color={Colors.primary.default} />
+                  <Feather name="link" size={32} color={'#7DDFAA'} />
                   <Text style={styles.notFoundTitle}>Link this barcode</Text>
                   <Text style={styles.notFoundText}>
                     Search for the product to link it to this barcode. Earn 10 points!
@@ -338,7 +338,7 @@ export default function BarcodeScannerScreen() {
 
                   {/* Autocomplete results */}
                   {isSearching && (
-                    <ActivityIndicator size="small" color={Colors.primary.default} style={{ marginVertical: 8 }} />
+                    <ActivityIndicator size="small" color={'#7DDFAA'} style={{ marginVertical: 8 }} />
                   )}
 
                   {searchResults.length > 0 && (
@@ -354,7 +354,7 @@ export default function BarcodeScannerScreen() {
                             <Text style={styles.autocompleteName} numberOfLines={1}>{item.product_name}</Text>
                             <Text style={styles.autocompleteStore}>{item.store_name} · €{item.price.toFixed(2)}</Text>
                           </View>
-                          <Feather name="link" size={16} color={Colors.primary.default} />
+                          <Feather name="link" size={16} color={'#7DDFAA'} />
                         </Pressable>
                       ))}
                     </View>
@@ -374,7 +374,7 @@ export default function BarcodeScannerScreen() {
 
                       {isIdentifying && (
                         <View style={styles.identifyingRow}>
-                          <ActivityIndicator size="small" color={Colors.primary.default} />
+                          <ActivityIndicator size="small" color={'#7DDFAA'} />
                           <Text style={styles.identifyingText}>AI is identifying the product...</Text>
                         </View>
                       )}
@@ -440,7 +440,7 @@ export default function BarcodeScannerScreen() {
                             onPress={() => addToList(store.store_name, store.product_name, store.unit_price)}
                             style={styles.addBtn}
                           >
-                            <Feather name="plus" size={16} color={Colors.primary.default} />
+                            <Feather name="plus" size={16} color={'#7DDFAA'} />
                           </Pressable>
                         </View>
                       </View>
@@ -563,12 +563,12 @@ const styles = StyleSheet.create({
   noResultsText: { fontFamily: Fonts.body, fontSize: 13, color: Colors.text.secondary },
   photoBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: Colors.primary.default, borderRadius: 12,
+    backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 12,
     paddingHorizontal: 16, paddingVertical: 10,
   },
   photoBtnText: { fontFamily: Fonts.bodySemiBold, fontSize: 14, color: '#FFF' },
   identifyingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
-  identifyingText: { fontFamily: Fonts.body, fontSize: 13, color: Colors.primary.default },
+  identifyingText: { fontFamily: Fonts.body, fontSize: 13, color: '#7DDFAA' },
   orText: { fontFamily: Fonts.body, fontSize: 12, color: Colors.text.tertiary, marginTop: 4 },
   photoCameraWrap: { flex: 1 },
   photoCamera: { flex: 1 },
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
   storePriceCheapest: { color: '#7DDFAA' },
   addBtn: {
     width: 32, height: 32, borderRadius: 16,
-    borderWidth: 1.5, borderColor: Colors.primary.default,
+    borderWidth: 1.5, borderColor: 'rgba(80,200,120,0.25)',
     alignItems: 'center', justifyContent: 'center',
   },
   savingSummary: {
@@ -665,6 +665,6 @@ const styles = StyleSheet.create({
   },
   backLink: { marginTop: Spacing.sm },
   backLinkText: {
-    fontFamily: Fonts.body, fontSize: 14, color: Colors.primary.default,
+    fontFamily: Fonts.body, fontSize: 14, color: '#7DDFAA',
   },
 });
