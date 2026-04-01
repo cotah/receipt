@@ -678,7 +678,7 @@ const styles = StyleSheet.create({
     borderRadius: 14, paddingVertical: 14, alignItems: 'center',
     marginBottom: 16,
   },
-  addToListText: { fontFamily: 'DMSans_700Bold', fontSize: 15, color: '#7DDFAA' },
+  addToListText: { fontFamily: 'DMSans_700Bold', fontSize: 15, color: '#FFFFFF' },
 
   // Alternatives — "Also available"
   altSection: { marginTop: 8, marginBottom: 12 },
