@@ -2706,12 +2706,12 @@ async def scrape_tesco_promotions() -> None:
 
 
 async def scrape_aldi_leaflet() -> None:
-    """Scrape Aldi Ireland leaflet using direct HTTP + og:image + OCR.
+    """Scrape Aldi Ireland leaflet using direct HTTP + Publitas CDN + OCR.
 
     Flow (NO Apify needed):
     1. Fetch www.aldi.ie/leaflet → find leaflet.aldi.ie slug
-    2. For each page 1-7, fetch HTML → extract og:image URL
-    3. Download page image
+    2. Fetch spreads.json → get actual page image URLs from Publitas CDN
+    3. Download each page image (at1600 resolution)
     4. OCR with Gemini Vision → extract products
     5. Save to collective_prices
     """
@@ -2724,16 +2724,16 @@ async def scrape_aldi_leaflet() -> None:
     now = datetime.now(timezone.utc)
     total_saved = 0
     errors = 0
-    max_pages = 7  # Only first 7 pages have grocery products
+    max_pages = 7  # Only first ~7 pages have grocery products
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     }
 
     try:
-        # Step 1: Find current leaflet URL from aldi.ie
         async with httpx.AsyncClient(follow_redirects=True, timeout=30, headers=headers) as client:
+            # Step 1: Find current leaflet URL
             resp = await client.get("https://www.aldi.ie/leaflet")
             resp.raise_for_status()
             soup = BeautifulSoup(resp.text, "html.parser")
@@ -2746,7 +2746,6 @@ async def scrape_aldi_leaflet() -> None:
                     break
 
             if not leaflet_url:
-                # Fallback: try the redirect URL from leaflet.aldi.ie directly
                 fallback = await client.get("https://leaflet.aldi.ie")
                 leaflet_url = str(fallback.url).rstrip("/")
 
@@ -2758,8 +2757,28 @@ async def scrape_aldi_leaflet() -> None:
 
             log.info("Aldi scraper: found leaflet at %s", leaflet_url)
 
-            # Step 2: For each page, get og:image and download
+            # Step 2: Fetch spreads.json for actual page image URLs
+            spreads_url = f"{leaflet_url}/spreads.json"
+            spreads_resp = await client.get(spreads_url)
+            if spreads_resp.status_code != 200:
+                log.error("Aldi scraper: spreads.json returned %d", spreads_resp.status_code)
+                _finish_run(db, run_id, status="failed", fallback_level=0, items_saved=0,
+                            error_detail=f"spreads.json returned {spreads_resp.status_code}")
+                return
+
+            spreads = spreads_resp.json()
+            if not isinstance(spreads, list) or len(spreads) == 0:
+                log.error("Aldi scraper: spreads.json is empty")
+                _finish_run(db, run_id, status="failed", fallback_level=0, items_saved=0,
+                            error_detail="spreads.json empty")
+                return
+
+            log.info("Aldi scraper: found %d spreads in leaflet", len(spreads))
+
+            # Step 3: Download page images and OCR
             _seen_names: set[str] = set()
+            CDN_BASE = "https://view.publitas.com"
+            page_count = 0
 
             def _normalize_aldi_name(name: str) -> str:
                 n = name.lower().strip()
@@ -2772,81 +2791,84 @@ async def scrape_aldi_leaflet() -> None:
                 n = _re.sub(r'\s+', ' ', n).strip()
                 return n
 
-            for page_num in range(1, max_pages + 1):
-                try:
-                    page_url = f"{leaflet_url}/page/{page_num}"
-                    page_resp = await client.get(page_url)
+            for spread in spreads:
+                pages = spread.get("pages", [])
+                for page in pages:
+                    page_count += 1
+                    if page_count > max_pages:
+                        break
 
-                    if page_resp.status_code != 200:
-                        log.warning("Aldi scraper: page %d returned %d", page_num, page_resp.status_code)
+                    page_num = page.get("number", page_count)
+                    images = page.get("images", {})
+                    img_path = images.get("at1600") or images.get("at800")
+
+                    if not img_path:
+                        log.warning("Aldi scraper: page %d has no image URL", page_num)
                         continue
 
-                    # Extract og:image from HTML
-                    page_soup = BeautifulSoup(page_resp.text, "html.parser")
-                    og_tag = page_soup.find("meta", property="og:image")
-                    if not og_tag or not og_tag.get("content"):
-                        log.warning("Aldi scraper: page %d has no og:image", page_num)
-                        continue
+                    img_url = f"{CDN_BASE}{img_path}"
 
-                    img_url = og_tag["content"].replace("&amp;", "&")
-                    log.info("Aldi scraper: page %d → downloading image...", page_num)
+                    try:
+                        log.info("Aldi scraper: page %d → downloading image...", page_num)
+                        img_resp = await client.get(img_url, timeout=30)
 
-                    # Download the page image
-                    img_resp = await client.get(img_url, timeout=30)
-                    if img_resp.status_code != 200:
-                        log.warning("Aldi scraper: page %d image download failed (%d)", page_num, img_resp.status_code)
-                        continue
+                        if img_resp.status_code != 200:
+                            log.warning("Aldi scraper: page %d image failed (%d)", page_num, img_resp.status_code)
+                            continue
 
-                    img_bytes = img_resp.content
-                    if len(img_bytes) < 1000:
-                        log.warning("Aldi scraper: page %d image too small (%d bytes)", page_num, len(img_bytes))
-                        continue
+                        img_bytes = img_resp.content
+                        if len(img_bytes) < 5000:
+                            log.warning("Aldi scraper: page %d image too small (%d bytes)", page_num, len(img_bytes))
+                            continue
 
-                    # Step 3: OCR the image
-                    products = await direct_extract_products_from_image(img_bytes, "Aldi")
-                    log.info("Aldi scraper: page %d → %d products extracted", page_num, len(products))
+                        # OCR the image
+                        products = await direct_extract_products_from_image(img_bytes, "Aldi")
+                        log.info("Aldi scraper: page %d → %d products extracted", page_num, len(products))
 
-                    # Step 4: Save products
-                    for product in products:
-                        try:
-                            name = product.get("product_name", "")
-                            price = product.get("unit_price")
-                            if not name or price is None or float(price) <= 0:
-                                continue
+                        # Save products
+                        for product in products:
+                            try:
+                                name = product.get("product_name", "")
+                                price = product.get("unit_price")
+                                if not name or price is None or float(price) <= 0:
+                                    continue
 
-                            norm_name = _normalize_aldi_name(name)
-                            if norm_name in _seen_names:
-                                continue
-                            _seen_names.add(norm_name)
+                                norm_name = _normalize_aldi_name(name)
+                                if norm_name in _seen_names:
+                                    continue
+                                _seen_names.add(norm_name)
 
-                            from app.utils.price_utils import get_ttl_days
-                            category = product.get("category", "Other")
-                            ttl_days = get_ttl_days(category)
+                                from app.utils.price_utils import get_ttl_days
+                                category = product.get("category", "Other")
+                                ttl_days = get_ttl_days(category)
 
-                            product_key = generate_product_key(name, product.get("unit"))
-                            db.table("collective_prices").upsert(
-                                {
-                                    "product_key": product_key,
-                                    "product_name": name,
-                                    "category": category,
-                                    "store_name": "Aldi",
-                                    "unit_price": float(price),
-                                    "unit": product.get("unit"),
-                                    "is_on_offer": product.get("is_on_offer", True),
-                                    "source": "leaflet",
-                                    "observed_at": now.isoformat(),
-                                    "expires_at": (now + timedelta(days=max(ttl_days, 7))).isoformat(),
-                                },
-                                on_conflict="product_key,store_name,source",
-                            ).execute()
-                            total_saved += 1
-                        except Exception as e:
-                            errors += 1
-                            log.warning("Aldi scraper: item save error: %s", e)
+                                product_key = generate_product_key(name, product.get("unit"))
+                                db.table("collective_prices").upsert(
+                                    {
+                                        "product_key": product_key,
+                                        "product_name": name,
+                                        "category": category,
+                                        "store_name": "Aldi",
+                                        "unit_price": float(price),
+                                        "unit": product.get("unit"),
+                                        "is_on_offer": product.get("is_on_offer", True),
+                                        "source": "leaflet",
+                                        "observed_at": now.isoformat(),
+                                        "expires_at": (now + timedelta(days=max(ttl_days, 7))).isoformat(),
+                                    },
+                                    on_conflict="product_key,store_name,source",
+                                ).execute()
+                                total_saved += 1
+                            except Exception as e:
+                                errors += 1
+                                log.warning("Aldi scraper: item save error: %s", e)
 
-                except Exception as e:
-                    errors += 1
-                    log.warning("Aldi scraper: page %d error: %s", page_num, e)
+                    except Exception as e:
+                        errors += 1
+                        log.warning("Aldi scraper: page %d error: %s", page_num, e)
+
+                if page_count > max_pages:
+                    break
 
     except Exception as e:
         log.error("Aldi scraper: fatal error: %s", e)
@@ -2861,7 +2883,7 @@ async def scrape_aldi_leaflet() -> None:
         items_saved=total_saved,
         error_detail=(
             None if total_saved > 0
-            else f"Zero items after OCR ({max_pages} pages processed)"
+            else f"Zero items after OCR ({page_count} pages processed)"
         ),
     )
     log.info("Aldi scraper: finished — %d items saved, %d errors", total_saved, errors)
