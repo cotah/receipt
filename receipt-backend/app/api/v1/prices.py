@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, HTTPException
 from app.utils.auth_utils import get_current_user
 from app.utils.text_utils import generate_product_key
 from app.database import get_service_client
@@ -845,7 +845,6 @@ async def barcode_lookup(
                     "brand": found_brand or "",
                     "category": found_category or "Other",
                     "image_url": found_image or "",
-                    "source": "user_scan",
                 }).execute()
             except Exception:
                 pass
@@ -1105,7 +1104,6 @@ async def barcode_contribute(
             "brand": "",
             "category": "Other",
             "image_url": "",
-            "source": "user_contribution",
         }
         if existing.data:
             db.table("barcode_catalog").update(row).eq("barcode", barcode).execute()

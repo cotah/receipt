@@ -1096,7 +1096,6 @@ async def link_barcode_to_item(
             "product_name": product_name,
             "product_key": product_key,
             "category": item.data.get("category", "Other"),
-            "source": "receipt_scan",
         }).execute()
     except Exception:
         pass  # Duplicate barcode is fine
