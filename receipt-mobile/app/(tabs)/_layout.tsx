@@ -13,8 +13,8 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.primary.dark,
-        tabBarInactiveTintColor: Colors.text.tertiary,
+        tabBarActiveTintColor: '#7DDFAA',
+        tabBarInactiveTintColor: 'rgba(255,255,255,0.35)',
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabLabel,
       }}
@@ -39,7 +39,7 @@ export default function TabLayout() {
           title: '',
           tabBarIcon: () => (
             <View style={styles.scanBtn}>
-              <Feather name="camera" size={24} color="#FFF" />
+              <Feather name="camera" size={24} color="#7DDFAA" />
             </View>
           ),
         }}
@@ -76,14 +76,15 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: Colors.surface.card,
-    borderTopWidth: 0,
+    backgroundColor: 'rgba(13,40,24,0.95)',
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(255,255,255,0.08)',
     height: 88,
     paddingBottom: 24,
     paddingTop: 6,
-    shadowColor: '#0D2B1D',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 6,
   },
@@ -92,16 +93,16 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 28,
-    shadowColor: '#1A4D35',
-    shadowOffset: { width: 0, height: 6 },
+    shadowColor: '#7DDFAA',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 8,
-    borderWidth: 3,
-    borderColor: Colors.surface.card,
+    borderWidth: 0.5,
+    borderColor: 'rgba(80,200,120,0.35)',
   },
 });

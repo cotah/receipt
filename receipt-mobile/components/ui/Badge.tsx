@@ -11,12 +11,12 @@ interface BadgeProps {
   size?: 'sm' | 'md';
 }
 
-const COLORS: Record<Variant, { bg: string; text: string }> = {
-  success: { bg: 'rgba(60,179,113,0.12)', text: '#22A95B' },
-  warning: { bg: 'rgba(232,160,32,0.12)', text: '#C28716' },
-  danger: { bg: 'rgba(217,79,79,0.10)', text: '#C74343' },
-  info: { bg: 'rgba(45,110,168,0.10)', text: '#2567A0' },
-  neutral: { bg: Colors.surface.alt, text: Colors.text.secondary },
+const COLORS: Record<Variant, { bg: string; text: string; border: string }> = {
+  success: { bg: 'rgba(80,200,120,0.15)', text: '#7DDFAA', border: 'rgba(80,200,120,0.25)' },
+  warning: { bg: 'rgba(212,168,67,0.12)', text: '#F0D68A', border: 'rgba(212,168,67,0.20)' },
+  danger: { bg: 'rgba(240,149,149,0.12)', text: '#F09595', border: 'rgba(240,149,149,0.20)' },
+  info: { bg: 'rgba(133,183,235,0.12)', text: '#85B7EB', border: 'rgba(133,183,235,0.20)' },
+  neutral: { bg: 'rgba(255,255,255,0.08)', text: 'rgba(255,255,255,0.55)', border: 'rgba(255,255,255,0.12)' },
 };
 
 export default function Badge({ text, variant = 'neutral', size = 'sm' }: BadgeProps) {
@@ -26,7 +26,7 @@ export default function Badge({ text, variant = 'neutral', size = 'sm' }: BadgeP
   const padH = size === 'sm' ? 8 : 12;
 
   return (
-    <View style={[styles.badge, { backgroundColor: colors.bg, paddingVertical: padV, paddingHorizontal: padH }]}>
+    <View style={[styles.badge, { backgroundColor: colors.bg, borderColor: colors.border, paddingVertical: padV, paddingHorizontal: padH }]}>
       <Text style={[styles.text, { color: colors.text, fontSize }]}>{text}</Text>
     </View>
   );
@@ -36,6 +36,7 @@ const styles = StyleSheet.create({
   badge: {
     borderRadius: BorderRadius.full,
     alignSelf: 'flex-start',
+    borderWidth: 0.5,
   },
   text: {
     fontFamily: 'DMSans_600SemiBold',

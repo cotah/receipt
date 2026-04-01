@@ -7,17 +7,22 @@ interface CardProps {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
-  variant?: 'default' | 'elevated' | 'glass';
+  variant?: 'default' | 'elevated' | 'glass' | 'accent' | 'gold';
 }
 
 export default function Card({ children, style, onPress, variant = 'default' }: CardProps) {
   const shadow = variant === 'elevated' ? Shadows.float : Shadows.card;
-  const bg = variant === 'glass'
-    ? Colors.surface.cardGlass
-    : Colors.surface.card;
+
+  const variantStyles: Record<string, ViewStyle> = {
+    default: { backgroundColor: Colors.glass.bg, borderColor: Colors.glass.border },
+    elevated: { backgroundColor: Colors.glass.bgBright, borderColor: Colors.glass.borderBright },
+    glass: { backgroundColor: Colors.glass.bg, borderColor: Colors.glass.border },
+    accent: { backgroundColor: Colors.glass.bgAccent, borderColor: Colors.glass.borderAccent },
+    gold: { backgroundColor: Colors.glass.bgGold, borderColor: Colors.glass.borderGold },
+  };
 
   const content = (
-    <View style={[styles.card, shadow, { backgroundColor: bg }, style]}>
+    <View style={[styles.card, shadow, variantStyles[variant], style]}>
       {children}
     </View>
   );
@@ -34,10 +39,9 @@ export default function Card({ children, style, onPress, variant = 'default' }: 
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.7)',
+    borderWidth: 0.5,
+    overflow: 'hidden',
   },
 });
