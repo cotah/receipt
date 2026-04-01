@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query, Request
 from app.utils.auth_utils import get_current_user
@@ -17,6 +18,8 @@ from app.models.price import (
     LeafletOffersResponse,
     LeafletOffer,
 )
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/prices", tags=["prices"])
 
