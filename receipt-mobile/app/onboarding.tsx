@@ -141,7 +141,7 @@ function PointsAnim() {
     { pts: '+50', color: '#D4A843', top: 70, left: 84 },
   ];
   return (
-    <View style={[a.box, { backgroundColor: '#FFF8E8' }]}>
+    <View style={[a.box, { backgroundColor: 'rgba(212,168,67,0.10)', borderColor: 'rgba(212,168,67,0.20)' }]}>
       {coins.map((c, i) => (
         <View key={i} style={[a.coin, { backgroundColor: c.color, top: c.top, left: c.left }]}>
           <Text style={a.coinText}>{c.pts}</Text>
@@ -270,44 +270,44 @@ export default function OnboardingScreen() {
 const GREEN = Colors.primary.default;
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAFAF5' },
+  safe: { flex: 1, backgroundColor: '#0d2818' },
   slide: {
     width: SCREEN_W, flex: 1, alignItems: 'center',
     paddingHorizontal: 28, paddingTop: 20, paddingBottom: 16,
   },
-  tag: { fontSize: 11, color: '#999', letterSpacing: 0.5, marginBottom: 6 },
-  title: { fontFamily: Fonts.bodyBold, fontSize: 26, color: GREEN, textAlign: 'center', marginBottom: 12 },
+  tag: { fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: 0.5, marginBottom: 6 },
+  title: { fontFamily: Fonts.bodyBold, fontSize: 26, color: '#7DDFAA', textAlign: 'center', marginBottom: 12 },
   animWrap: { width: 220, height: 220, marginBottom: 16 },
-  desc: { fontFamily: Fonts.body, fontSize: 14, color: '#555', textAlign: 'center', lineHeight: 21, paddingHorizontal: 8 },
+  desc: { fontFamily: Fonts.body, fontSize: 14, color: 'rgba(255,255,255,0.55)', textAlign: 'center', lineHeight: 21, paddingHorizontal: 8 },
   spacer: { flex: 1 },
   dots: { flexDirection: 'row', gap: 6, justifyContent: 'center', marginBottom: 16 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ddd' },
-  dotActive: { backgroundColor: GREEN, width: 22 },
-  btn: { backgroundColor: GREEN, borderRadius: 14, paddingVertical: 14, width: '100%', alignItems: 'center' },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.15)' },
+  dotActive: { backgroundColor: '#7DDFAA', width: 22 },
+  btn: { backgroundColor: 'rgba(80,200,120,0.2)', borderRadius: 14, paddingVertical: 14, width: '100%', alignItems: 'center', borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.3)' },
   btnText: { fontFamily: Fonts.bodyBold, fontSize: 16, color: '#FFF' },
   skipBtn: { marginTop: 10, minHeight: 20 },
-  skipText: { fontFamily: Fonts.body, fontSize: 13, color: '#999' },
+  skipText: { fontFamily: Fonts.body, fontSize: 13, color: 'rgba(255,255,255,0.35)' },
 });
 
 const a = StyleSheet.create({
-  box: { width: 220, height: 220, borderRadius: 18, backgroundColor: '#E8F5E8', position: 'relative', overflow: 'hidden', padding: 14 },
-  boxLabel: { fontFamily: Fonts.bodySemiBold, fontSize: 12, color: GREEN, marginBottom: 8 },
+  box: { width: 220, height: 220, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.15)', position: 'relative', overflow: 'hidden', padding: 14 },
+  boxLabel: { fontFamily: Fonts.bodySemiBold, fontSize: 12, color: '#7DDFAA', marginBottom: 8 },
   // PriceList
-  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: 'rgba(0,0,0,0.06)' },
-  priceItem: { fontFamily: Fonts.body, fontSize: 11, color: '#333', flex: 1, marginRight: 6 },
-  priceBadge: { backgroundColor: '#E1F5EE', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  priceBadgeText: { fontFamily: Fonts.bodySemiBold, fontSize: 9, color: '#085041' },
-  saveBanner: { position: 'absolute', bottom: 14, left: 14, right: 14, backgroundColor: GREEN, borderRadius: 10, paddingVertical: 8, alignItems: 'center' },
+  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.06)' },
+  priceItem: { fontFamily: Fonts.body, fontSize: 11, color: 'rgba(255,255,255,0.8)', flex: 1, marginRight: 6 },
+  priceBadge: { backgroundColor: 'rgba(80,200,120,0.15)', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
+  priceBadgeText: { fontFamily: Fonts.bodySemiBold, fontSize: 9, color: '#7DDFAA' },
+  saveBanner: { position: 'absolute', bottom: 14, left: 14, right: 14, backgroundColor: 'rgba(80,200,120,0.2)', borderRadius: 10, paddingVertical: 8, alignItems: 'center', borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.3)' },
   saveBannerText: { fontFamily: Fonts.bodyBold, fontSize: 14, color: '#FFF' },
   // BarChart
   barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  barStore: { fontFamily: Fonts.bodySemiBold, fontSize: 10, width: 44, color: '#333' },
+  barStore: { fontFamily: Fonts.bodySemiBold, fontSize: 10, width: 44, color: 'rgba(255,255,255,0.6)' },
   barTrack: { flex: 1, height: 16, backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: 4, overflow: 'hidden', marginHorizontal: 4 },
   bar: { height: '100%', borderRadius: 4 },
-  barPrice: { fontFamily: Fonts.bodySemiBold, fontSize: 9, color: '#555', width: 34 },
+  barPrice: { fontFamily: Fonts.bodySemiBold, fontSize: 9, color: 'rgba(255,255,255,0.5)', width: 34 },
   checkCircle: { width: 16, height: 16, borderRadius: 8, backgroundColor: GREEN, alignItems: 'center', justifyContent: 'center' },
-  tipBanner: { position: 'absolute', bottom: 12, left: 12, right: 12, backgroundColor: '#E1F5EE', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  tipText: { fontFamily: Fonts.bodySemiBold, fontSize: 10, color: '#085041' },
+  tipBanner: { position: 'absolute', bottom: 12, left: 12, right: 12, backgroundColor: 'rgba(80,200,120,0.12)', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.25)' },
+  tipText: { fontFamily: Fonts.bodySemiBold, fontSize: 10, color: '#7DDFAA' },
   // ReceiptScan
   camCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', alignSelf: 'center', marginBottom: 8 },
   viewfinder: { width: 110, height: 100, borderWidth: 2, borderColor: '#5DCAA5', borderRadius: 6, alignSelf: 'center', padding: 8, justifyContent: 'center' },
@@ -321,10 +321,10 @@ const a = StyleSheet.create({
   coinText: { fontFamily: Fonts.bodyBold, fontSize: 12, color: '#FFF' },
   pointsBottom: { position: 'absolute', bottom: 14, left: 14, right: 14 },
   pointsLabels: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  pointsLabel: { fontFamily: Fonts.body, fontSize: 9, color: '#888' },
-  progressTrack: { height: 4, backgroundColor: '#E8E8E0', borderRadius: 2, overflow: 'hidden' },
-  progressFill: { height: '100%', width: '65%', backgroundColor: GREEN, borderRadius: 2 },
-  pointsTotal: { fontFamily: Fonts.bodyBold, fontSize: 16, color: GREEN, textAlign: 'center', marginTop: 6 },
+  pointsLabel: { fontFamily: Fonts.body, fontSize: 9, color: 'rgba(255,255,255,0.4)' },
+  progressTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' },
+  progressFill: { height: '100%', width: '65%', backgroundColor: '#7DDFAA', borderRadius: 2 },
+  pointsTotal: { fontFamily: Fonts.bodyBold, fontSize: 16, color: '#7DDFAA', textAlign: 'center', marginTop: 6 },
   // Raffle
   ticket: { position: 'absolute', width: 80, height: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   ticketText: { fontFamily: Fonts.bodyBold, fontSize: 10, color: '#FFF' },
