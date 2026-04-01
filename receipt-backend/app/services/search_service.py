@@ -530,6 +530,27 @@ async def find_alternatives(
 
     # Sort by price and return top alternatives
     all_alternatives.sort(key=lambda x: x["unit_price"])
+
+    # DEDUP: Remove near-duplicate products (same store, similar price, similar name)
+    seen: list[dict] = []
+    deduped: list[dict] = []
+    for alt in all_alternatives:
+        is_dup = False
+        for existing in seen:
+            if alt["store_name"] == existing["store_name"]:
+                price_diff = abs(alt["unit_price"] - existing["unit_price"])
+                name_sim = _token_similarity(
+                    _normalize_for_grouping(alt["product_name"]),
+                    _normalize_for_grouping(existing["product_name"]),
+                )
+                if price_diff < 0.50 and name_sim >= 0.5:
+                    is_dup = True
+                    break
+        if not is_dup:
+            deduped.append(alt)
+            seen.append(alt)
+    all_alternatives = deduped
+
     candidates = all_alternatives[:limit * 2]  # Get extra for AI filtering
 
     if not candidates:

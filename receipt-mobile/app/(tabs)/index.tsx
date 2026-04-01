@@ -146,9 +146,7 @@ export default function HomeScreen() {
                 </View>
               )}
             </Pressable>
-            <Pressable onPress={() => router.push('/(tabs)/profile')} style={s.avatar}>
-              <Text style={s.avatarText}>{name.charAt(0).toUpperCase()}{profile?.full_name?.split(' ')?.[1]?.charAt(0)?.toUpperCase() ?? ''}</Text>
-            </Pressable>
+            <ProfileAvatar size={40} />
           </View>
         </View>
 

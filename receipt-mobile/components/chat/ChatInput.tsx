@@ -57,12 +57,14 @@ const styles = StyleSheet.create({
   container: { borderTopWidth: 1, borderTopColor: Colors.surface.alt, backgroundColor: Colors.surface.card },
   chips: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
   chip: {
-    backgroundColor: Colors.surface.alt,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
-  chipText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.primary.default },
+  chipText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: '#7DDFAA' },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',

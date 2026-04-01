@@ -36,8 +36,8 @@ export default function ProfileAvatar({ size = 30 }: Props) {
 
 const styles = StyleSheet.create({
   img: {
-    borderWidth: 0.5,
-    borderColor: 'rgba(80,200,120,0.3)',
+    borderWidth: 1.5,
+    borderColor: '#7DDFAA',
   },
   fallback: {
     backgroundColor: 'rgba(255,255,255,0.08)',
