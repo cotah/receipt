@@ -150,6 +150,7 @@ tr:hover td{background:#F9FAFB}
     <div class="divider"></div>
     <a href="#" onclick="showSection('database',this)"><svg viewBox="0 0 24 24"><path d="M12 3C7.58 3 4 4.79 4 7v10c0 2.21 3.58 4 8 4s8-1.79 8-4V7c0-2.21-3.58-4-8-4z"/></svg>Database</a>
     <a href="#" onclick="showSection('actions',this)"><svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>Quick Actions</a>
+    <a href="#" onclick="showSection('dedup',this)"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-1 14.5v-9l7 4.5-7 4.5z"/></svg>Dedup Bot</a>
   </nav>
 </aside>
 <div class="main">
@@ -230,8 +231,52 @@ tr:hover td{background:#F9FAFB}
       <div id="shelf-results" style="display:none"></div>
     </div>
   </div>
-</div>
-<div class="toast" id="toast"></div>
+  <div class="section" id="sec-dedup">
+    <div class="card" style="text-align:center;padding:40px 20px">
+      <div id="dedup-idle">
+        <div style="font-size:48px;margin-bottom:16px">&#x1F916;</div>
+        <h3 style="margin-bottom:8px">Product Dedup Bot</h3>
+        <p style="color:var(--sec);font-size:13px;margin-bottom:8px">Scans all products for duplicates. Merges same product + same store entries. Keeps cheapest price.</p>
+        <p style="color:var(--sec);font-size:12px;margin-bottom:20px">Runs automatically every <strong>Sunday 03:00 UTC</strong>. No AI needed — pure system logic.</p>
+        <button class="btn btn-accent" onclick="runDedup()" style="font-size:16px;padding:14px 40px;border-radius:14px">&#x25B6; Run Scan Now</button>
+      </div>
+      <div id="dedup-running" style="display:none">
+        <div style="position:relative;width:160px;height:160px;margin:0 auto 20px">
+          <svg width="160" height="160" viewBox="0 0 160 160">
+            <circle cx="80" cy="80" r="70" fill="none" stroke="#E5E7EB" stroke-width="10"/>
+            <circle id="dedup-ring" cx="80" cy="80" r="70" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="440" stroke-dashoffset="440" transform="rotate(-90 80 80)" style="transition:stroke-dashoffset 0.3s"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column">
+            <span id="dedup-pct" style="font-size:32px;font-weight:700;color:var(--primary)">0%</span>
+            <span style="font-size:11px;color:var(--sec)">scanning...</span>
+          </div>
+        </div>
+        <p id="dedup-step" style="color:var(--sec);font-size:13px">Fetching products...</p>
+      </div>
+      <div id="dedup-done" style="display:none">
+        <div style="font-size:48px;margin-bottom:16px">&#x2705;</div>
+        <h3 style="color:var(--accent);margin-bottom:16px">Scan Complete</h3>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:400px;margin:0 auto 20px">
+          <div class="kpi"><div class="label">Scanned</div><div class="value" id="dedup-scanned">0</div></div>
+          <div class="kpi"><div class="label">Keys Updated</div><div class="value" id="dedup-keys" style="color:var(--blue)">0</div></div>
+          <div class="kpi green"><div class="label">Duplicates Merged</div><div class="value" id="dedup-merged">0</div></div>
+          <div class="kpi"><div class="label">Barcode Keys Fixed</div><div class="value" id="dedup-bc" style="color:var(--amber)">0</div></div>
+        </div>
+        <button class="btn btn-primary" onclick="resetDedup()" style="padding:10px 30px">Run Again</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3>How it works</h3>
+      <div style="font-size:13px;color:var(--sec);line-height:1.8">
+        <p><strong>1.</strong> Fetches all products from <code>collective_prices</code></p>
+        <p><strong>2.</strong> Generates new sorted product keys (order-independent: "Tesco Chicken" = "Chicken Tesco")</p>
+        <p><strong>3.</strong> Finds entries with same key + same store = confirmed duplicate</p>
+        <p><strong>4.</strong> Keeps the cheapest price, removes extras</p>
+        <p><strong>5.</strong> Updates barcode_catalog keys for consistency</p>
+        <p style="margin-top:8px"><strong>No AI/LLM used</strong> — pure deterministic string comparison. Zero cost, zero hallucination risk.</p>
+      </div>
+    </div>
+  </div></div>
 <script>
 const B='/api/v1/admin',DB='/api/v1/debug';
 let sc=null,ac=null,up=1,pp=1,uc=[];
@@ -289,6 +334,60 @@ async function runDebug(a){try{const r=await dApi(a);toast('OK: '+JSON.stringify
 async function checkHealth(){try{const r=await fetch('/health');const d=await r.json();toast('API: '+d.status+' v'+d.version)}catch(e){toast('Error: '+e.message)}}
 function exportCSV(){if(!uc.length){toast('Load users first');return}const h=['name','email','plan','scans','chat','points','joined'];const rows=uc.map(u=>[u.full_name||'',u.email||'',u.plan,u.scans_this_month,u.chat_queries_today,u.points,u.created_at||''].join(','));const csv=[h.join(','),...rows].join('\n');const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='smartdocket-users.csv';a.click();toast('Exported')}
 async function uploadShelfPhoto(){const fi=document.getElementById('shelf-file');const store=document.getElementById('shelf-store').value;const st=document.getElementById('shelf-status');const res=document.getElementById('shelf-results');if(!fi.files[0])return toast('No file selected');st.style.display='block';st.style.background='#FEF3C7';st.style.color='#92400E';st.innerHTML='⏳ Processing... AI is reading shelf labels...';res.style.display='none';const fd=new FormData();fd.append('file',fi.files[0]);fd.append('store_name',store);try{const r=await fetch('/api/v1/admin/shelf-scan',{method:'POST',headers:{'X-Admin-Key':gT()},body:fd});const d=await r.json();if(d.saved>0){st.style.background='#DCFCE7';st.style.color='#166534';st.innerHTML='✅ '+d.message;let h='<table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:8px"><tr style="background:#f3f4f6"><th style="padding:6px 8px;text-align:left">Product</th><th style="padding:6px 8px;text-align:right">Price</th><th style="padding:6px 8px">Category</th></tr>';(d.products||[]).forEach(p=>{h+='<tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px">'+p.product_name+'</td><td style="padding:6px 8px;text-align:right;font-weight:600">€'+Number(p.unit_price).toFixed(2)+'</td><td style="padding:6px 8px;font-size:11px;color:#6b7280">'+p.category+'</td></tr>'});h+='</table>';res.innerHTML=h;res.style.display='block'}else{st.style.background='#FEF3C7';st.style.color='#92400E';st.innerHTML='⚠️ No products found. Try a clearer photo with visible price labels.'}}catch(e){st.style.background='#FEE2E2';st.style.color='#991B1B';st.innerHTML='❌ Error: '+e.message}fi.value=''}
+
+// ===== DEDUP BOT =====
+let dedupTimer=null;
+function setDedupProgress(pct,stepText){
+  const ring=document.getElementById('dedup-ring');
+  const pctEl=document.getElementById('dedup-pct');
+  const stepEl=document.getElementById('dedup-step');
+  const offset=440-(440*pct/100);
+  ring.setAttribute('stroke-dashoffset',offset);
+  pctEl.textContent=Math.round(pct)+'%';
+  if(stepText)stepEl.textContent=stepText;
+}
+async function runDedup(){
+  document.getElementById('dedup-idle').style.display='none';
+  document.getElementById('dedup-done').style.display='none';
+  document.getElementById('dedup-running').style.display='block';
+  setDedupProgress(0,'Connecting to database...');
+  // Animate progress while waiting for API
+  let fakePct=0;
+  dedupTimer=setInterval(()=>{
+    if(fakePct<15)fakePct+=2;
+    else if(fakePct<40){fakePct+=1.5;setDedupProgress(fakePct,'Fetching all products...')}
+    else if(fakePct<60){fakePct+=1;setDedupProgress(fakePct,'Updating product keys...')}
+    else if(fakePct<80){fakePct+=0.8;setDedupProgress(fakePct,'Finding duplicates...')}
+    else if(fakePct<92){fakePct+=0.3;setDedupProgress(fakePct,'Merging duplicates...')}
+    else{setDedupProgress(fakePct,'Finishing up...')}
+  },200);
+  try{
+    const r=await fetch(DB+'/run-dedup',{method:'POST',headers:{'X-Admin-Key':gT()}});
+    const d=await r.json();
+    clearInterval(dedupTimer);
+    setDedupProgress(100,'Complete!');
+    setTimeout(()=>{
+      document.getElementById('dedup-running').style.display='none';
+      document.getElementById('dedup-done').style.display='block';
+      document.getElementById('dedup-scanned').textContent=(d.total_scanned||0).toLocaleString();
+      document.getElementById('dedup-keys').textContent=(d.keys_updated||0).toLocaleString();
+      document.getElementById('dedup-merged').textContent=(d.duplicates_merged||0).toLocaleString();
+      document.getElementById('dedup-bc').textContent=(d.barcode_keys_updated||0).toLocaleString();
+      toast('Dedup complete: '+(d.duplicates_merged||0)+' duplicates merged');
+    },600);
+  }catch(e){
+    clearInterval(dedupTimer);
+    setDedupProgress(0,'Error');
+    document.getElementById('dedup-running').style.display='none';
+    document.getElementById('dedup-idle').style.display='block';
+    toast('Dedup error: '+e.message);
+  }
+}
+function resetDedup(){
+  document.getElementById('dedup-done').style.display='none';
+  document.getElementById('dedup-idle').style.display='block';
+  setDedupProgress(0,'');
+}
 </script>
 </body>
 </html>
