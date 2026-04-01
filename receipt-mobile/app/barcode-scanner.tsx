@@ -401,7 +401,14 @@ export default function BarcodeScannerScreen() {
           {result && result.found && result.product && (
             <>
               {/* Product info — tap to compare prices */}
-              <Pressable onPress={() => router.push({ pathname: '/(tabs)/prices', params: { search: result.product!.name } })}>
+              <Pressable
+                onPress={() => {
+                  if (result.stores && result.stores.length > 0) {
+                    router.push({ pathname: '/(tabs)/prices', params: { search: result.product!.name } });
+                  }
+                }}
+                disabled={!result.stores || result.stores.length === 0}
+              >
                 <Card style={styles.productCard}>
                   <View style={styles.productHeader}>
                     <Feather name="check-circle" size={18} color="#7DDFAA" />
@@ -417,10 +424,12 @@ export default function BarcodeScannerScreen() {
                   {!result.barcode_in_db && (
                     <Text style={styles.savedMsg}>+10 points — thanks for contributing!</Text>
                   )}
-                  <View style={styles.tapHint}>
-                    <Text style={styles.tapHintText}>Tap to compare prices</Text>
-                    <Feather name="chevron-right" size={14} color="rgba(255,255,255,0.35)" />
-                  </View>
+                  {result.stores && result.stores.length > 0 && (
+                    <View style={styles.tapHint}>
+                      <Text style={styles.tapHintText}>Tap to compare prices</Text>
+                      <Feather name="chevron-right" size={14} color="rgba(255,255,255,0.35)" />
+                    </View>
+                  )}
                 </Card>
               </Pressable>
 
