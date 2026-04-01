@@ -1093,7 +1093,9 @@ async def barcode_contribute(
     key = product_key or generate_product_key(product_name)
 
     try:
-        db.table("barcode_catalog").upsert({
+        # Check if barcode already exists
+        existing = db.table("barcode_catalog").select("barcode").eq("barcode", barcode).execute()
+        row = {
             "barcode": barcode,
             "product_name": product_name,
             "product_key": key,
@@ -1101,9 +1103,13 @@ async def barcode_contribute(
             "category": "Other",
             "image_url": "",
             "source": "user_contribution",
-        }, on_conflict="barcode").execute()
+        }
+        if existing.data:
+            db.table("barcode_catalog").update(row).eq("barcode", barcode).execute()
+        else:
+            db.table("barcode_catalog").insert(row).execute()
     except Exception as e:
-        log.error("barcode-contribute upsert failed for barcode %s: %s", barcode, e)
+        log.error("barcode-contribute failed for barcode %s: %s", barcode, e)
         raise HTTPException(status_code=500, detail=f"Could not save barcode: {str(e)}")
 
     # Award 10 points
