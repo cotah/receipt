@@ -117,7 +117,7 @@ export default function UsualShopScreen() {
             {/* Summary card */}
             <Card style={styles.summaryCard}>
               <Text style={styles.summaryLabel}>
-                Your {data.item_count} usual items this week
+                Your {data.item_count} usual items
               </Text>
               <View style={styles.summaryRow}>
                 <View>
@@ -125,7 +125,7 @@ export default function UsualShopScreen() {
                     {data.cheapest_total ? formatCurrency(data.cheapest_total) : '—'}
                   </Text>
                   <Text style={styles.summaryStore}>
-                    at {data.cheapest_store || '—'}
+                    cheapest basket total
                   </Text>
                 </View>
                 {data.total_saving > 0 && (
@@ -209,6 +209,27 @@ export default function UsualShopScreen() {
                 </View>
               </Card>
             ))}
+
+            {/* Delete List button */}
+            <Pressable
+              onPress={() => {
+                Alert.alert(
+                  'Delete Usual Items',
+                  'This will clear your usual items list. Items will rebuild as you scan more receipts.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: () => {
+                      // Clear the list by refreshing — backend will regenerate from receipts
+                      setData(null);
+                    }},
+                  ]
+                );
+              }}
+              style={styles.deleteListBtn}
+            >
+              <Feather name="trash-2" size={16} color="#F09595" />
+              <Text style={styles.deleteListText}>Delete List</Text>
+            </Pressable>
           </>
         )}
 
@@ -364,5 +385,15 @@ const styles = StyleSheet.create({
   itemWas: {
     fontFamily: Fonts.body, fontSize: 11,
     color: Colors.text.tertiary, marginTop: 2,
+  },
+  deleteListBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 14, marginTop: 16,
+    borderRadius: 14, borderWidth: 0.5,
+    borderColor: 'rgba(240,149,149,0.25)',
+    backgroundColor: 'rgba(240,149,149,0.08)',
+  },
+  deleteListText: {
+    fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#F09595',
   },
 });

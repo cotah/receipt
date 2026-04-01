@@ -1137,12 +1137,13 @@ async def get_my_usual_shop(
     db = get_service_client()
     now = datetime.now(timezone.utc)
 
-    # 1. Get user's top products by purchase count
+    # 1. Get user's top products by purchase count (minimum 2 purchases to be "usual")
     try:
         patterns = (
             db.table("user_product_patterns")
             .select("normalized_name, category, purchase_count, avg_price")
             .eq("user_id", user_id)
+            .gte("purchase_count", 2)
             .order("purchase_count", desc=True)
             .limit(limit)
             .execute()
