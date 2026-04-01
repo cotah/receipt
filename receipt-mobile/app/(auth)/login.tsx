@@ -126,7 +126,7 @@ export default function LoginScreen() {
           </View>
         ) : resetSent ? (
           <View style={styles.sentBox}>
-            <Feather name="mail" size={48} color={Colors.primary.default} />
+            <Feather name="mail" size={48} color={'#7DDFAA'} />
             <Text style={styles.sentTitle}>Password reset sent!</Text>
             <Text style={styles.sentText}>
               We sent a reset link to {email}.{'\n\n'}
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   content: { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.lg },
   header: { alignItems: 'center', marginBottom: Spacing.xxl },
   wordmark: { width: 260, height: 80 },
-  logo: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 48, color: Colors.primary.dark },
+  logo: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 48, color: '#FFFFFF' },
   subtitle: { fontFamily: 'DMSans_500Medium', fontSize: 16, color: Colors.text.secondary, marginTop: 4 },
   form: { gap: Spacing.sm },
   oauthBtnApple: {
@@ -239,13 +239,13 @@ const styles = StyleSheet.create({
     textAlign: 'center', textDecorationLine: 'underline',
   },
   forgotText: {
-    fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.primary.default,
+    fontFamily: 'DMSans_500Medium', fontSize: 13, color: '#7DDFAA',
     textAlign: 'right', marginTop: -4, marginBottom: 4,
   },
-  link: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.primary.default, textAlign: 'center', marginTop: Spacing.sm },
+  link: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: '#7DDFAA', textAlign: 'center', marginTop: Spacing.sm },
   sentBox: { alignItems: 'center', padding: Spacing.lg },
   sentTitle: { fontFamily: 'DMSans_700Bold', fontSize: 20, color: Colors.text.primary, marginBottom: Spacing.sm },
   sentText: { fontFamily: 'DMSans_400Regular', fontSize: 15, color: Colors.text.secondary, textAlign: 'center', lineHeight: 22 },
-  backBtn: { marginTop: Spacing.md, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10, backgroundColor: Colors.primary.default },
+  backBtn: { marginTop: Spacing.md, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10, backgroundColor: 'rgba(80,200,120,0.20)' },
   backBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: '#FFF' },
 });

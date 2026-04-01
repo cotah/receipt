@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
   photoStripContainer: { backgroundColor: '#111', paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: '#333' },
   photoStrip: { paddingHorizontal: Spacing.md, gap: Spacing.sm },
   thumbContainer: { position: 'relative', alignItems: 'center' },
-  thumb: { width: 56, height: 76, borderRadius: 6, borderWidth: 2, borderColor: Colors.primary.default },
+  thumb: { width: 56, height: 76, borderRadius: 6, borderWidth: 2, borderColor: 'rgba(80,200,120,0.25)' },
   thumbLabel: { fontFamily: 'DMSans_500Medium', fontSize: 10, color: '#aaa', marginTop: 2 },
   thumbRemove: {
     position: 'absolute', top: -6, right: -6,

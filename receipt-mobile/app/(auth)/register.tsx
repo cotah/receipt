@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface.background },
   content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg },
   header: { alignItems: 'center', marginBottom: Spacing.xl },
-  title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 32, color: Colors.primary.dark },
+  title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 32, color: '#FFFFFF' },
   subtitle: { fontFamily: 'DMSans_500Medium', fontSize: 16, color: Colors.text.secondary, marginTop: 4 },
   form: { gap: Spacing.sm },
   oauthBtnApple: {
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 4 },
   dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.12)' },
   dividerText: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.tertiary, marginHorizontal: 12 },
-  link: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.primary.default, textAlign: 'center', marginTop: Spacing.sm },
+  link: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: '#7DDFAA', textAlign: 'center', marginTop: Spacing.sm },
   sentBox: { alignItems: 'center', padding: Spacing.lg },
   sentTitle: { fontFamily: 'DMSans_700Bold', fontSize: 20, color: Colors.text.primary, marginBottom: Spacing.sm },
   sentText: { fontFamily: 'DMSans_400Regular', fontSize: 15, color: Colors.text.secondary, textAlign: 'center', lineHeight: 22 },

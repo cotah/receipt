@@ -93,10 +93,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface.background },
   scroll: { padding: Spacing.md, paddingBottom: 40 },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.lg, paddingVertical: 4 },
-  backText: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: Colors.primary.dark },
+  backText: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: '#FFFFFF' },
   heroCard: {
     alignItems: 'center', paddingVertical: 32,
-    backgroundColor: Colors.primary.dark, borderRadius: 24, marginBottom: Spacing.lg,
+    backgroundColor: 'rgba(80,200,120,0.12)', borderRadius: 24, marginBottom: Spacing.lg,
   },
   heroEmoji: { fontSize: 56 },
   heroLevel: { fontFamily: 'DMSans_700Bold', fontSize: 24, marginTop: 8 },

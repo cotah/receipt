@@ -181,7 +181,7 @@ export default function PricesScreen() {
             {/* Loading */}
             {isSearching && (
               <View style={styles.loadingRow}>
-                <ActivityIndicator size="small" color={Colors.primary.default} />
+                <ActivityIndicator size="small" color={'#7DDFAA'} />
                 <Text style={styles.loadingText}>Searching...</Text>
               </View>
             )}
@@ -368,7 +368,7 @@ export default function PricesScreen() {
           <>
             {isLoadingDeals && (
               <View style={styles.loadingRow}>
-                <ActivityIndicator size="small" color={Colors.primary.default} />
+                <ActivityIndicator size="small" color={'#7DDFAA'} />
                 <Text style={styles.loadingText}>Loading your deals...</Text>
               </View>
             )}
@@ -577,12 +577,12 @@ export default function PricesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface.background },
-  title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: Colors.primary.dark, paddingHorizontal: Spacing.md, paddingTop: Spacing.md },
+  title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: '#FFFFFF', paddingHorizontal: Spacing.md, paddingTop: Spacing.md },
   tabs: { flexDirection: 'row', paddingHorizontal: Spacing.md, marginTop: Spacing.md, gap: Spacing.sm },
-  tab: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: 9999, backgroundColor: Colors.surface.card },
-  tabActive: { backgroundColor: Colors.primary.dark },
-  tabText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.secondary },
-  tabTextActive: { color: Colors.text.inverse },
+  tab: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: 9999, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.10)' },
+  tabActive: { backgroundColor: 'rgba(80,200,120,0.20)', borderColor: 'rgba(80,200,120,0.3)' },
+  tabText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: 'rgba(255,255,255,0.4)' },
+  tabTextActive: { color: '#7DDFAA' },
   content: { padding: Spacing.md, paddingBottom: 100 },
 
   // Loading
@@ -595,7 +595,7 @@ const styles = StyleSheet.create({
   resultCard: { marginBottom: Spacing.sm, padding: Spacing.md },
   resultTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: Spacing.sm },
   resultName: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: Colors.text.primary, flex: 1 },
-  resultPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 18, color: Colors.primary.default },
+  resultPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 18, color: '#7DDFAA' },
   resultBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.sm },
   resultStores: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1 },
   resultHint: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, marginTop: 6 },
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: 'rgba(80,200,120,0.25)',
   },
-  savingChipText: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: Colors.primary.default },
+  savingChipText: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: '#7DDFAA' },
 
   storeRow: { marginBottom: Spacing.sm },
   storeRowCheapest: { borderWidth: 2, borderColor: Colors.accent.green, borderRadius: BorderRadius.md },
@@ -644,11 +644,11 @@ const styles = StyleSheet.create({
   storeActions: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   compareAddBtn: {
     width: 28, height: 28, borderRadius: 14,
-    borderWidth: 1.5, borderColor: Colors.primary.default,
+    borderWidth: 1.5, borderColor: 'rgba(80,200,120,0.25)',
     alignItems: 'center', justifyContent: 'center',
   },
   addBtnActive: {
-    backgroundColor: Colors.primary.default, borderColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)', borderColor: 'rgba(80,200,120,0.25)',
   },
   storePriceCheapest: { color: Colors.accent.green },
 
@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
 
   goldenCard: { marginBottom: Spacing.sm, borderWidth: 2, borderColor: '#F0D68A', borderRadius: BorderRadius.md },
   goldenName: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: Colors.text.primary },
-  goldenPromo: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.primary.default },
+  goldenPromo: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: '#7DDFAA' },
   goldenPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 20, color: Colors.accent.amber },
   goldenWas: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, textDecorationLine: 'line-through' },
 
@@ -696,7 +696,7 @@ const styles = StyleSheet.create({
   // Add to list button
   addBtn: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)',
     alignItems: 'center', justifyContent: 'center',
     marginTop: 4,
   },
@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
   // Shopping list button
   shoppingListBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.primary.default, borderRadius: 12,
+    backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 12,
     paddingVertical: 12, marginBottom: Spacing.md,
   },
   shoppingListBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#fff' },
@@ -735,6 +735,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   savingsText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.primary, flex: 1 },
-  savingsBtn: { backgroundColor: Colors.primary.default, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  savingsBtn: { backgroundColor: 'rgba(80,200,120,0.20)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
   savingsBtnText: { fontFamily: 'DMSans_700Bold', fontSize: 12, color: '#FFF' },
 });

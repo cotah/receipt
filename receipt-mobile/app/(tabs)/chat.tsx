@@ -60,7 +60,7 @@ export default function ChatScreen() {
             <Text style={styles.title}>SmartDocket AI</Text>
             <Text style={styles.subtitle}>Ask about your spending</Text>
           </View>
-          <ProfileAvatar size={32} />
+          <ProfileAvatar size={40} />
         </View>
 
         <FlatList

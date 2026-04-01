@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'DMSerifDisplay_400Regular',
     fontSize: 22,
-    color: Colors.primary.dark,
+    color: '#FFFFFF',
   },
   content: { flex: 1, paddingHorizontal: Spacing.md },
   profileCard: {

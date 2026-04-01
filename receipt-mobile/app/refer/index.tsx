@@ -138,10 +138,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface.background },
   scroll: { padding: Spacing.md, paddingBottom: 40 },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.lg, paddingVertical: 4 },
-  backText: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: Colors.primary.dark },
+  backText: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: '#FFFFFF' },
   heroCard: {
     alignItems: 'center', paddingVertical: 32,
-    backgroundColor: Colors.primary.dark, borderRadius: 24, marginBottom: Spacing.lg,
+    backgroundColor: 'rgba(80,200,120,0.12)', borderRadius: 24, marginBottom: Spacing.lg,
   },
   heroEmoji: { fontSize: 48 },
   heroTitle: { fontFamily: 'DMSans_700Bold', fontSize: 22, color: Colors.accent.amber, marginTop: 12 },
@@ -149,13 +149,13 @@ const styles = StyleSheet.create({
   sectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm, marginTop: Spacing.sm },
   codeCard: { alignItems: 'center', paddingVertical: 24 },
   codeText: {
-    fontFamily: 'JetBrainsMono_700Bold', fontSize: 28, color: Colors.primary.dark,
+    fontFamily: 'JetBrainsMono_700Bold', fontSize: 28, color: '#FFFFFF',
     backgroundColor: Colors.surface.alt, paddingVertical: 14, paddingHorizontal: 28,
     borderRadius: BorderRadius.md, letterSpacing: 3, overflow: 'hidden',
   },
   shareBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: Colors.primary.default, paddingVertical: 14, paddingHorizontal: 28,
+    backgroundColor: 'rgba(80,200,120,0.20)', paddingVertical: 14, paddingHorizontal: 28,
     borderRadius: BorderRadius.md, marginTop: 16,
   },
   shareBtnText: { fontFamily: 'DMSans_700Bold', fontSize: 15, color: '#FFF' },

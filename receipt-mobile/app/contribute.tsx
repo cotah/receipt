@@ -92,7 +92,7 @@ export default function ContributeScreen() {
 
         {isLoading && (
           <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color={Colors.primary.default} />
+            <ActivityIndicator size="small" color={'#7DDFAA'} />
           </View>
         )}
 
@@ -139,7 +139,7 @@ export default function ContributeScreen() {
                     <Feather
                       name={iconMap[action.icon] || 'award'}
                       size={20}
-                      color={Colors.primary.default}
+                      color={'#7DDFAA'}
                     />
                   </View>
                   <View style={styles.actionInfo}>
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xl * 2, alignItems: 'center',
   },
   challengeCard: {
-    backgroundColor: Colors.primary.default, padding: Spacing.lg,
+    backgroundColor: 'rgba(80,200,120,0.15)', padding: Spacing.lg,
     marginBottom: Spacing.lg,
   },
   challengeHeader: {
@@ -297,11 +297,11 @@ const styles = StyleSheet.create({
   leaderName: {
     fontFamily: Fonts.bodySemiBold, fontSize: 14, color: Colors.text.primary, flex: 1,
   },
-  leaderNameMe: { color: Colors.primary.default, fontFamily: Fonts.bodyBold },
+  leaderNameMe: { color: '#7DDFAA', fontFamily: Fonts.bodyBold },
   leaderPoints: {
     fontFamily: Fonts.bodySemiBold, fontSize: 13, color: Colors.text.secondary,
   },
-  leaderPointsMe: { color: Colors.primary.default },
+  leaderPointsMe: { color: '#7DDFAA' },
   levelCard: {
     alignItems: 'center', padding: Spacing.lg,
   },

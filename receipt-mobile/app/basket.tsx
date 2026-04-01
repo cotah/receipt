@@ -89,7 +89,7 @@ export default function BasketScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.primary.default} />
+          <ActivityIndicator size="large" color={'#7DDFAA'} />
         </View>
       </SafeAreaView>
     );
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
   },
-  headerTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: Colors.primary.dark },
+  headerTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: '#FFFFFF' },
   scroll: { padding: Spacing.md, paddingBottom: 100 },
   inputRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
   input: {

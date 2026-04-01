@@ -16,13 +16,13 @@ export default function Input({ label, error, leftIcon, rightIcon, style, secure
   const [passwordVisible, setPasswordVisible] = useState(false);
 
   const isPassword = secureTextEntry === true;
-  const borderColor = error ? Colors.accent.red : focused ? Colors.primary.default : 'transparent';
+  const borderColor = error ? Colors.accent.red : focused ? '#7DDFAA' : 'rgba(255,255,255,0.12)';
 
   return (
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
       <View style={[styles.inputWrap, { borderColor }]}>
-        {leftIcon && <Feather name={leftIcon} size={18} color={Colors.text.tertiary} style={styles.icon} />}
+        {leftIcon && <Feather name={leftIcon} size={18} color="rgba(255,255,255,0.35)" style={styles.icon} />}
         <TextInput
           {...props}
           secureTextEntry={isPassword && !passwordVisible}
@@ -59,9 +59,9 @@ const styles = StyleSheet.create({
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface.alt,
-    borderRadius: BorderRadius.sm,
-    borderWidth: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 14,
+    borderWidth: 0.5,
     paddingHorizontal: Spacing.md,
   },
   input: {

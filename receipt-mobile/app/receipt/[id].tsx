@@ -141,7 +141,7 @@ export default function ReceiptDetailScreen() {
         {needsWeight.length > 0 && !weightDismissed && (
           <Card style={styles.weightCard}>
             <View style={styles.weightHeader}>
-              <Feather name="info" size={18} color={Colors.primary.default} />
+              <Feather name="info" size={18} color={'#7DDFAA'} />
               <Text style={styles.weightTitle}>Confirm product sizes</Text>
               <Pressable onPress={() => setWeightDismissed(true)} style={{ marginLeft: 'auto' }}>
                 <Feather name="x" size={18} color={Colors.text.tertiary} />
@@ -270,7 +270,7 @@ export default function ReceiptDetailScreen() {
 
         {/* Delete */}
         <View style={styles.deleteSection}>
-          <Button title="Delete Receipt" onPress={handleDelete} variant="ghost" icon="trash-2" />
+          <Button title="Delete Receipt" onPress={handleDelete} variant="danger" icon="trash-2" fullWidth />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -284,9 +284,9 @@ const styles = StyleSheet.create({
   back: { marginBottom: Spacing.sm },
   header: { marginBottom: Spacing.md },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  storeName: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: Colors.primary.dark },
+  storeName: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: '#FFFFFF' },
   date: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.secondary, marginTop: 4 },
-  totalCard: { alignItems: 'center', marginBottom: Spacing.lg, backgroundColor: Colors.primary.dark, borderRadius: 24, paddingVertical: 28 },
+  totalCard: { alignItems: 'center', marginBottom: Spacing.lg, backgroundColor: 'rgba(80,200,120,0.12)', borderRadius: 24, paddingVertical: 28 },
   totalLabel: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: 'rgba(255,255,255,0.65)' },
   totalAmount: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 40, color: Colors.accent.amber },
   breakdown: { marginTop: Spacing.sm, width: '100%', paddingHorizontal: 20 },
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   weightHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  weightTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: Colors.primary.dark },
+  weightTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#FFFFFF' },
   weightDesc: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary, marginBottom: 12 },
   weightItem: { marginBottom: 14, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.06)' },
   weightItemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
