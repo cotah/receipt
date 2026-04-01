@@ -56,6 +56,10 @@ async def lifespan(app: FastAPI):
     setup_email_report_scheduler(scheduler)
     setup_intelligence_scheduler(scheduler)
 
+    # Product dedup — every Sunday at 03:00 UTC
+    from app.workers.dedup_worker import setup_dedup_scheduler
+    setup_dedup_scheduler(scheduler)
+
     # Deals engine — every 2 days at 04:00 UTC (after scrapers)
     from app.workers.deals_worker import generate_all_deals, snapshot_prices_to_history
 
@@ -249,6 +253,16 @@ async def debug_run_enrichment(request: Request):
     from app.services.enrichment_service import run_full_enrichment
 
     result = await run_full_enrichment()
+    return {"status": "done", **result}
+
+
+@app.post("/api/v1/debug/run-dedup")
+async def debug_run_dedup(request: Request):
+    """Run product deduplication — requires X-Admin-Key."""
+    _verify_admin_key(request)
+    from app.workers.dedup_worker import run_dedup_job
+
+    result = await run_dedup_job()
     return {"status": "done", **result}
 
 
