@@ -141,7 +141,7 @@ export default function ReceiptDetailScreen() {
         {needsWeight.length > 0 && !weightDismissed && (
           <Card style={styles.weightCard}>
             <View style={styles.weightHeader}>
-              <Feather name="info" size={18} color={Colors.primary.default} />
+              <Feather name="info" size={18} color={Colors.accent.green} />
               <Text style={styles.weightTitle}>Confirm product sizes</Text>
               <Pressable onPress={() => setWeightDismissed(true)} style={{ marginLeft: 'auto' }}>
                 <Feather name="x" size={18} color={Colors.text.tertiary} />
@@ -284,9 +284,9 @@ const styles = StyleSheet.create({
   back: { marginBottom: Spacing.sm },
   header: { marginBottom: Spacing.md },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  storeName: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: Colors.primary.dark },
+  storeName: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: '#FFFFFF' },
   date: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.secondary, marginTop: 4 },
-  totalCard: { alignItems: 'center', marginBottom: Spacing.lg, backgroundColor: Colors.primary.dark, borderRadius: 24, paddingVertical: 28 },
+  totalCard: { alignItems: 'center', marginBottom: Spacing.lg, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, paddingVertical: 28 },
   totalLabel: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: 'rgba(255,255,255,0.65)' },
   totalAmount: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 40, color: Colors.accent.amber },
   breakdown: { marginTop: Spacing.sm, width: '100%', paddingHorizontal: 20 },
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   weightHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  weightTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: Colors.primary.dark },
+  weightTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#FFFFFF' },
   weightDesc: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary, marginBottom: 12 },
   weightItem: { marginBottom: 14, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.06)' },
   weightItemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
@@ -338,20 +338,20 @@ const styles = StyleSheet.create({
   weightPresets: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
   presetBtn: {
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
-    backgroundColor: '#FFF', borderWidth: 1, borderColor: Colors.surface.border,
+    backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: Colors.surface.border,
   },
-  presetBtnActive: { backgroundColor: Colors.primary.default, borderColor: Colors.primary.default },
+  presetBtnActive: { backgroundColor: 'rgba(80,200,120,0.20)', borderColor: Colors.primary.default },
   presetBtnText: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.text.secondary },
   presetBtnTextActive: { color: '#FFF' },
   weightInput: {
     flex: 1, fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.primary,
     borderWidth: 1, borderColor: Colors.surface.border, borderRadius: BorderRadius.sm,
-    paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#FFF',
+    paddingHorizontal: 12, paddingVertical: 8, backgroundColor: 'rgba(255,255,255,0.08)',
   },
   weightInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   confirmItemBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)',
     alignItems: 'center', justifyContent: 'center',
   },
   skipItemBtn: { paddingVertical: 8, paddingHorizontal: 4 },

@@ -21,7 +21,6 @@ function normalizeStoreName(name: string): string {
   if (lower.includes('aldi')) return 'Aldi';
   if (lower.includes('supervalu') || lower.includes('super valu')) return 'SuperValu';
   if (lower.includes('dunnes')) return 'Dunnes';
-  // Return original with first letter capitalized
   return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
 }
 
@@ -32,29 +31,47 @@ interface StoreTagProps {
 
 export default function StoreTag({ storeName, size = 'sm' }: StoreTagProps) {
   const normalized = normalizeStoreName(storeName);
-  const colors = STORE_COLORS[normalized as StoreName] ?? {
-    primary: Colors.text.secondary,
-    light: Colors.surface.alt,
-  };
+  const storeColors = STORE_COLORS[normalized as StoreName];
+
+  // Glass pill — uses store-specific tint or neutral glass
+  const bg = storeColors?.light ?? 'rgba(255,255,255,0.06)';
+  const border = storeColors?.border ?? 'rgba(255,255,255,0.10)';
+  const textColor = storeColors?.text ?? Colors.text.secondary;
 
   const logo = STORE_LOGOS[normalized] || null;
-  const displayName = normalized;
   const logoSize = size === 'lg' ? 32 : size === 'md' ? 18 : 14;
   const fontSize = size === 'lg' ? 20 : size === 'md' ? 13 : 11;
-  const padV = size === 'lg' ? 10 : size === 'md' ? 4 : 2;
-  const padH = size === 'lg' ? 18 : size === 'md' ? 12 : 8;
+  const padV = size === 'lg' ? 10 : size === 'md' ? 4 : 3;
+  const padH = size === 'lg' ? 18 : size === 'md' ? 12 : 10;
 
   return (
-    <View style={[styles.tag, { backgroundColor: colors.light, paddingVertical: padV, paddingHorizontal: padH }]}>
+    <View
+      style={[
+        styles.tag,
+        {
+          backgroundColor: bg,
+          borderColor: border,
+          paddingVertical: padV,
+          paddingHorizontal: padH,
+        },
+      ]}
+    >
       {logo && (
         <Image source={logo} style={{ width: logoSize, height: logoSize, borderRadius: 3 }} resizeMode="contain" />
       )}
-      <Text style={[styles.text, { color: colors.primary, fontSize }]}>{displayName}</Text>
+      <Text style={[styles.text, { color: textColor, fontSize }]}>{normalized}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  tag: { borderRadius: BorderRadius.full, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5 },
+  tag: {
+    borderRadius: BorderRadius.full,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 0.5,
+  },
   text: { fontFamily: 'DMSans_600SemiBold' },
 });

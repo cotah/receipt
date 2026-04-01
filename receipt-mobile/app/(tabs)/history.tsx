@@ -72,7 +72,7 @@ export default function HistoryScreen() {
                 return (
                   <Pressable onPress={() => handleSelect(item)} style={[styles.pickerItem, isActive && styles.pickerItemActive]}>
                     <Text style={[styles.pickerItemText, isActive && styles.pickerItemTextActive]}>{item}</Text>
-                    {isActive && <Feather name="check" size={16} color={Colors.primary.default} />}
+                    {isActive && <Feather name="check" size={16} color={Colors.accent.green} />}
                   </Pressable>
                 );
               }}
@@ -97,7 +97,7 @@ export default function HistoryScreen() {
           )}
           onEndReached={loadMore}
           onEndReachedThreshold={0.5}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary.default} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent.green} />}
         />
       )}
     </SafeAreaView>
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
   },
-  title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: Colors.primary.dark },
+  title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: '#FFFFFF' },
   dropdownBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   pickerItemActive: {
-    backgroundColor: Colors.primary.pale,
+    backgroundColor: 'rgba(80,200,120,0.12)',
   },
   pickerItemText: {
     fontFamily: 'DMSans_500Medium',
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     color: Colors.text.primary,
   },
   pickerItemTextActive: {
-    color: Colors.primary.default,
+    color: Colors.accent.green,
     fontFamily: 'DMSans_700Bold',
   },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xxl },

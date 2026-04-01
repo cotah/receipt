@@ -101,12 +101,12 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1, backgroundColor: Colors.surface.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.surface.alt },
-  title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: Colors.primary.dark },
-  subtitle: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.08)' },
+  title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: '#FFFFFF' },
+  subtitle: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.50)' },
   messagesList: { paddingVertical: Spacing.md, flexGrow: 1 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xxl, marginTop: 40 },
-  aiAvatar: { width: 100, height: 100, borderRadius: 50, marginBottom: Spacing.md, borderWidth: 2, borderColor: Colors.surface.alt },
+  aiAvatar: { width: 100, height: 100, borderRadius: 50, marginBottom: Spacing.md, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)' },
   emptyTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm },
   emptyText: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.secondary, textAlign: 'center', lineHeight: 22 },
 });

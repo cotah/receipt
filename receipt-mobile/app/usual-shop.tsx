@@ -88,7 +88,7 @@ export default function UsualShopScreen() {
 
         {isLoading && (
           <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color={Colors.primary.default} />
+            <ActivityIndicator size="small" color={Colors.accent.green} />
             <Text style={styles.loadingText}>Analysing your shopping habits...</Text>
           </View>
         )}
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   retryBtn: {
     paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)',
   },
   retryText: { fontFamily: Fonts.bodyBold, color: '#FFF', fontSize: 13 },
   emptyCard: {
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary, textAlign: 'center',
   },
   summaryCard: {
-    backgroundColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)',
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
   },
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   },
   savingText: {
     fontFamily: Fonts.bodyBold, fontSize: 14,
-    color: '#3CB371',
+    color: Colors.accent.green,
   },
   storeBars: { gap: 6 },
   storeBarRow: {
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
     fontFamily: 'CourierPrime_700Bold',
     fontSize: 16, color: Colors.text.primary,
   },
-  itemPriceDropped: { color: '#3CB371' },
+  itemPriceDropped: { color: Colors.accent.green },
   itemPriceNA: {
     fontFamily: Fonts.body, fontSize: 14,
     color: Colors.text.tertiary,

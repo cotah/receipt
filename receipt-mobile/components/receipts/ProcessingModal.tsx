@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Modal, StyleSheet, Animated } from 'react-native';
+import { View, Text, Modal, StyleSheet } from 'react-native';
 import Button from '../ui/Button';
 import { Colors } from '../../constants/colors';
 import { BorderRadius, Spacing } from '../../constants/typography';
@@ -36,23 +36,25 @@ export default function ProcessingModal({ visible, status, onCancel }: Processin
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   modal: {
-    backgroundColor: Colors.surface.card,
+    backgroundColor: 'rgba(26,58,42,0.95)',
     borderRadius: BorderRadius.xl,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.15)',
     padding: Spacing.lg,
     width: '80%',
     alignItems: 'center',
   },
-  title: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm },
-  message: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.secondary, marginBottom: Spacing.md },
+  title: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: '#FFFFFF', marginBottom: Spacing.sm },
+  message: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.50)', marginBottom: Spacing.md },
   progressBg: {
     width: '100%',
     height: 8,
-    backgroundColor: Colors.surface.alt,
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: Spacing.sm,
@@ -62,5 +64,5 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent.green,
     borderRadius: 4,
   },
-  percent: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 14, color: Colors.text.secondary, marginBottom: Spacing.md },
+  percent: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 14, color: 'rgba(255,255,255,0.50)', marginBottom: Spacing.md },
 });

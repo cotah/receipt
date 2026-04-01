@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
   photoStrip: { paddingHorizontal: Spacing.md, gap: Spacing.sm },
   thumbContainer: { position: 'relative', alignItems: 'center' },
   thumb: { width: 56, height: 76, borderRadius: 6, borderWidth: 2, borderColor: Colors.primary.default },
-  thumbLabel: { fontFamily: 'DMSans_500Medium', fontSize: 10, color: '#aaa', marginTop: 2 },
+  thumbLabel: { fontFamily: 'DMSans_500Medium', fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 2 },
   thumbRemove: {
     position: 'absolute', top: -6, right: -6,
     width: 20, height: 20, borderRadius: 10,
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
   hintText: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: '#7ec87e', textAlign: 'center' },
 
   // Add more banner (on camera)
-  addMoreBanner: { backgroundColor: Colors.primary.default, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
+  addMoreBanner: { backgroundColor: 'rgba(80,200,120,0.20)', paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
   addMoreText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: '#fff', textAlign: 'center' },
 
   // Mode toggle
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.7)',
   },
   modeBtnTextActive: {
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
 
   // Barcode overlay
@@ -494,14 +494,14 @@ const styles = StyleSheet.create({
   },
   barcodeCorner: {
     position: 'absolute', width: 24, height: 24,
-    borderColor: '#3CB371', borderWidth: 3,
+    borderColor: Colors.accent.green, borderWidth: 3,
   },
   bcTL: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 8 },
   bcTR: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 8 },
   bcBL: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 8 },
   bcBR: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 8 },
   barcodeLine: {
-    width: '80%', height: 2, backgroundColor: '#3CB371', opacity: 0.6,
+    width: '80%', height: 2, backgroundColor: Colors.accent.green, opacity: 0.6,
   },
   barcodeBottom: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',

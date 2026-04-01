@@ -113,7 +113,7 @@ function BarChartAnim() {
 
 function ReceiptScanAnim() {
   return (
-    <View style={[a.box, { backgroundColor: '#1a1a1a' }]}>
+    <View style={[a.box, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
       {/* Camera circle */}
       <View style={a.camCircle} />
       {/* Viewfinder */}
@@ -136,12 +136,12 @@ function ReceiptScanAnim() {
 
 function PointsAnim() {
   const coins = [
-    { pts: '+15', color: Colors.primary.default, top: 16, left: 24 },
+    { pts: '+15', color: Colors.accent.green, top: 16, left: 24 },
     { pts: '+30', color: '#534AB7', top: 16, left: 148 },
     { pts: '+50', color: '#D4A843', top: 70, left: 84 },
   ];
   return (
-    <View style={[a.box, { backgroundColor: '#FFF8E8' }]}>
+    <View style={[a.box, { backgroundColor: 'rgba(240,214,138,0.15)' }]}>
       {coins.map((c, i) => (
         <View key={i} style={[a.coin, { backgroundColor: c.color, top: c.top, left: c.left }]}>
           <Text style={a.coinText}>{c.pts}</Text>
@@ -169,7 +169,7 @@ function RaffleAnim() {
     { label: 'TICKET #3', bg: '#534AB7', top: 76, left: 70 },
   ];
   return (
-    <View style={[a.box, { backgroundColor: Colors.primary.default }]}>
+    <View style={[a.box, { backgroundColor: 'rgba(80,200,120,0.20)' }]}>
       {tickets.map((t, i) => (
         <View key={i} style={[a.ticket, { backgroundColor: t.bg, top: t.top, left: t.left }]}>
           <Text style={a.ticketText}>{t.label}</Text>
@@ -267,47 +267,47 @@ export default function OnboardingScreen() {
 
 // ─── Styles ───
 
-const GREEN = Colors.primary.default;
+const GREEN = Colors.accent.green;
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAFAF5' },
+  safe: { flex: 1, backgroundColor: Colors.surface.background },
   slide: {
     width: SCREEN_W, flex: 1, alignItems: 'center',
     paddingHorizontal: 28, paddingTop: 20, paddingBottom: 16,
   },
-  tag: { fontSize: 11, color: '#999', letterSpacing: 0.5, marginBottom: 6 },
+  tag: { fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: 0.5, marginBottom: 6 },
   title: { fontFamily: Fonts.bodyBold, fontSize: 26, color: GREEN, textAlign: 'center', marginBottom: 12 },
   animWrap: { width: 220, height: 220, marginBottom: 16 },
-  desc: { fontFamily: Fonts.body, fontSize: 14, color: '#555', textAlign: 'center', lineHeight: 21, paddingHorizontal: 8 },
+  desc: { fontFamily: Fonts.body, fontSize: 14, color: 'rgba(255,255,255,0.50)', textAlign: 'center', lineHeight: 21, paddingHorizontal: 8 },
   spacer: { flex: 1 },
   dots: { flexDirection: 'row', gap: 6, justifyContent: 'center', marginBottom: 16 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ddd' },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.20)' },
   dotActive: { backgroundColor: GREEN, width: 22 },
   btn: { backgroundColor: GREEN, borderRadius: 14, paddingVertical: 14, width: '100%', alignItems: 'center' },
   btnText: { fontFamily: Fonts.bodyBold, fontSize: 16, color: '#FFF' },
   skipBtn: { marginTop: 10, minHeight: 20 },
-  skipText: { fontFamily: Fonts.body, fontSize: 13, color: '#999' },
+  skipText: { fontFamily: Fonts.body, fontSize: 13, color: 'rgba(255,255,255,0.35)' },
 });
 
 const a = StyleSheet.create({
-  box: { width: 220, height: 220, borderRadius: 18, backgroundColor: '#E8F5E8', position: 'relative', overflow: 'hidden', padding: 14 },
+  box: { width: 220, height: 220, borderRadius: 18, backgroundColor: 'rgba(80,200,120,0.15)', position: 'relative', overflow: 'hidden', padding: 14 },
   boxLabel: { fontFamily: Fonts.bodySemiBold, fontSize: 12, color: GREEN, marginBottom: 8 },
   // PriceList
   priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: 'rgba(0,0,0,0.06)' },
-  priceItem: { fontFamily: Fonts.body, fontSize: 11, color: '#333', flex: 1, marginRight: 6 },
-  priceBadge: { backgroundColor: '#E1F5EE', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  priceBadgeText: { fontFamily: Fonts.bodySemiBold, fontSize: 9, color: '#085041' },
+  priceItem: { fontFamily: Fonts.body, fontSize: 11, color: 'rgba(255,255,255,0.70)', flex: 1, marginRight: 6 },
+  priceBadge: { backgroundColor: 'rgba(80,200,120,0.12)', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
+  priceBadgeText: { fontFamily: Fonts.bodySemiBold, fontSize: 9, color: '#7DDFAA' },
   saveBanner: { position: 'absolute', bottom: 14, left: 14, right: 14, backgroundColor: GREEN, borderRadius: 10, paddingVertical: 8, alignItems: 'center' },
   saveBannerText: { fontFamily: Fonts.bodyBold, fontSize: 14, color: '#FFF' },
   // BarChart
   barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  barStore: { fontFamily: Fonts.bodySemiBold, fontSize: 10, width: 44, color: '#333' },
+  barStore: { fontFamily: Fonts.bodySemiBold, fontSize: 10, width: 44, color: 'rgba(255,255,255,0.70)' },
   barTrack: { flex: 1, height: 16, backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: 4, overflow: 'hidden', marginHorizontal: 4 },
   bar: { height: '100%', borderRadius: 4 },
-  barPrice: { fontFamily: Fonts.bodySemiBold, fontSize: 9, color: '#555', width: 34 },
+  barPrice: { fontFamily: Fonts.bodySemiBold, fontSize: 9, color: 'rgba(255,255,255,0.50)', width: 34 },
   checkCircle: { width: 16, height: 16, borderRadius: 8, backgroundColor: GREEN, alignItems: 'center', justifyContent: 'center' },
-  tipBanner: { position: 'absolute', bottom: 12, left: 12, right: 12, backgroundColor: '#E1F5EE', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  tipText: { fontFamily: Fonts.bodySemiBold, fontSize: 10, color: '#085041' },
+  tipBanner: { position: 'absolute', bottom: 12, left: 12, right: 12, backgroundColor: 'rgba(80,200,120,0.12)', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  tipText: { fontFamily: Fonts.bodySemiBold, fontSize: 10, color: '#7DDFAA' },
   // ReceiptScan
   camCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', alignSelf: 'center', marginBottom: 8 },
   viewfinder: { width: 110, height: 100, borderWidth: 2, borderColor: '#5DCAA5', borderRadius: 6, alignSelf: 'center', padding: 8, justifyContent: 'center' },
@@ -315,13 +315,13 @@ const a = StyleSheet.create({
   rLine: { height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.18)' },
   scanResult: { position: 'absolute', bottom: 50, alignSelf: 'center', backgroundColor: '#5DCAA5', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 5 },
   scanResultText: { fontFamily: Fonts.bodySemiBold, fontSize: 10, color: '#FFF' },
-  shutter: { position: 'absolute', bottom: 12, alignSelf: 'center', width: 36, height: 36, borderRadius: 18, borderWidth: 3, borderColor: '#FFF', backgroundColor: 'rgba(255,255,255,0.1)' },
+  shutter: { position: 'absolute', bottom: 12, alignSelf: 'center', width: 36, height: 36, borderRadius: 18, borderWidth: 3, borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.1)' },
   // Points
   coin: { position: 'absolute', width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   coinText: { fontFamily: Fonts.bodyBold, fontSize: 12, color: '#FFF' },
   pointsBottom: { position: 'absolute', bottom: 14, left: 14, right: 14 },
   pointsLabels: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  pointsLabel: { fontFamily: Fonts.body, fontSize: 9, color: '#888' },
+  pointsLabel: { fontFamily: Fonts.body, fontSize: 9, color: 'rgba(255,255,255,0.35)' },
   progressTrack: { height: 4, backgroundColor: '#E8E8E0', borderRadius: 2, overflow: 'hidden' },
   progressFill: { height: '100%', width: '65%', backgroundColor: GREEN, borderRadius: 2 },
   pointsTotal: { fontFamily: Fonts.bodyBold, fontSize: 16, color: GREEN, textAlign: 'center', marginTop: 6 },

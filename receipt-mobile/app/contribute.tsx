@@ -92,7 +92,7 @@ export default function ContributeScreen() {
 
         {isLoading && (
           <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color={Colors.primary.default} />
+            <ActivityIndicator size="small" color={Colors.accent.green} />
           </View>
         )}
 
@@ -139,7 +139,7 @@ export default function ContributeScreen() {
                     <Feather
                       name={iconMap[action.icon] || 'award'}
                       size={20}
-                      color={Colors.primary.default}
+                      color={Colors.accent.green}
                     />
                   </View>
                   <View style={styles.actionInfo}>
@@ -167,8 +167,8 @@ export default function ContributeScreen() {
                     >
                       <Text style={[
                         styles.leaderRank,
-                        entry.rank === 1 && { color: '#E8A020' },
-                        entry.rank === 2 && { color: '#9CA3AF' },
+                        entry.rank === 1 && { color: 'rgba(212,168,67,0.30)' },
+                        entry.rank === 2 && { color: 'rgba(255,255,255,0.35)' },
                         entry.rank === 3 && { color: '#CD7F32' },
                       ]}>
                         {entry.rank}
@@ -223,13 +223,13 @@ const styles = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5,
   },
   pointsPillText: {
-    fontFamily: Fonts.bodyBold, fontSize: 14, color: '#C28716',
+    fontFamily: Fonts.bodyBold, fontSize: 14, color: '#F0D68A',
   },
   loadingRow: {
     paddingVertical: Spacing.xl * 2, alignItems: 'center',
   },
   challengeCard: {
-    backgroundColor: Colors.primary.default, padding: Spacing.lg,
+    backgroundColor: 'rgba(80,200,120,0.20)', padding: Spacing.lg,
     marginBottom: Spacing.lg,
   },
   challengeHeader: {
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   progressFill: {
-    height: 6, borderRadius: 3, backgroundColor: '#E8A020',
+    height: 6, borderRadius: 3, backgroundColor: 'rgba(212,168,67,0.30)',
   },
   sectionTitle: {
     fontFamily: Fonts.bodyBold, fontSize: 12, color: Colors.text.secondary,
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
   },
   actionIcon: {
     width: 42, height: 42, borderRadius: 12,
-    backgroundColor: Colors.primary.pale,
+    backgroundColor: 'rgba(80,200,120,0.12)',
     alignItems: 'center', justifyContent: 'center',
   },
   actionInfo: { flex: 1 },
@@ -281,14 +281,14 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body, fontSize: 12, color: Colors.text.secondary,
   },
   actionPoints: {
-    fontFamily: Fonts.bodyBold, fontSize: 16, color: '#E8A020',
+    fontFamily: Fonts.bodyBold, fontSize: 16, color: 'rgba(212,168,67,0.30)',
   },
   leaderCard: { marginBottom: Spacing.lg, paddingVertical: 0, paddingHorizontal: 0 },
   leaderRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 10, paddingHorizontal: Spacing.md,
   },
-  leaderRowMe: { backgroundColor: Colors.primary.pale },
+  leaderRowMe: { backgroundColor: 'rgba(80,200,120,0.12)' },
   leaderRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.surface.border },
   leaderRank: {
     fontFamily: Fonts.bodyBold, fontSize: 14, color: Colors.text.tertiary,
@@ -297,11 +297,11 @@ const styles = StyleSheet.create({
   leaderName: {
     fontFamily: Fonts.bodySemiBold, fontSize: 14, color: Colors.text.primary, flex: 1,
   },
-  leaderNameMe: { color: Colors.primary.default, fontFamily: Fonts.bodyBold },
+  leaderNameMe: { color: Colors.accent.green, fontFamily: Fonts.bodyBold },
   leaderPoints: {
     fontFamily: Fonts.bodySemiBold, fontSize: 13, color: Colors.text.secondary,
   },
-  leaderPointsMe: { color: Colors.primary.default },
+  leaderPointsMe: { color: Colors.accent.green },
   levelCard: {
     alignItems: 'center', padding: Spacing.lg,
   },

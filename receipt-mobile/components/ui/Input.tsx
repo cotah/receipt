@@ -13,10 +13,16 @@ interface InputProps extends TextInputProps {
 
 export default function Input({ label, error, leftIcon, rightIcon, style, secureTextEntry, ...props }: InputProps) {
   const [focused, setFocused] = useState(false);
-  const [passwordVisible, setPasswordVisible] = useState(false);
 
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const isPassword = secureTextEntry === true;
-  const borderColor = error ? Colors.accent.red : focused ? Colors.primary.default : 'transparent';
+
+  // Glass border states
+  const borderColor = error
+    ? Colors.accent.red
+    : focused
+    ? Colors.accent.greenBorder
+    : Colors.surface.borderSubtle;
 
   return (
     <View style={styles.container}>
@@ -59,9 +65,9 @@ const styles = StyleSheet.create({
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface.alt,
-    borderRadius: BorderRadius.sm,
-    borderWidth: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: BorderRadius.md, // 14px — glass search bar
+    borderWidth: 0.5,
     paddingHorizontal: Spacing.md,
   },
   input: {

@@ -187,7 +187,7 @@ export default function ProfileScreen() {
             >
               <View style={styles.rowLeft}>
                 <View style={styles.iconCircle}>
-                  <Feather name="user" size={16} color={Colors.primary.default} />
+                  <Feather name="user" size={16} color={Colors.accent.green} />
                 </View>
                 <Text style={styles.rowLabel}>Name</Text>
               </View>
@@ -203,7 +203,7 @@ export default function ProfileScreen() {
                     returnKeyType="done"
                   />
                   <Pressable onPress={handleSaveName} hitSlop={8}>
-                    <Feather name="check" size={16} color={Colors.primary.default} />
+                    <Feather name="check" size={16} color={Colors.accent.green} />
                   </Pressable>
                 </View>
               ) : (
@@ -220,7 +220,7 @@ export default function ProfileScreen() {
             <View style={styles.row}>
               <View style={styles.rowLeft}>
                 <View style={styles.iconCircle}>
-                  <Feather name="mail" size={16} color={Colors.primary.default} />
+                  <Feather name="mail" size={16} color={Colors.accent.green} />
                 </View>
                 <Text style={styles.rowLabel}>Email</Text>
               </View>
@@ -236,7 +236,7 @@ export default function ProfileScreen() {
             >
               <View style={styles.rowLeft}>
                 <View style={styles.iconCircle}>
-                  <Feather name="map-pin" size={16} color={Colors.primary.default} />
+                  <Feather name="map-pin" size={16} color={Colors.accent.green} />
                 </View>
                 <Text style={styles.rowLabel}>Home Area</Text>
               </View>
@@ -252,7 +252,7 @@ export default function ProfileScreen() {
                     returnKeyType="done"
                   />
                   <Pressable onPress={handleSaveArea} hitSlop={8}>
-                    <Feather name="check" size={16} color={Colors.primary.default} />
+                    <Feather name="check" size={16} color={Colors.accent.green} />
                   </Pressable>
                 </View>
               ) : (
@@ -272,14 +272,14 @@ export default function ProfileScreen() {
             <View style={styles.row}>
               <View style={styles.rowLeft}>
                 <View style={styles.iconCircle}>
-                  <Feather name="bell" size={16} color={Colors.primary.default} />
+                  <Feather name="bell" size={16} color={Colors.accent.green} />
                 </View>
                 <Text style={styles.rowLabel}>Notifications</Text>
               </View>
               <Switch
                 value={profile?.notify_alerts ?? true}
                 onValueChange={handleToggleNotifications}
-                trackColor={{ false: '#E5E7EB', true: Colors.primary.pale }}
+                trackColor={{ false: 'rgba(255,255,255,0.12)', true: 'rgba(80,200,120,0.12)' }}
                 thumbColor={(profile?.notify_alerts ?? true) ? Colors.primary.default : '#ccc'}
               />
             </View>
@@ -289,14 +289,14 @@ export default function ProfileScreen() {
             <View style={styles.row}>
               <View style={styles.rowLeft}>
                 <View style={styles.iconCircle}>
-                  <Feather name="bar-chart-2" size={16} color={Colors.primary.default} />
+                  <Feather name="bar-chart-2" size={16} color={Colors.accent.green} />
                 </View>
                 <Text style={styles.rowLabel}>Monthly Reports</Text>
               </View>
               <Switch
                 value={profile?.notify_reports ?? true}
                 onValueChange={handleToggleReports}
-                trackColor={{ false: '#E5E7EB', true: Colors.primary.pale }}
+                trackColor={{ false: 'rgba(255,255,255,0.12)', true: 'rgba(80,200,120,0.12)' }}
                 thumbColor={(profile?.notify_reports ?? true) ? Colors.primary.default : '#ccc'}
               />
             </View>
@@ -374,13 +374,13 @@ export default function ProfileScreen() {
             <Pressable style={styles.row} onPress={() => router.push('/refer')}>
               <View style={styles.rowLeft}>
                 <View style={styles.iconCircle}>
-                  <Feather name="gift" size={16} color={Colors.primary.default} />
+                  <Feather name="gift" size={16} color={Colors.accent.green} />
                 </View>
                 <Text style={styles.rowLabel}>Refer a Friend 🎁</Text>
               </View>
               <View style={styles.rowRight}>
                 <Text style={styles.rowValueAccent}>Share link</Text>
-                <Feather name="chevron-right" size={16} color={Colors.primary.default} />
+                <Feather name="chevron-right" size={16} color={Colors.accent.green} />
               </View>
             </Pressable>
           </Card>
@@ -391,7 +391,7 @@ export default function ProfileScreen() {
           style={styles.reportBtn}
           onPress={() => router.push('/feedback')}
         >
-          <Feather name="alert-circle" size={18} color={Colors.primary.default} />
+          <Feather name="alert-circle" size={18} color={Colors.accent.green} />
           <Text style={styles.reportText}>Report an Issue</Text>
         </Pressable>
 
@@ -456,7 +456,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface.background },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.md, paddingVertical: 4 },
-  backText: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: Colors.primary.dark },
+  backText: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: '#FFFFFF' },
   scroll: { paddingHorizontal: Spacing.md, paddingBottom: 40 },
 
   // Profile header
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
   },
   avatarFallback: {
     width: 100, height: 100, borderRadius: 50,
-    backgroundColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)',
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 3, borderColor: Colors.primary.light,
   },
@@ -478,9 +478,9 @@ const styles = StyleSheet.create({
   editBadge: {
     position: 'absolute', bottom: 2, right: 2,
     width: 28, height: 28, borderRadius: 14,
-    backgroundColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)',
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: '#FFF',
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)',
   },
   uploadingText: {
     fontFamily: 'DMSans_400Regular', fontSize: 12,
@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
   rowRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   iconCircle: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: Colors.primary.pale,
+    backgroundColor: 'rgba(80,200,120,0.12)',
     alignItems: 'center', justifyContent: 'center',
   },
   rowLabel: {
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   },
   rowValueAccent: {
     fontFamily: 'DMSans_500Medium', fontSize: 14,
-    color: Colors.primary.default,
+    color: Colors.accent.green,
   },
   divider: { height: 1, backgroundColor: Colors.surface.alt, marginHorizontal: Spacing.md },
   rowHint: {
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_700Bold', fontSize: 13, color: Colors.accent.amber,
   },
   upgradeBtn: {
-    backgroundColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)',
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
   },
   upgradeBtnText: {
@@ -597,11 +597,11 @@ const styles = StyleSheet.create({
   },
   plansRow: { flexDirection: 'row', gap: 10 },
   planCard: {
-    flex: 1, backgroundColor: '#FFF', borderRadius: 14,
+    flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14,
     padding: 14, borderWidth: 1, borderColor: Colors.surface.alt,
   },
   planCardPro: {
-    backgroundColor: '#1A4D35', borderColor: '#1A4D35',
+    backgroundColor: 'rgba(80,200,120,0.20)', borderColor: 'rgba(80,200,120,0.20)',
   },
   planName: {
     fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary,
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
   },
   popularTag: {
     position: 'absolute', top: -10, right: 12,
-    backgroundColor: '#E8A020', paddingHorizontal: 8,
+    backgroundColor: 'rgba(212,168,67,0.30)', paddingHorizontal: 8,
     paddingVertical: 2, borderRadius: 8,
   },
   popularTagText: {
@@ -636,10 +636,10 @@ const styles = StyleSheet.create({
   },
   proBtn: {
     marginTop: 12, paddingVertical: 10, borderRadius: 10,
-    backgroundColor: '#FFF', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center',
   },
   proBtnText: {
-    fontFamily: 'DMSans_700Bold', fontSize: 12, color: '#1A4D35',
+    fontFamily: 'DMSans_700Bold', fontSize: 12, color: 'rgba(80,200,120,0.20)',
   },
 
   // Sign out
@@ -647,16 +647,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 14, marginTop: Spacing.md,
     borderRadius: 12, borderWidth: 1, borderColor: Colors.primary.default + '20',
-    backgroundColor: Colors.primary.default + '08',
+    backgroundColor: 'rgba(80,200,120,0.20)' + '08',
   },
   reportText: {
-    fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: Colors.primary.default,
+    fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: Colors.accent.green,
   },
   signOutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 14, marginTop: Spacing.md,
-    borderRadius: 12, borderWidth: 1, borderColor: '#DC354520',
-    backgroundColor: '#DC354508',
+    borderRadius: 12, borderWidth: 1, borderColor: 'rgba(240,123,123,0.12)',
+    backgroundColor: 'rgba(240,123,123,0.06)',
   },
   signOutText: {
     fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#DC3545',

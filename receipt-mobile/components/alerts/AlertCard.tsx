@@ -28,7 +28,7 @@ export default function AlertCard({ alert, onPress }: AlertCardProps) {
 
   return (
     <Pressable onPress={onPress} style={[styles.card, !alert.is_read && styles.unread]}>
-      <View style={[styles.iconWrap, { backgroundColor: icon.color + '15' }]}>
+      <View style={[styles.iconWrap, { backgroundColor: icon.color + '20' }]}>
         <Feather name={icon.name} size={20} color={icon.color} />
       </View>
       <View style={styles.content}>
@@ -43,14 +43,16 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     padding: Spacing.md,
-    backgroundColor: Colors.surface.card,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: BorderRadius.md,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.12)',
     marginBottom: Spacing.sm,
   },
   unread: {
     borderLeftWidth: 3,
-    borderLeftColor: Colors.primary.default,
-    backgroundColor: Colors.primary.pale,
+    borderLeftColor: Colors.accent.green,
+    backgroundColor: 'rgba(80,200,120,0.10)',
   },
   iconWrap: {
     width: 40,
@@ -61,6 +63,6 @@ const styles = StyleSheet.create({
     marginRight: Spacing.sm,
   },
   content: { flex: 1 },
-  message: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: Colors.text.primary, lineHeight: 20 },
-  time: { fontFamily: 'DMSans_400Regular', fontSize: 11, color: Colors.text.tertiary, marginTop: 4 },
+  message: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: '#FFFFFF', lineHeight: 20 },
+  time: { fontFamily: 'DMSans_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 4 },
 });

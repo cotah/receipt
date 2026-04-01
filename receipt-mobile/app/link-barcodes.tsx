@@ -110,7 +110,7 @@ export default function LinkBarcodesScreen() {
     return (
       <SafeAreaView style={styles.safeLight} edges={['top']}>
         <View style={styles.permBox}>
-          <ActivityIndicator size="large" color={Colors.primary.default} />
+          <ActivityIndicator size="large" color={Colors.accent.green} />
           <Text style={styles.loadingText}>Loading products...</Text>
         </View>
       </SafeAreaView>
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
   safeLight: { flex: 1, backgroundColor: Colors.surface.background },
   permBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 32 },
   permText: { fontFamily: Fonts.body, fontSize: 15, color: Colors.text.secondary, textAlign: 'center' },
-  permBtn: { backgroundColor: Colors.primary.default, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 },
+  permBtn: { backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 },
   permBtnText: { fontFamily: Fonts.bodyBold, fontSize: 15, color: '#FFF' },
   loadingText: { fontFamily: Fonts.body, fontSize: 15, color: Colors.text.secondary },
 
@@ -285,13 +285,13 @@ const styles = StyleSheet.create({
   doneSub: { fontFamily: Fonts.body, fontSize: 14, color: Colors.text.secondary, marginBottom: 16 },
   pointsBox: { backgroundColor: 'rgba(60,179,113,0.08)', borderRadius: 16, paddingHorizontal: 24, paddingVertical: 14, alignItems: 'center', marginBottom: 16 },
   pointsValue: { fontFamily: Fonts.bodyBold, fontSize: 28, color: '#1D9E75' },
-  pointsSub: { fontFamily: Fonts.body, fontSize: 12, color: '#3CB371', marginTop: 2 },
+  pointsSub: { fontFamily: Fonts.body, fontSize: 12, color: Colors.accent.green, marginTop: 2 },
   linkedList: { width: '100%', marginBottom: 20 },
   linkedRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: Colors.surface.border },
   linkedName: { fontFamily: Fonts.body, fontSize: 14, color: Colors.text.primary, flex: 1 },
-  linkedCheck: { fontFamily: Fonts.bodyBold, fontSize: 14, color: '#3CB371' },
+  linkedCheck: { fontFamily: Fonts.bodyBold, fontSize: 14, color: Colors.accent.green },
   linkedMore: { fontFamily: Fonts.body, fontSize: 13, color: Colors.text.secondary, marginTop: 4, textAlign: 'center' },
-  doneBtn: { backgroundColor: Colors.primary.default, borderRadius: 12, paddingHorizontal: 32, paddingVertical: 14 },
+  doneBtn: { backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 12, paddingHorizontal: 32, paddingVertical: 14 },
   doneBtnText: { fontFamily: Fonts.bodyBold, fontSize: 15, color: '#FFF' },
   skipLink: { marginTop: 12 },
   skipLinkText: { fontFamily: Fonts.body, fontSize: 14, color: Colors.text.secondary },

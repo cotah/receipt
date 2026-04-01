@@ -303,7 +303,7 @@ export default function BarcodeScannerScreen() {
           {/* Loading */}
           {isLoading && (
             <View style={styles.loadingBox}>
-              <ActivityIndicator size="large" color={Colors.primary.default} />
+              <ActivityIndicator size="large" color={Colors.accent.green} />
               <Text style={styles.loadingText}>Looking up barcode...</Text>
             </View>
           )}
@@ -322,7 +322,7 @@ export default function BarcodeScannerScreen() {
                 </>
               ) : (
                 <>
-                  <Feather name="link" size={32} color={Colors.primary.default} />
+                  <Feather name="link" size={32} color={Colors.accent.green} />
                   <Text style={styles.notFoundTitle}>Link this barcode</Text>
                   <Text style={styles.notFoundText}>
                     Search for the product to link it to this barcode. Earn 10 points!
@@ -338,7 +338,7 @@ export default function BarcodeScannerScreen() {
 
                   {/* Autocomplete results */}
                   {isSearching && (
-                    <ActivityIndicator size="small" color={Colors.primary.default} style={{ marginVertical: 8 }} />
+                    <ActivityIndicator size="small" color={Colors.accent.green} style={{ marginVertical: 8 }} />
                   )}
 
                   {searchResults.length > 0 && (
@@ -354,7 +354,7 @@ export default function BarcodeScannerScreen() {
                             <Text style={styles.autocompleteName} numberOfLines={1}>{item.product_name}</Text>
                             <Text style={styles.autocompleteStore}>{item.store_name} · €{item.price.toFixed(2)}</Text>
                           </View>
-                          <Feather name="link" size={16} color={Colors.primary.default} />
+                          <Feather name="link" size={16} color={Colors.accent.green} />
                         </Pressable>
                       ))}
                     </View>
@@ -374,7 +374,7 @@ export default function BarcodeScannerScreen() {
 
                       {isIdentifying && (
                         <View style={styles.identifyingRow}>
-                          <ActivityIndicator size="small" color={Colors.primary.default} />
+                          <ActivityIndicator size="small" color={Colors.accent.green} />
                           <Text style={styles.identifyingText}>AI is identifying the product...</Text>
                         </View>
                       )}
@@ -423,7 +423,7 @@ export default function BarcodeScannerScreen() {
                       <View style={styles.storeRow}>
                         <View style={styles.storeLeft}>
                           <View style={styles.storeNameRow}>
-                            <View style={[styles.dot, { backgroundColor: store.is_cheapest ? '#3CB371' : Colors.surface.border }]} />
+                            <View style={[styles.dot, { backgroundColor: store.is_cheapest ? Colors.accent.green : Colors.surface.border }]} />
                             <StoreTag storeName={store.store_name} />
                             {store.is_cheapest && <Badge text="cheapest" variant="success" size="sm" />}
                             {store.is_on_offer && <Badge text="offer" variant="warning" size="sm" />}
@@ -440,7 +440,7 @@ export default function BarcodeScannerScreen() {
                             onPress={() => addToList(store.store_name, store.product_name, store.unit_price)}
                             style={styles.addBtn}
                           >
-                            <Feather name="plus" size={16} color={Colors.primary.default} />
+                            <Feather name="plus" size={16} color={Colors.accent.green} />
                           </Pressable>
                         </View>
                       </View>
@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
   },
   corner: {
     position: 'absolute', width: 24, height: 24,
-    borderColor: '#3CB371', borderWidth: 3,
+    borderColor: Colors.accent.green, borderWidth: 3,
   },
   cornerTL: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 8 },
   cornerTR: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 8 },
@@ -563,12 +563,12 @@ const styles = StyleSheet.create({
   noResultsText: { fontFamily: Fonts.body, fontSize: 13, color: Colors.text.secondary },
   photoBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: Colors.primary.default, borderRadius: 12,
+    backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 12,
     paddingHorizontal: 16, paddingVertical: 10,
   },
   photoBtnText: { fontFamily: Fonts.bodySemiBold, fontSize: 14, color: '#FFF' },
   identifyingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
-  identifyingText: { fontFamily: Fonts.body, fontSize: 13, color: Colors.primary.default },
+  identifyingText: { fontFamily: Fonts.body, fontSize: 13, color: Colors.accent.green },
   orText: { fontFamily: Fonts.body, fontSize: 12, color: Colors.text.tertiary, marginTop: 4 },
   photoCameraWrap: { flex: 1 },
   photoCamera: { flex: 1 },
@@ -588,11 +588,11 @@ const styles = StyleSheet.create({
   photoCancelText: { fontFamily: Fonts.bodySemiBold, fontSize: 16, color: '#FFF' },
   photoCaptureBtn: {
     width: 72, height: 72, borderRadius: 36,
-    borderWidth: 4, borderColor: '#FFF',
+    borderWidth: 4, borderColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center', justifyContent: 'center',
   },
   photoCaptureInner: {
-    width: 58, height: 58, borderRadius: 29, backgroundColor: '#FFF',
+    width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(255,255,255,0.08)',
   },
   contributeActions: { alignItems: 'center', gap: Spacing.sm, width: '100%' },
   skipLink: { paddingVertical: 8 },
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8,
   },
   foundLabel: {
-    fontFamily: Fonts.bodyBold, fontSize: 13, color: '#3CB371',
+    fontFamily: Fonts.bodyBold, fontSize: 13, color: Colors.accent.green,
   },
   productName: {
     fontFamily: Fonts.bodyBold, fontSize: 17, color: Colors.text.primary,
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
   storePrice: {
     fontFamily: 'CourierPrime_700Bold', fontSize: 18, color: Colors.text.primary,
   },
-  storePriceCheapest: { color: '#3CB371' },
+  storePriceCheapest: { color: Colors.accent.green },
   addBtn: {
     width: 32, height: 32, borderRadius: 16,
     borderWidth: 1.5, borderColor: Colors.primary.default,
@@ -665,6 +665,6 @@ const styles = StyleSheet.create({
   },
   backLink: { marginTop: Spacing.sm },
   backLinkText: {
-    fontFamily: Fonts.body, fontSize: 14, color: Colors.primary.default,
+    fontFamily: Fonts.body, fontSize: 14, color: Colors.accent.green,
   },
 });

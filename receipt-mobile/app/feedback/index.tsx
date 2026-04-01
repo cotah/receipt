@@ -41,7 +41,7 @@ export default function FeedbackScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.successContainer}>
           <View style={styles.successIcon}>
-            <Feather name="check-circle" size={48} color={Colors.primary.default} />
+            <Feather name="check-circle" size={48} color={Colors.accent.green} />
           </View>
           <Text style={styles.successTitle}>Sent, thank you!</Text>
           <Text style={styles.successText}>
@@ -80,7 +80,7 @@ export default function FeedbackScreen() {
                 <Feather
                   name={cat.icon as any}
                   size={14}
-                  color={category === cat.key ? '#fff' : Colors.text.secondary}
+                  color={category === cat.key ? 'rgba(255,255,255,0.08)' : Colors.text.secondary}
                 />
                 <Text style={[styles.categoryText, category === cat.key && styles.categoryTextActive]}>
                   {cat.label}
@@ -134,15 +134,15 @@ const styles = StyleSheet.create({
   categoryChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingVertical: 8, paddingHorizontal: 14,
-    borderRadius: 20, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB',
+    borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
   },
   categoryChipActive: {
-    backgroundColor: Colors.primary.default, borderColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)', borderColor: Colors.primary.default,
   },
   categoryText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.secondary },
-  categoryTextActive: { color: '#fff' },
+  categoryTextActive: { color: 'rgba(255,255,255,0.08)' },
   textInput: {
-    backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB',
+    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
     padding: 14, fontFamily: 'DMSans_400Regular', fontSize: 15, color: Colors.text.primary,
     minHeight: 150, lineHeight: 22,
   },
@@ -152,17 +152,17 @@ const styles = StyleSheet.create({
   },
   sendBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.primary.default, borderRadius: 12,
+    backgroundColor: 'rgba(80,200,120,0.20)', borderRadius: 12,
     paddingVertical: 14, marginTop: 24,
   },
   sendBtnDisabled: { opacity: 0.5 },
-  sendBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#fff' },
+  sendBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: 'rgba(255,255,255,0.08)' },
   successContainer: {
     flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32,
   },
   successIcon: { marginBottom: 16 },
   successTitle: {
-    fontFamily: 'DMSans_700Bold', fontSize: 22, color: Colors.primary.default, marginBottom: 12,
+    fontFamily: 'DMSans_700Bold', fontSize: 22, color: Colors.accent.green, marginBottom: 12,
   },
   successText: {
     fontFamily: 'DMSans_400Regular', fontSize: 15, color: Colors.text.secondary,
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     marginTop: 24, paddingVertical: 12, paddingHorizontal: 32,
-    borderRadius: 10, backgroundColor: Colors.primary.default,
+    borderRadius: 10, backgroundColor: 'rgba(80,200,120,0.20)',
   },
-  backBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#fff' },
+  backBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: 'rgba(255,255,255,0.08)' },
 });

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import { Colors } from '../../constants/colors';
+import { STORE_COLORS, StoreName } from '../../constants/stores';
 import { Spacing } from '../../constants/typography';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { formatRelativeDate } from '../../utils/formatDate';
@@ -35,15 +36,26 @@ function shortErrorReason(reason?: string | null): string {
   return 'Failed';
 }
 
+function normalizeStore(name: string): string {
+  const l = name.toLowerCase().trim();
+  if (l.includes('lidl')) return 'Lidl';
+  if (l.includes('tesco')) return 'Tesco';
+  if (l.includes('aldi')) return 'Aldi';
+  if (l.includes('supervalu') || l.includes('super valu')) return 'SuperValu';
+  if (l.includes('dunnes')) return 'Dunnes';
+  return name;
+}
+
 export default function ReceiptCard({
   store_name, store_branch, purchased_at,
   total_amount, discount_total, items_count, status, error_reason, onPress,
 }: ReceiptCardProps) {
   const dotColor = STATUS_COLORS[status] ?? Colors.text.tertiary;
   const nStore = normalizeStore(store_name);
+  const storeColor = STORE_COLORS[nStore as StoreName]?.primary ?? Colors.accent.green;
 
   return (
-    <Card onPress={onPress} style={[styles.card, { borderLeftColor: STORE_COLORS[nStore] || Colors.primary.default }]}>
+    <Card onPress={onPress} style={[styles.card, { borderLeftColor: storeColor }]}>
       <View style={styles.row}>
         <View style={styles.left}>
           <View style={[styles.dot, { backgroundColor: dotColor }]} />
@@ -69,35 +81,17 @@ export default function ReceiptCard({
   );
 }
 
-const STORE_COLORS: Record<string, string> = {
-  Tesco: '#00539F',
-  Lidl: '#0050AA',
-  Aldi: '#F47B20',
-  SuperValu: '#C8102E',
-  Dunnes: '#1A4D35',
-};
-
-function normalizeStore(name: string): string {
-  const l = name.toLowerCase().trim();
-  if (l.includes('lidl')) return 'Lidl';
-  if (l.includes('tesco')) return 'Tesco';
-  if (l.includes('aldi')) return 'Aldi';
-  if (l.includes('supervalu') || l.includes('super valu')) return 'SuperValu';
-  if (l.includes('dunnes')) return 'Dunnes';
-  return name;
-}
-
 const styles = StyleSheet.create({
-  card: { marginBottom: Spacing.sm, borderLeftWidth: 4, borderLeftColor: Colors.accent.green },
+  card: { marginBottom: Spacing.sm, borderLeftWidth: 3 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   left: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: Spacing.sm },
-  storeName: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: Colors.text.primary },
-  branch: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary },
+  storeName: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#FFFFFF' },
+  branch: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.50)' },
   right: { alignItems: 'flex-end' },
   amount: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 17, color: Colors.accent.amber },
-  itemsCount: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.text.tertiary },
+  itemsCount: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: 'rgba(255,255,255,0.35)' },
   footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.sm },
-  date: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary },
+  date: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.35)' },
   badges: { flexDirection: 'row', gap: Spacing.xs },
 });

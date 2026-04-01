@@ -36,18 +36,18 @@ export default function ProfileAvatar({ size = 30 }: Props) {
 
 const styles = StyleSheet.create({
   img: {
-    borderWidth: 2,
-    borderColor: Colors.primary.default,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
   fallback: {
-    backgroundColor: Colors.primary.default,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: Colors.primary.light,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
   initials: {
     fontFamily: 'DMSans_700Bold',
-    color: '#FFF',
+    color: '#7DDFAA', // accent green
   },
 });

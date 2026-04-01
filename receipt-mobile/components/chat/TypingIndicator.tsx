@@ -40,9 +40,11 @@ const styles = StyleSheet.create({
   container: { paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
   bubble: {
     flexDirection: 'row',
-    backgroundColor: Colors.surface.alt,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: BorderRadius.lg,
     borderBottomLeftRadius: BorderRadius.sm,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.12)',
     padding: Spacing.md,
     alignSelf: 'flex-start',
     gap: 4,

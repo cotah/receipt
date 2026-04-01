@@ -96,7 +96,7 @@ export default function RewardsScreen() {
           <Card key={method.title} style={styles.earnCard}>
             <View style={styles.earnRow}>
               <View style={styles.earnIcon}>
-                <Feather name={method.icon as any} size={20} color={Colors.primary.default} />
+                <Feather name={method.icon as any} size={20} color={Colors.accent.green} />
               </View>
               <View style={styles.earnContent}>
                 <Text style={styles.earnTitle}>{method.title}</Text>
@@ -116,7 +116,7 @@ export default function RewardsScreen() {
             <Card style={styles.leaderCard}>
               {leaderboard.map((entry, i) => (
                 <View key={entry.rank} style={[styles.leaderRow, entry.is_me && styles.leaderRowMe, i < leaderboard.length - 1 && styles.leaderBorder]}>
-                  <Text style={[styles.leaderRank, entry.rank === 1 && { color: '#E8A020' }, entry.rank === 2 && { color: '#9CA3AF' }, entry.rank === 3 && { color: '#CD7F32' }]}>{entry.rank}</Text>
+                  <Text style={[styles.leaderRank, entry.rank === 1 && { color: 'rgba(212,168,67,0.30)' }, entry.rank === 2 && { color: 'rgba(255,255,255,0.35)' }, entry.rank === 3 && { color: '#CD7F32' }]}>{entry.rank}</Text>
                   <Text style={[styles.leaderName, entry.is_me && styles.leaderNameMe]}>{entry.is_me ? 'You' : entry.name}</Text>
                   <Text style={[styles.leaderPts, entry.is_me && styles.leaderPtsMe]}>{entry.points} pts</Text>
                 </View>
@@ -143,10 +143,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface.background },
   scroll: { padding: Spacing.md, paddingBottom: 40 },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.lg, paddingVertical: 4 },
-  backText: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: Colors.primary.dark },
+  backText: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: '#FFFFFF' },
   heroCard: {
     alignItems: 'center', paddingVertical: 32,
-    backgroundColor: Colors.primary.dark, borderRadius: 24, marginBottom: Spacing.lg,
+    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, marginBottom: Spacing.lg,
   },
   heroPoints: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 56, color: Colors.accent.amber, marginTop: 8 },
   heroLabel: { fontFamily: 'DMSans_500Medium', fontSize: 16, color: 'rgba(255,255,255,0.5)', marginTop: -4 },
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   },
   levelText: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: 'rgba(255,255,255,0.7)' },
   sectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm, marginTop: Spacing.sm },
-  challengeCard: { marginBottom: Spacing.sm, backgroundColor: Colors.primary.default, padding: Spacing.md },
+  challengeCard: { marginBottom: Spacing.sm, backgroundColor: 'rgba(80,200,120,0.20)', padding: Spacing.md },
   challengeHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.sm },
   challengeTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#FFF' },
   challengeDesc: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   challengeCount: { fontFamily: 'DMSans_700Bold', fontSize: 22, color: '#FFF' },
   challengeBonus: { fontFamily: 'DMSans_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.6)' },
   progressTrack: { height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.2)', marginBottom: Spacing.xs },
-  progressFill: { height: 6, borderRadius: 3, backgroundColor: '#E8A020' },
+  progressFill: { height: 6, borderRadius: 3, backgroundColor: 'rgba(212,168,67,0.30)' },
   earnCard: { marginBottom: Spacing.xs },
   earnRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   earnIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.accent.greenSoft, alignItems: 'center', justifyContent: 'center' },
@@ -175,13 +175,13 @@ const styles = StyleSheet.create({
   earnPts: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 16, color: Colors.accent.amber },
   leaderCard: { marginBottom: Spacing.sm, paddingVertical: 0, paddingHorizontal: 0 },
   leaderRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: Spacing.md },
-  leaderRowMe: { backgroundColor: Colors.primary.pale },
+  leaderRowMe: { backgroundColor: 'rgba(80,200,120,0.12)' },
   leaderBorder: { borderBottomWidth: 1, borderBottomColor: Colors.surface.border },
   leaderRank: { fontFamily: 'DMSans_700Bold', fontSize: 14, color: Colors.text.tertiary, width: 24 },
   leaderName: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.primary, flex: 1 },
-  leaderNameMe: { color: Colors.primary.default },
+  leaderNameMe: { color: Colors.accent.green },
   leaderPts: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: Colors.text.secondary },
-  leaderPtsMe: { color: Colors.primary.default },
+  leaderPtsMe: { color: Colors.accent.green },
   prizesCard: { alignItems: 'center', paddingVertical: 32 },
   prizeTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginTop: 12 },
   prizeDesc: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.secondary, textAlign: 'center', lineHeight: 20, marginTop: 8, paddingHorizontal: 16 },

@@ -13,8 +13,8 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.primary.dark,
-        tabBarInactiveTintColor: Colors.text.tertiary,
+        tabBarActiveTintColor: Colors.accent.green,            // #7DDFAA
+        tabBarInactiveTintColor: 'rgba(255,255,255,0.35)',     // muted white
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabLabel,
       }}
@@ -76,32 +76,31 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: Colors.surface.card,
-    borderTopWidth: 0,
+    backgroundColor: 'rgba(255,255,255,0.06)',  // glass tab bar
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(255,255,255,0.08)',
     height: 88,
     paddingBottom: 24,
     paddingTop: 6,
-    shadowColor: '#0D2B1D',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 6,
+    // No heavy shadow — just the glass border separates it
+    elevation: 0,
   },
   tabLabel: { fontFamily: 'DMSans_600SemiBold', fontSize: 10, marginTop: 2 },
   scanBtn: {
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)',  // green glass
+    borderWidth: 1,
+    borderColor: 'rgba(80,200,120,0.30)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 28,
-    shadowColor: '#1A4D35',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
+    // Subtle green glow
+    shadowColor: '#7DDFAA',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.25,
     shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 3,
-    borderColor: Colors.surface.card,
+    elevation: 6,
   },
 });

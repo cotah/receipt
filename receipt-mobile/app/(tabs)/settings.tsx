@@ -123,7 +123,7 @@ export default function SettingsScreen() {
               <Image source={{ uri: profile.avatar_url }} style={styles.avatarImg} />
             ) : (
               <View style={styles.avatar}>
-                <Feather name="user" size={32} color={Colors.primary.default} />
+                <Feather name="user" size={32} color={Colors.accent.green} />
               </View>
             )}
             <View style={styles.cameraBadge}>
@@ -182,7 +182,7 @@ export default function SettingsScreen() {
                   returnKeyType="done"
                 />
                 <Pressable onPress={handleSaveArea} hitSlop={8}>
-                  <Feather name="check" size={18} color={Colors.primary.default} />
+                  <Feather name="check" size={18} color={Colors.accent.green} />
                 </Pressable>
               </View>
             ) : (
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'DMSerifDisplay_400Regular',
     fontSize: 22,
-    color: Colors.primary.dark,
+    color: '#FFFFFF',
   },
   content: { flex: 1, paddingHorizontal: Spacing.md },
   profileCard: {
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: Colors.primary.pale,
+    backgroundColor: 'rgba(80,200,120,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -249,11 +249,11 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.primary.default,
+    backgroundColor: 'rgba(80,200,120,0.20)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#FFF',
+    borderColor: 'rgba(255,255,255,0.15)',
   },
   uploadingText: {
     fontFamily: 'DMSans_400Regular',

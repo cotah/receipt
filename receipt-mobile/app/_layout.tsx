@@ -102,7 +102,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }} />
     </GestureHandlerRootView>
   );
