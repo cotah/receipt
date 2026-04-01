@@ -1097,11 +1097,14 @@ async def barcode_contribute(
             "barcode": barcode,
             "product_name": product_name,
             "product_key": key,
+            "brand": "",
             "category": "Other",
+            "image_url": "",
             "source": "user_contribution",
-        }).execute()
-    except Exception:
-        raise HTTPException(status_code=500, detail="Could not save barcode")
+        }, on_conflict="barcode").execute()
+    except Exception as e:
+        log.error("barcode-contribute upsert failed for barcode %s: %s", barcode, e)
+        raise HTTPException(status_code=500, detail=f"Could not save barcode: {str(e)}")
 
     # Award 10 points
     try:
