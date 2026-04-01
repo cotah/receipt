@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -25,6 +25,7 @@ interface EligibleAlert {
 export default function PricesScreen() {
   const [tab, setTab] = useState<'compare' | 'offers'>('compare');
   const [searchText, setSearchText] = useState('');
+  const [autoSelectFirst, setAutoSelectFirst] = useState(false);
   const [eligibleAlerts, setEligibleAlerts] = useState<EligibleAlert[]>([]);
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [addedToList, setAddedToList] = useState<Map<string, string>>(new Map());
@@ -121,6 +122,14 @@ export default function PricesScreen() {
     }
   }, []);
 
+  // Auto-select first result when clicking from "Also available"
+  useEffect(() => {
+    if (autoSelectFirst && searchResults.length > 0 && !isSearching) {
+      setAutoSelectFirst(false);
+      selectProduct(searchResults[0]);
+    }
+  }, [searchResults, isSearching, autoSelectFirst]);
+
   const handleSearchChange = (text: string) => {
     setSearchText(text);
     if (selectedProduct) clearSelection();
@@ -169,14 +178,23 @@ export default function PricesScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {tab === 'compare' && (
           <>
-            {/* Search bar */}
-            <Input
-              placeholder="Search products... (e.g. brioche, milk, nutella)"
-              value={searchText}
-              onChangeText={handleSearchChange}
-              leftIcon="search"
-              returnKeyType="search"
-            />
+            {/* Search bar with clear X */}
+            <View style={styles.searchBar}>
+              <Feather name="search" size={16} color="rgba(255,255,255,0.35)" />
+              <TextInput
+                placeholder="Search products... (e.g. brioche, milk, nutella)"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                value={searchText}
+                onChangeText={handleSearchChange}
+                returnKeyType="search"
+                style={styles.searchInput}
+              />
+              {searchText.length > 0 && (
+                <Pressable onPress={() => { setSearchText(''); clearSearch(); }} hitSlop={12}>
+                  <Feather name="x" size={18} color="rgba(255,255,255,0.5)" />
+                </Pressable>
+              )}
+            </View>
 
             {/* Loading */}
             {isSearching && (
@@ -265,8 +283,9 @@ export default function PricesScreen() {
                           key={`${alt.product_key}-${i}`}
                           onPress={() => {
                             setSearchText(alt.product_name);
-                            smartSearch(alt.product_name);
                             clearSelection();
+                            setAutoSelectFirst(true);
+                            smartSearch(alt.product_name);
                           }}
                           style={[styles.altRow, i === alternatives.length - 1 && { borderBottomWidth: 0 }]}
                         >
@@ -591,6 +610,18 @@ export default function PricesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface.background },
   title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: '#FFFFFF', paddingHorizontal: Spacing.md, paddingTop: Spacing.md },
+
+  // Search bar
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 14, paddingHorizontal: 14, marginBottom: 12,
+  },
+  searchInput: {
+    flex: 1, fontFamily: 'DMSans_400Regular', fontSize: 15,
+    color: '#FFFFFF', paddingVertical: 12,
+  },
   tabs: { flexDirection: 'row', paddingHorizontal: Spacing.md, marginTop: Spacing.md, gap: Spacing.sm },
   tab: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: 9999, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.10)' },
   tabActive: { backgroundColor: 'rgba(80,200,120,0.20)', borderColor: 'rgba(80,200,120,0.3)' },
