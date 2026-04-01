@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   categoryChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingVertical: 8, paddingHorizontal: 14,
-    borderRadius: 20, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB',
+    borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
   },
   categoryChipActive: {
     backgroundColor: Colors.primary.default, borderColor: Colors.primary.default,
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   categoryText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.secondary },
   categoryTextActive: { color: '#fff' },
   textInput: {
-    backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB',
+    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
     padding: 14, fontFamily: 'DMSans_400Regular', fontSize: 15, color: Colors.text.primary,
     minHeight: 150, lineHeight: 22,
   },

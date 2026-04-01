@@ -84,7 +84,7 @@ export default function ContributeScreen() {
           <Text style={styles.title}>Contribute</Text>
           {data && (
             <View style={styles.pointsPill}>
-              <Feather name="star" size={14} color="#E8A020" />
+              <Feather name="star" size={14} color="#F0D68A" />
               <Text style={styles.pointsPillText}>{data.points} pts</Text>
             </View>
           )}
@@ -167,7 +167,7 @@ export default function ContributeScreen() {
                     >
                       <Text style={[
                         styles.leaderRank,
-                        entry.rank === 1 && { color: '#E8A020' },
+                        entry.rank === 1 && { color: '#F0D68A' },
                         entry.rank === 2 && { color: 'rgba(255,255,255,0.35)' },
                         entry.rank === 3 && { color: '#CD7F32' },
                       ]}>
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   progressFill: {
-    height: 6, borderRadius: 3, backgroundColor: '#E8A020',
+    height: 6, borderRadius: 3, backgroundColor: '#F0D68A',
   },
   sectionTitle: {
     fontFamily: Fonts.bodyBold, fontSize: 12, color: Colors.text.secondary,
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body, fontSize: 12, color: Colors.text.secondary,
   },
   actionPoints: {
-    fontFamily: Fonts.bodyBold, fontSize: 16, color: '#E8A020',
+    fontFamily: Fonts.bodyBold, fontSize: 16, color: '#F0D68A',
   },
   leaderCard: { marginBottom: Spacing.lg, paddingVertical: 0, paddingHorizontal: 0 },
   leaderRow: {

@@ -11,7 +11,7 @@ import { useAuthStore } from '../../stores/authStore';
 const LEVELS = [
   { name: 'Starter', emoji: '🌱', min: 0, color: 'rgba(255,255,255,0.35)', perks: 'Welcome to SmartDocket!' },
   { name: 'Saver', emoji: '💚', min: 100, color: '#3CB371', perks: 'Price drop alerts unlocked' },
-  { name: 'Smart Shopper', emoji: '⭐', min: 500, color: '#E8A020', perks: 'Priority deal notifications' },
+  { name: 'Smart Shopper', emoji: '⭐', min: 500, color: '#F0D68A', perks: 'Priority deal notifications' },
   { name: 'Price Hunter', emoji: '🔥', min: 1000, color: '#EF4444', perks: 'Exclusive golden deals' },
   { name: 'Grocery Pro', emoji: '👑', min: 2500, color: '#8B5CF6', perks: 'Maximum rewards + badges' },
 ];

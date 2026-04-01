@@ -685,7 +685,7 @@ const styles = StyleSheet.create({
   dealRight: { alignItems: 'flex-end', gap: 4, marginLeft: Spacing.sm },
   dealPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 18, color: Colors.accent.amber },
 
-  goldenCard: { marginBottom: Spacing.sm, borderWidth: 2, borderColor: '#E8A020', borderRadius: BorderRadius.md },
+  goldenCard: { marginBottom: Spacing.sm, borderWidth: 2, borderColor: '#F0D68A', borderRadius: BorderRadius.md },
   goldenName: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: Colors.text.primary },
   goldenPromo: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.primary.default },
   goldenPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 20, color: Colors.accent.amber },

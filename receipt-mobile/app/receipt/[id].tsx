@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   weightPresets: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
   presetBtn: {
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
-    backgroundColor: '#FFF', borderWidth: 1, borderColor: Colors.surface.border,
+    backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.15)',
   },
   presetBtnActive: { backgroundColor: Colors.primary.default, borderColor: Colors.primary.default },
   presetBtnText: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.text.secondary },
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   weightInput: {
     flex: 1, fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.primary,
     borderWidth: 1, borderColor: Colors.surface.border, borderRadius: BorderRadius.sm,
-    paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#FFF',
+    paddingHorizontal: 12, paddingVertical: 8, backgroundColor: 'rgba(255,255,255,0.08)',
   },
   weightInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   confirmItemBtn: {

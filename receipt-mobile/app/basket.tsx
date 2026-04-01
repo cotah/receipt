@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   results: { marginTop: Spacing.sm },
   resultsTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: 2 },
   resultsHint: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, marginBottom: Spacing.sm },
-  splitCard: { marginBottom: Spacing.md, padding: Spacing.md, borderWidth: 1, borderColor: '#A8D5B8', backgroundColor: '#F0F9F4' },
+  splitCard: { marginBottom: Spacing.md, padding: Spacing.md, borderWidth: 1, borderColor: 'rgba(80,200,120,0.25)', backgroundColor: 'rgba(80,200,120,0.08)' },
   splitHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   splitTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: Colors.text.primary },
   splitTotal: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 18, color: Colors.accent.green, marginBottom: 4 },

@@ -279,7 +279,7 @@ export default function ProfileScreen() {
               <Switch
                 value={profile?.notify_alerts ?? true}
                 onValueChange={handleToggleNotifications}
-                trackColor={{ false: '#E5E7EB', true: Colors.primary.pale }}
+                trackColor={{ false: 'rgba(255,255,255,0.12)', true: Colors.primary.pale }}
                 thumbColor={(profile?.notify_alerts ?? true) ? Colors.primary.default : '#ccc'}
               />
             </View>
@@ -296,7 +296,7 @@ export default function ProfileScreen() {
               <Switch
                 value={profile?.notify_reports ?? true}
                 onValueChange={handleToggleReports}
-                trackColor={{ false: '#E5E7EB', true: Colors.primary.pale }}
+                trackColor={{ false: 'rgba(255,255,255,0.12)', true: Colors.primary.pale }}
                 thumbColor={(profile?.notify_reports ?? true) ? Colors.primary.default : '#ccc'}
               />
             </View>
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
   },
   popularTag: {
     position: 'absolute', top: -10, right: 12,
-    backgroundColor: '#E8A020', paddingHorizontal: 8,
+    backgroundColor: '#F0D68A', paddingHorizontal: 8,
     paddingVertical: 2, borderRadius: 8,
   },
   popularTagText: {

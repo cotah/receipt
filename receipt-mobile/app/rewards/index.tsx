@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   challengeCount: { fontFamily: 'DMSans_700Bold', fontSize: 22, color: '#FFF' },
   challengeBonus: { fontFamily: 'DMSans_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.6)' },
   progressTrack: { height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.2)', marginBottom: Spacing.xs },
-  progressFill: { height: 6, borderRadius: 3, backgroundColor: '#E8A020' },
+  progressFill: { height: 6, borderRadius: 3, backgroundColor: '#F0D68A' },
   earnCard: { marginBottom: Spacing.xs },
   earnRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   earnIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.accent.greenSoft, alignItems: 'center', justifyContent: 'center' },
