@@ -597,11 +597,11 @@ const styles = StyleSheet.create({
   },
   plansRow: { flexDirection: 'row', gap: 10 },
   planCard: {
-    flex: 1, backgroundColor: '#FFF', borderRadius: 14,
-    padding: 14, borderWidth: 1, borderColor: Colors.surface.alt,
+    flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14,
+    padding: 14, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.15)',
   },
   planCardPro: {
-    backgroundColor: '#1A4D35', borderColor: '#1A4D35',
+    backgroundColor: 'rgba(80,200,120,0.12)', borderColor: 'rgba(80,200,120,0.25)',
   },
   planName: {
     fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary,
@@ -636,10 +636,10 @@ const styles = StyleSheet.create({
   },
   proBtn: {
     marginTop: 12, paddingVertical: 10, borderRadius: 10,
-    backgroundColor: '#FFF', alignItems: 'center',
+    backgroundColor: 'rgba(80,200,120,0.2)', borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.3)', alignItems: 'center',
   },
   proBtnText: {
-    fontFamily: 'DMSans_700Bold', fontSize: 12, color: '#1A4D35',
+    fontFamily: 'DMSans_700Bold', fontSize: 12, color: '#7DDFAA',
   },
 
   // Sign out

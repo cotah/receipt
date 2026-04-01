@@ -116,7 +116,7 @@ export default function RewardsScreen() {
             <Card style={styles.leaderCard}>
               {leaderboard.map((entry, i) => (
                 <View key={entry.rank} style={[styles.leaderRow, entry.is_me && styles.leaderRowMe, i < leaderboard.length - 1 && styles.leaderBorder]}>
-                  <Text style={[styles.leaderRank, entry.rank === 1 && { color: '#E8A020' }, entry.rank === 2 && { color: '#9CA3AF' }, entry.rank === 3 && { color: '#CD7F32' }]}>{entry.rank}</Text>
+                  <Text style={[styles.leaderRank, entry.rank === 1 && { color: '#F0D68A' }, entry.rank === 2 && { color: 'rgba(255,255,255,0.45)' }, entry.rank === 3 && { color: '#F0997B' }]}>{entry.rank}</Text>
                   <Text style={[styles.leaderName, entry.is_me && styles.leaderNameMe]}>{entry.is_me ? 'You' : entry.name}</Text>
                   <Text style={[styles.leaderPts, entry.is_me && styles.leaderPtsMe]}>{entry.points} pts</Text>
                 </View>

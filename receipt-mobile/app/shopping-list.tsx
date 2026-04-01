@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   shareRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   shareLinked: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.primary, flex: 1 },
   unlinkBtn: { marginTop: 8, alignSelf: 'flex-start' },
-  unlinkText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: '#C74343' },
+  unlinkText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: '#F09595' },
   shareOptions: { gap: 8 },
   shareCodeBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,

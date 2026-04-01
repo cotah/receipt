@@ -70,11 +70,11 @@ export default function ReceiptCard({
 }
 
 const STORE_COLORS: Record<string, string> = {
-  Tesco: '#00539F',
-  Lidl: '#0050AA',
-  Aldi: '#F47B20',
-  SuperValu: '#C8102E',
-  Dunnes: '#1A4D35',
+  Tesco: '#85B7EB',
+  Lidl: '#F0997B',
+  Aldi: '#7C8CF0',
+  SuperValu: '#F0D68A',
+  Dunnes: '#5DCAA5',
 };
 
 function normalizeStore(name: string): string {

@@ -168,7 +168,7 @@ export default function ContributeScreen() {
                       <Text style={[
                         styles.leaderRank,
                         entry.rank === 1 && { color: '#E8A020' },
-                        entry.rank === 2 && { color: '#9CA3AF' },
+                        entry.rank === 2 && { color: 'rgba(255,255,255,0.35)' },
                         entry.rank === 3 && { color: '#CD7F32' },
                       ]}>
                         {entry.rank}
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5,
   },
   pointsPillText: {
-    fontFamily: Fonts.bodyBold, fontSize: 14, color: '#C28716',
+    fontFamily: Fonts.bodyBold, fontSize: 14, color: '#F0D68A',
   },
   loadingRow: {
     paddingVertical: Spacing.xl * 2, alignItems: 'center',

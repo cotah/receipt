@@ -1,9 +1,9 @@
 export const STORE_COLORS = {
-  Lidl: { primary: '#0050AA', light: '#E6EEF9', text: '#FFFFFF' },
-  Aldi: { primary: '#004B93', light: '#E5EEF8', text: '#FFFFFF' },
-  Tesco: { primary: '#EE1C2E', light: '#FDECEE', text: '#FFFFFF' },
-  SuperValu: { primary: '#E4002B', light: '#FDEAEE', text: '#FFFFFF' },
-  Dunnes: { primary: '#231F20', light: '#EBEBEB', text: '#FFFFFF' },
+  Lidl: { primary: '#F0997B', light: 'rgba(240,153,123,0.12)', text: '#FFFFFF' },
+  Aldi: { primary: '#7C8CF0', light: 'rgba(124,140,240,0.12)', text: '#FFFFFF' },
+  Tesco: { primary: '#85B7EB', light: 'rgba(133,183,235,0.12)', text: '#FFFFFF' },
+  SuperValu: { primary: '#F0D68A', light: 'rgba(240,214,138,0.12)', text: '#FFFFFF' },
+  Dunnes: { primary: '#5DCAA5', light: 'rgba(93,202,165,0.12)', text: '#FFFFFF' },
 } as const;
 
 export type StoreName = keyof typeof STORE_COLORS;

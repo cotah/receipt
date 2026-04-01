@@ -27,16 +27,16 @@ export default function ExpiryBadge({ validUntil, size = 'sm' }: ExpiryBadgeProp
 
   if (diffDays <= 1) {
     label = 'Ends tomorrow';
-    bg = 'rgba(217,79,79,0.10)';
-    textColor = '#C74343';
+    bg = 'rgba(240,149,149,0.12)';
+    textColor = '#F09595';
   } else if (diffDays <= 3) {
     label = `Ends in ${diffDays} days`;
-    bg = 'rgba(232,160,32,0.12)';
-    textColor = '#C28716';
+    bg = 'rgba(212,168,67,0.12)';
+    textColor = '#F0D68A';
   } else {
     label = `${diffDays} days left`;
-    bg = 'rgba(60,179,113,0.08)';
-    textColor = '#1A7D45';
+    bg = 'rgba(80,200,120,0.12)';
+    textColor = '#7DDFAA';
   }
 
   const fontSize = size === 'sm' ? 10 : 12;

@@ -473,14 +473,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center',
   },
   modeBtnActive: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: 'rgba(80,200,120,0.25)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(80,200,120,0.4)',
   },
   modeBtnText: {
     fontFamily: 'DMSans_600SemiBold', fontSize: 14,
     color: 'rgba(255,255,255,0.7)',
   },
   modeBtnTextActive: {
-    color: '#1A1A1A',
+    color: '#7DDFAA',
   },
 
   // Barcode overlay

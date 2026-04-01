@@ -600,17 +600,19 @@ const styles = StyleSheet.create({
   resultStores: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1 },
   resultHint: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, marginTop: 6 },
   valueTip: {
-    marginTop: 6, backgroundColor: 'rgba(60,179,113,0.08)',
+    marginTop: 6, backgroundColor: 'rgba(80,200,120,0.12)',
     borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
+    borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.25)',
   },
-  valueTipText: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: '#1A7D45', lineHeight: 16 },
+  valueTipText: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: '#7DDFAA', lineHeight: 16 },
   valueTipDetail: {
-    backgroundColor: 'rgba(60,179,113,0.08)', borderRadius: 12,
+    backgroundColor: 'rgba(80,200,120,0.12)', borderRadius: 12,
     padding: Spacing.sm, marginBottom: Spacing.sm,
-    borderLeftWidth: 3, borderLeftColor: '#3CB371',
+    borderLeftWidth: 3, borderLeftColor: 'rgba(80,200,120,0.4)',
+    borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.25)',
   },
-  valueTipDetailTitle: { fontFamily: 'DMSans_700Bold', fontSize: 13, color: '#1A7D45', marginBottom: 4 },
-  valueTipDetailText: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: '#1A7D45', lineHeight: 18 },
+  valueTipDetailTitle: { fontFamily: 'DMSans_700Bold', fontSize: 13, color: '#7DDFAA', marginBottom: 4 },
+  valueTipDetailText: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(125,223,170,0.8)', lineHeight: 18 },
 
   // Product detail
   detailSection: { marginTop: Spacing.sm },
@@ -619,13 +621,13 @@ const styles = StyleSheet.create({
   detailTitle: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 22, color: Colors.text.primary, marginBottom: Spacing.sm },
 
   savingChip: {
-    backgroundColor: '#E8F5EE',
+    backgroundColor: 'rgba(80,200,120,0.12)',
     borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: '#A8D5B8',
+    borderWidth: 0.5,
+    borderColor: 'rgba(80,200,120,0.25)',
   },
   savingChipText: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: Colors.primary.default },
 
@@ -715,16 +717,16 @@ const styles = StyleSheet.create({
   timingRight: { alignItems: 'flex-end', marginLeft: Spacing.sm },
   timingDetail: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.secondary },
   timingValid: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: Colors.text.tertiary },
-  timingUrgent: { fontFamily: 'DMSans_600SemiBold', fontSize: 12, color: '#E85D3A' },
+  timingUrgent: { fontFamily: 'DMSans_600SemiBold', fontSize: 12, color: '#F0997B' },
   timingProduct: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.primary, marginBottom: 2 },
 
   // Savings banner
   savingsBanner: {
     marginHorizontal: Spacing.md,
     marginTop: Spacing.sm,
-    backgroundColor: '#F0F9F4',
-    borderWidth: 1,
-    borderColor: '#A8D5B8',
+    backgroundColor: 'rgba(80,200,120,0.08)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(80,200,120,0.20)',
     borderRadius: 12,
     padding: Spacing.md,
     flexDirection: 'row',
