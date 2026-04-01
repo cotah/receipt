@@ -44,10 +44,20 @@ export default function RootLayout() {
 
   useEffect(() => {
     initialize();
-    // Check onboarding status
-    AsyncStorage.getItem(ONBOARDING_KEY).then((val) => {
-      setHasSeenOnboarding(val === 'true');
-    });
+    // Check onboarding status — with fallback to prevent white screen
+    AsyncStorage.getItem(ONBOARDING_KEY)
+      .then((val) => {
+        setHasSeenOnboarding(val === 'true');
+      })
+      .catch(() => {
+        // If AsyncStorage fails, skip onboarding to prevent white screen
+        setHasSeenOnboarding(true);
+      });
+    // Safety timeout: if AsyncStorage hangs, proceed after 2s
+    const timeout = setTimeout(() => {
+      setHasSeenOnboarding((prev) => prev === null ? true : prev);
+    }, 2000);
+    return () => clearTimeout(timeout);
   }, []);
 
   // Deep link listener — captures magic link redirects with auth tokens
