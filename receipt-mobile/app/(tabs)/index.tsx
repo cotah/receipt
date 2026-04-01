@@ -264,16 +264,23 @@ export default function HomeScreen() {
           <Feather name="chevron-right" size={18} color={Colors.text.tertiary} />
         </Pressable>
 
-        {/* Recent Receipts */}
+        {/* This Month's Receipts */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Receipts</Text>
-          {receipts.slice(0, 3).map((r) => (
-            <ReceiptCard
-              key={r.id}
-              {...r}
-              onPress={() => router.push(`/receipt/${r.id}`)}
-            />
-          ))}
+          <Text style={styles.sectionTitle}>This Month</Text>
+          {monthReceipts.length > 0 ? (
+            monthReceipts.slice(0, 3).map((r) => (
+              <ReceiptCard
+                key={r.id}
+                {...r}
+                onPress={() => router.push(`/receipt/${r.id}`)}
+              />
+            ))
+          ) : (
+            <Card style={styles.emptyMonth}>
+              <Text style={styles.emptyMonthText}>No receipts yet this month</Text>
+              <Text style={styles.emptyMonthSub}>Scan your first receipt to start tracking</Text>
+            </Card>
+          )}
         </View>
       </ScrollView>
 
@@ -321,6 +328,9 @@ const styles = StyleSheet.create({
   comingSoon: { fontFamily: 'DMSans_400Regular', fontSize: 9, color: Colors.text.tertiary, marginTop: 1 },
   section: { marginBottom: Spacing.lg },
   sectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm },
+  emptyMonth: { padding: Spacing.md, alignItems: 'center' as const },
+  emptyMonthText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.secondary },
+  emptyMonthSub: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, marginTop: 4 },
   lowCard: { width: 140, padding: Spacing.sm, gap: 4 },
   lowName: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: Colors.text.primary },
   lowPrice: { fontFamily: 'JetBrainsMono_500Medium', fontSize: 11, color: Colors.accent.green },
