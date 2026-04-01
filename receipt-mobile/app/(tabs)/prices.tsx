@@ -258,21 +258,34 @@ export default function PricesScreen() {
                     <Text style={styles.altEmpty}>No alternatives found</Text>
                   )}
 
-                  {alternatives.map((alt, i) => (
-                    <View key={`${alt.product_key}-${i}`} style={styles.altRow}>
-                      <View style={[styles.altDot, { backgroundColor: (Colors.stores as any)[alt.store_name.toLowerCase().replace(/\s/g, '')] || 'rgba(255,255,255,0.2)' }]} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.altName} numberOfLines={1}>{alt.product_name}</Text>
-                        <Text style={styles.altStore}>{alt.store_name}</Text>
-                      </View>
-                      <View style={styles.altRight}>
-                        <Text style={styles.altPrice}>{formatCurrency(alt.unit_price)}</Text>
-                        {alt.price_per_100 && (
-                          <Text style={styles.altPerUnit}>{`€${(alt.price_per_100 / 100).toFixed(2)}/100g`}</Text>
-                        )}
-                      </View>
+                  {alternatives.length > 0 && (
+                    <View style={styles.altCard}>
+                      {alternatives.map((alt, i) => (
+                        <Pressable
+                          key={`${alt.product_key}-${i}`}
+                          onPress={() => {
+                            setSearchText(alt.product_name);
+                            smartSearch(alt.product_name);
+                            clearSelection();
+                          }}
+                          style={[styles.altRow, i === alternatives.length - 1 && { borderBottomWidth: 0 }]}
+                        >
+                          <View style={[styles.altDot, { backgroundColor: (Colors.stores as any)[alt.store_name.toLowerCase().replace(/\s/g, '')] || 'rgba(255,255,255,0.2)' }]} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.altName} numberOfLines={1}>{alt.product_name}</Text>
+                            <Text style={styles.altStore}>{alt.store_name}</Text>
+                          </View>
+                          <View style={styles.altRight}>
+                            <Text style={styles.altPrice}>{formatCurrency(alt.unit_price)}</Text>
+                            {alt.price_per_100 && (
+                              <Text style={styles.altPerUnit}>{`€${(alt.price_per_100 / 100).toFixed(2)}/100g`}</Text>
+                            )}
+                          </View>
+                          <Feather name="chevron-right" size={14} color="rgba(255,255,255,0.2)" />
+                        </Pressable>
+                      ))}
                     </View>
-                  ))}
+                  )}
                 </View>
 
                 {/* Add to shopping list button */}
@@ -671,6 +684,11 @@ const styles = StyleSheet.create({
   altSection: { marginTop: 8, marginBottom: 12 },
   altTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: 'rgba(255,255,255,0.7)', marginBottom: 8 },
   altEmpty: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.35)', textAlign: 'center', paddingVertical: Spacing.md },
+  altCard: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 16, paddingHorizontal: 14, overflow: 'hidden',
+  },
   altRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingVertical: 10,
