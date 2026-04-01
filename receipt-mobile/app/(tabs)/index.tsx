@@ -295,7 +295,7 @@ const s = StyleSheet.create({
   // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   greeting: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.4)' },
-  headerName: { fontFamily: 'DMSans_700Bold', fontSize: 24, color: '#FFFFFF' },
+  headerName: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: '#FFFFFF' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   bellWrap: {
     position: 'relative', padding: 6,
