@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8,
   },
   foundLabel: {
-    fontFamily: Fonts.bodyBold, fontSize: 13, color: '#3CB371',
+    fontFamily: Fonts.bodyBold, fontSize: 13, color: '#7DDFAA',
   },
   productName: {
     fontFamily: Fonts.bodyBold, fontSize: 17, color: Colors.text.primary,
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
   storePrice: {
     fontFamily: 'CourierPrime_700Bold', fontSize: 18, color: Colors.text.primary,
   },
-  storePriceCheapest: { color: '#3CB371' },
+  storePriceCheapest: { color: '#7DDFAA' },
   addBtn: {
     width: 32, height: 32, borderRadius: 16,
     borderWidth: 1.5, borderColor: Colors.primary.default,

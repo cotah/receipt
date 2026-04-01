@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   },
   savingText: {
     fontFamily: Fonts.bodyBold, fontSize: 14,
-    color: '#3CB371',
+    color: '#7DDFAA',
   },
   storeBars: { gap: 6 },
   storeBarRow: {
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
     fontFamily: 'CourierPrime_700Bold',
     fontSize: 16, color: Colors.text.primary,
   },
-  itemPriceDropped: { color: '#3CB371' },
+  itemPriceDropped: { color: '#7DDFAA' },
   itemPriceNA: {
     fontFamily: Fonts.body, fontSize: 14,
     color: Colors.text.tertiary,

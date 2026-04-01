@@ -130,8 +130,8 @@ export default function ReceiptDetailScreen() {
                 <Text style={styles.breakdownValue}>{formatCurrency(r.subtotal)}</Text>
               </View>
               <View style={styles.breakdownRow}>
-                <Text style={[styles.breakdownLabel, { color: '#34D399' }]}>Discount</Text>
-                <Text style={[styles.breakdownValue, { color: '#34D399' }]}>-{formatCurrency(r.discount_total)}</Text>
+                <Text style={[styles.breakdownLabel, { color: '#7DDFAA' }]}>Discount</Text>
+                <Text style={[styles.breakdownValue, { color: '#7DDFAA' }]}>-{formatCurrency(r.discount_total)}</Text>
               </View>
             </View>
           )}
