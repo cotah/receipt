@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   photoCaptureInner: {
-    width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(255,255,255,0.08)',
+    width: 58, height: 58, borderRadius: 29, backgroundColor: '#FFFFFF',
   },
   contributeActions: { alignItems: 'center', gap: Spacing.sm, width: '100%' },
   skipLink: { paddingVertical: 8 },

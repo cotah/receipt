@@ -80,7 +80,7 @@ export default function FeedbackScreen() {
                 <Feather
                   name={cat.icon as any}
                   size={14}
-                  color={category === cat.key ? 'rgba(255,255,255,0.08)' : Colors.text.secondary}
+                  color={category === cat.key ? '#FFFFFF' : Colors.text.secondary}
                 />
                 <Text style={[styles.categoryText, category === cat.key && styles.categoryTextActive]}>
                   {cat.label}
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(80,200,120,0.20)', borderColor: Colors.primary.default,
   },
   categoryText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: Colors.text.secondary },
-  categoryTextActive: { color: 'rgba(255,255,255,0.08)' },
+  categoryTextActive: { color: '#FFFFFF' },
   textInput: {
     backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
     padding: 14, fontFamily: 'DMSans_400Regular', fontSize: 15, color: Colors.text.primary,
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14, marginTop: 24,
   },
   sendBtnDisabled: { opacity: 0.5 },
-  sendBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: 'rgba(255,255,255,0.08)' },
+  sendBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#FFFFFF' },
   successContainer: {
     flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32,
   },
@@ -172,5 +172,5 @@ const styles = StyleSheet.create({
     marginTop: 24, paddingVertical: 12, paddingHorizontal: 32,
     borderRadius: 10, backgroundColor: 'rgba(80,200,120,0.20)',
   },
-  backBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: 'rgba(255,255,255,0.08)' },
+  backBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#FFFFFF' },
 });

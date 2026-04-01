@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14, marginBottom: Spacing.lg,
   },
   optimizeBtnDisabled: { opacity: 0.5 },
-  optimizeBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 16, color: 'rgba(255,255,255,0.08)' },
+  optimizeBtnText: { fontFamily: 'DMSans_600SemiBold', fontSize: 16, color: '#FFFFFF' },
   results: { marginTop: Spacing.sm },
   resultsTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: 2 },
   resultsHint: { fontFamily: 'DMSans_400Regular', fontSize: 12, color: Colors.text.tertiary, marginBottom: Spacing.sm },
