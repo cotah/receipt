@@ -41,7 +41,7 @@ export default function LoginScreen() {
     setLoading(true);
     setError('');
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: 'receipt://auth/callback',
+      redirectTo: Linking.createURL('auth/callback'),
     });
     setLoading(false);
     if (resetError) {
@@ -76,7 +76,7 @@ export default function LoginScreen() {
   const handleGoogleOAuth = async () => {
     setError('');
     try {
-      const redirectTo = 'receipt://auth/callback';
+      const redirectTo = Linking.createURL('auth/callback');
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

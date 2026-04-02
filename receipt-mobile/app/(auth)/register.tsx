@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView } from 'react-native';
 import { Link } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Input from '../../components/ui/Input';
@@ -71,7 +72,7 @@ export default function RegisterScreen() {
   const handleGoogleOAuth = async () => {
     setError('');
     try {
-      const redirectTo = 'receipt://auth/callback';
+      const redirectTo = Linking.createURL('auth/callback');
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
