@@ -266,6 +266,16 @@ async def debug_run_dedup(request: Request):
     return {"status": "done", **result}
 
 
+@app.post("/api/v1/debug/run-email-report")
+async def debug_run_email_report(request: Request):
+    """Send monthly email report NOW — requires X-Admin-Key."""
+    _verify_admin_key(request)
+    from app.workers.email_report_worker import run_email_report_job
+
+    await run_email_report_job()
+    return {"status": "done", "message": "Email report job executed — check Railway logs"}
+
+
 def _verify_admin_key(request: Request):
     """Check X-Admin-Key header matches ADMIN_KEY env var."""
     if not settings.ADMIN_KEY:
