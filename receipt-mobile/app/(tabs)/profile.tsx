@@ -435,7 +435,7 @@ export default function ProfileScreen() {
                   style={styles.proBtn}
                   onPress={() => {
                     setShowUpgrade(false);
-                    Linking.openURL('https://receipt-production-ebc4.up.railway.app/admin/pro.html');
+                    Linking.openURL(`${(process.env.EXPO_PUBLIC_API_URL || '').replace(/\/api\/v1$/, '')}/admin/pro.html`);
                   }}
                 >
                   <Text style={styles.proBtnText}>Upgrade</Text>
