@@ -39,7 +39,7 @@ async def run_email_report_job() -> None:
     for user in users.data or []:
         user_id = user["id"]
         email = user.get("email", "")
-        name = user.get("full_name", "").split(" ")[0] or "there"
+        name = (user.get("full_name") or "").split(" ")[0] or "there"
 
         if not email:
             continue
