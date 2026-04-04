@@ -1146,8 +1146,30 @@ async def scrape_lidl_leaflet() -> None:
         flyer_data = data.get("flyer", data)
         pages = flyer_data.get("pages", [])
 
+        # Debug: log first page structure to diagnose API changes
+        if pages:
+            pg0 = pages[0]
+            pg_keys = list(pg0.keys())
+            links0 = pg0.get("links", [])
+            hotspots0 = pg0.get("hotspots", [])
+            areas0 = pg0.get("areas", [])
+            log.info(
+                "Lidl scraper: page[0] keys=%s, links=%d, hotspots=%d, areas=%d",
+                pg_keys, len(links0), len(hotspots0), len(areas0),
+            )
+            # Log a sample link/hotspot to see structure
+            if links0:
+                sample = links0[0]
+                log.info("Lidl scraper: sample link keys=%s, displayType=%s",
+                         list(sample.keys()), sample.get("displayType"))
+            if hotspots0:
+                sample = hotspots0[0]
+                log.info("Lidl scraper: sample hotspot keys=%s, type=%s",
+                         list(sample.keys()), sample.get("type", sample.get("displayType")))
+
         product_links: list[dict] = []
         for pg in pages:
+            # Try links[] first (original format)
             for link in pg.get("links", []):
                 if link.get("displayType") == "product":
                     pd = link.get("productDetails", {})
@@ -1164,6 +1186,52 @@ async def scrape_lidl_leaflet() -> None:
                         or link.get("price")
                     )
                     if title:
+                        product_links.append({
+                            "title": title.strip(),
+                            "productId": product_id,
+                            "url": url,
+                            "api_price": price_raw,
+                        })
+
+            # Fallback: try hotspots[] (newer API format)
+            if not product_links:
+                for hs in pg.get("hotspots", []):
+                    hs_type = hs.get("type", hs.get("displayType", ""))
+                    if hs_type in ("product", "offer", "link"):
+                        pd = hs.get("productDetails", hs.get("product", {}))
+                        title = (
+                            hs.get("title") or hs.get("name")
+                            or pd.get("title", "") or pd.get("name", "")
+                        )
+                        product_id = pd.get("productId", pd.get("id", ""))
+                        url = hs.get("url", hs.get("link", ""))
+                        price_raw = (
+                            pd.get("price") or pd.get("currentPrice")
+                            or hs.get("price")
+                        )
+                        if title:
+                            product_links.append({
+                                "title": title.strip(),
+                                "productId": product_id,
+                                "url": url,
+                                "api_price": price_raw,
+                            })
+
+            # Fallback: try areas[]
+            if not product_links:
+                for area in pg.get("areas", []):
+                    pd = area.get("productDetails", area.get("product", {}))
+                    title = (
+                        area.get("title") or area.get("name")
+                        or pd.get("title", "") or pd.get("name", "")
+                    )
+                    if title:
+                        product_id = pd.get("productId", pd.get("id", ""))
+                        url = area.get("url", area.get("link", ""))
+                        price_raw = (
+                            pd.get("price") or pd.get("currentPrice")
+                            or area.get("price")
+                        )
                         product_links.append({
                             "title": title.strip(),
                             "productId": product_id,

@@ -345,12 +345,10 @@ def build_monthly_report_html(report: dict, user_name: str) -> str:
 <tr><td align="center" style="padding:24px 16px">
 <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
 
-  <!-- HEADER with logo + wordmark -->
+  <!-- HEADER with wordmark -->
   <tr><td style="background-color:{_PRIMARY};border-radius:12px 12px 0 0;padding:24px;text-align:center">
-    <img src="{_ICON_URL}" alt="" height="40" width="40"
-         style="height:40px;width:40px;border-radius:10px;display:inline-block;vertical-align:middle" />
-    <img src="{_WORDMARK_URL}" alt="SmartDocket" height="36"
-         style="height:36px;width:auto;display:inline-block;vertical-align:middle;margin-left:10px" />
+    <img src="{_WORDMARK_URL}" alt="SmartDocket" height="44"
+         style="height:44px;width:auto;display:inline-block" />
     <p style="margin:10px 0 0;{_FONT};font-size:13px;color:#C8E6D0;letter-spacing:0.3px">
       Your monthly spending report</p>
   </td></tr>
