@@ -638,9 +638,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF', paddingVertical: 12,
   },
   tabs: { flexDirection: 'row', paddingHorizontal: Spacing.md, marginTop: Spacing.md, gap: Spacing.sm },
-  tab: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: 9999, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.10)' },
-  tabActive: { backgroundColor: 'rgba(80,200,120,0.20)', borderColor: 'rgba(80,200,120,0.3)' },
-  tabText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: 'rgba(255,255,255,0.4)' },
+  tab: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: 9999, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.20)' },
+  tabActive: { backgroundColor: 'rgba(80,200,120,0.30)', borderColor: 'rgba(80,200,120,0.4)' },
+  tabText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: 'rgba(255,255,255,0.6)' },
   tabTextActive: { color: '#7DDFAA' },
   content: { padding: Spacing.md, paddingBottom: 100 },
 

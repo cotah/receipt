@@ -1130,8 +1130,10 @@ async def scrape_lidl_leaflet() -> None:
         # Parse flyer end date for expiry
         flyer_end = default_expires
         flyer_info = data if isinstance(data, dict) else {}
+        flyer_sub = flyer_info.get("flyer", {})
         end_str = (
             flyer_info.get("endDate") or flyer_info.get("end_date")
+            or flyer_sub.get("endDate") or flyer_sub.get("end_date")
         )
         if end_str:
             try:
@@ -1139,8 +1141,24 @@ async def scrape_lidl_leaflet() -> None:
                 if dt.tzinfo is None:
                     dt = dt.replace(tzinfo=timezone.utc)
                 flyer_end = dt
+                log.info("Lidl scraper: flyer endDate=%s (expires %s)", end_str, dt.isoformat())
             except (ValueError, TypeError):
                 pass
+        else:
+            # Fallback: calculate from slug (Thu to Wed = 6 days)
+            slug_end = slug  # from-thu-02-04-to-wed-08-04-april
+            try:
+                import re as _slug_re
+                m = _slug_re.search(r"wed-(\d{2})-(\d{2})-(\w+)", slug_end)
+                if m:
+                    wed_day = int(m.group(1))
+                    wed_month = int(m.group(2))
+                    flyer_end = datetime(now.year, wed_month, wed_day, 23, 59, 59, tzinfo=timezone.utc)
+                    log.info("Lidl scraper: parsed end from slug → %s", flyer_end.isoformat())
+            except Exception:
+                pass
+            if flyer_end == default_expires:
+                log.info("Lidl scraper: no endDate found, using default (now+7d)")
 
         # Extract products from structured API data: pages[].links[]
         flyer_data = data.get("flyer", data)

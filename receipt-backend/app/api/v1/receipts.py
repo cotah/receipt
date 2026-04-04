@@ -646,8 +646,14 @@ async def list_receipts(
     if store:
         query = query.eq("store_name", store)
     if month:
+        # Use first day of next month for accurate filtering
+        year, mon = int(month[:4]), int(month[5:7])
+        if mon == 12:
+            next_month = f"{year + 1}-01-01T00:00:00"
+        else:
+            next_month = f"{year}-{mon + 1:02d}-01T00:00:00"
         query = query.gte("purchased_at", f"{month}-01T00:00:00").lt(
-            "purchased_at", f"{month}-31T23:59:59"
+            "purchased_at", next_month
         )
 
     offset = (page - 1) * per_page
