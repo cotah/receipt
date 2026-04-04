@@ -1,4 +1,5 @@
 import logging
+from html import escape as html_escape
 
 import resend
 
@@ -300,6 +301,7 @@ def _hero_savings(summary: dict, period: str) -> str:
 
 def build_monthly_report_html(report: dict, user_name: str) -> str:
     """Build a branded HTML email from a monthly report dict."""
+    user_name = html_escape(user_name)  # Prevent XSS in email
     period = report["period"]
     summary = report["summary"]
     by_store = report.get("by_store", [])

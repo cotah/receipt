@@ -157,6 +157,17 @@ app.add_middleware(
 from app.middleware.rate_limit import RateLimitMiddleware
 app.add_middleware(RateLimitMiddleware)
 
+
+# Security headers
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    return response
+
 # Routers
 app.include_router(receipts.router, prefix="/api/v1")
 app.include_router(products.router, prefix="/api/v1")
@@ -282,8 +293,11 @@ async def debug_run_email_report(request: Request):
 
 def _verify_admin_key(request: Request):
     """Check X-Admin-Key header matches ADMIN_KEY env var."""
-    if not settings.ADMIN_KEY:
-        return  # No key configured = open (dev mode)
     key = request.headers.get("X-Admin-Key", "")
+    if not settings.ADMIN_KEY:
+        # In production, ADMIN_KEY must be set. Block access if missing.
+        if settings.ENVIRONMENT == "production":
+            raise HTTPException(status_code=503, detail="Admin key not configured")
+        return  # Dev mode: open access
     if key != settings.ADMIN_KEY:
         raise HTTPException(status_code=403, detail="Invalid admin key")

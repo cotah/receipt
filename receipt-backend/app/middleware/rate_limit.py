@@ -23,6 +23,9 @@ SCAN_RATE_WINDOW = 300    # 5 minutes
 
 # Paths with stricter limits
 SCAN_PATHS = {"/api/v1/receipts/upload", "/api/v1/receipts/upload-multi"}
+AUTH_PATHS = {"/api/v1/payments/create-checkout", "/api/v1/chat/message"}
+AUTH_RATE_LIMIT = 20       # auth/payment attempts per window
+AUTH_RATE_WINDOW = 300     # 5 minutes
 EXEMPT_PATHS = {"/health", "/docs", "/openapi.json"}
 
 
@@ -67,6 +70,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 raise HTTPException(
                     status_code=429,
                     detail="Too many receipt uploads. Please wait a few minutes.",
+                )
+
+        # Stricter limit for payment/chat endpoints
+        if path in AUTH_PATHS:
+            auth_key = f"auth:{ip}"
+            if not _check_rate(auth_key, AUTH_RATE_LIMIT, AUTH_RATE_WINDOW):
+                log.warning(f"Auth/payment rate limit hit: {ip} on {path}")
+                raise HTTPException(
+                    status_code=429,
+                    detail="Too many requests. Please wait a few minutes.",
                 )
 
         # General rate limit

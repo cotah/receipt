@@ -1117,7 +1117,7 @@ async def barcode_contribute(
             db.table("barcode_catalog").insert(row).execute()
     except Exception as e:
         log.error("barcode-contribute failed for barcode %s: %s", barcode, e)
-        raise HTTPException(status_code=500, detail=f"Could not save barcode: {str(e)}")
+        raise HTTPException(status_code=500, detail="Could not save barcode. Please try again.")
 
     # Award 10 points
     try:
