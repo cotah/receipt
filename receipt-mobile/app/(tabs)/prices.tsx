@@ -220,7 +220,7 @@ export default function PricesScreen() {
                 {/* Back + Title */}
                 <View style={styles.detailHeader}>
                   <Pressable onPress={handleBack} style={styles.detailBackBtn}>
-                    <Feather name="arrow-left" size={18} color="rgba(255,255,255,0.5)" />
+                    <Feather name="arrow-left" size={20} color="#FFFFFF" />
                   </Pressable>
                   <Text style={styles.detailTitle}>{selectedProduct.display_name}</Text>
                 </View>
@@ -292,10 +292,15 @@ export default function PricesScreen() {
                         <Pressable
                           key={`${alt.product_key}-${i}`}
                           onPress={() => {
-                            setSearchText(alt.product_name);
+                            // Strip store name for better search matching
+                            const stores = ['tesco', 'lidl', 'aldi', 'dunnes', 'supervalu', 'centra', 'spar'];
+                            const cleanName = alt.product_name.split(' ').filter(
+                              w => !stores.includes(w.toLowerCase())
+                            ).join(' ');
+                            setSearchText(cleanName);
                             clearSelection();
                             setAutoSelectFirst(true);
-                            smartSearch(alt.product_name);
+                            smartSearch(cleanName);
                           }}
                           style={[styles.altRow, i === alternatives.length - 1 && { borderBottomWidth: 0 }]}
                         >

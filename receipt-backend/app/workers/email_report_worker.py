@@ -24,10 +24,11 @@ async def run_email_report_job() -> None:
 
     db = get_service_client()
 
+    # Include users where notify_reports is True OR NULL (new users default to receiving reports)
     users = (
         db.table("profiles")
         .select("id, email, full_name")
-        .eq("notify_reports", True)
+        .neq("notify_reports", False)
         .neq("email", "")
         .execute()
     )

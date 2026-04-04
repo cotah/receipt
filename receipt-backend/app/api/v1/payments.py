@@ -99,20 +99,25 @@ async def stripe_webhook(request: Request):
         if user_id:
             db.table("profiles").update(update_data).eq("id", user_id).execute()
             log.info("Stripe: user %s upgraded to Pro (by id)", user_id)
-            # Award deferred referral points to FREE referrer
             _award_deferred_referral(db, user_id)
         elif customer_email:
             db.table("profiles").update(update_data).eq(
                 "email", customer_email
             ).execute()
             log.info("Stripe: user %s upgraded to Pro (by email)", customer_email)
-            # Try to find user_id by email for referral check
             try:
                 user_q = db.table("profiles").select("id").eq("email", customer_email).single().execute()
                 if user_q.data:
                     _award_deferred_referral(db, user_q.data["id"])
             except Exception:
                 pass
+
+        # Send Pro welcome email
+        if customer_email:
+            try:
+                await _send_pro_welcome_email(customer_email, expires)
+            except Exception as e:
+                log.warning("Stripe: welcome email failed for %s: %s", customer_email, e)
 
     elif event["type"] == "customer.subscription.deleted":
         subscription = event["data"]["object"]
@@ -176,3 +181,36 @@ def _award_deferred_referral(db, user_id: str):
         )
     except Exception as e:
         log.warning("Deferred referral check failed: %s", e)
+
+
+async def _send_pro_welcome_email(email: str, expires: datetime):
+    """Send a welcome email when a user upgrades to Pro."""
+    from app.services.email_service import send_email
+
+    expires_str = expires.strftime("%B %d, %Y")
+
+    html = f"""
+    <div style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;max-width:500px;margin:0 auto;
+                background:#0d2818;color:#e8f5ec;padding:32px;border-radius:12px">
+      <div style="text-align:center;margin-bottom:24px">
+        <span style="font-size:48px">👑</span>
+      </div>
+      <h1 style="text-align:center;color:#7DDFAA;margin:0 0 8px;font-size:24px">
+        Welcome to SmartDocket Pro!</h1>
+      <p style="text-align:center;color:#a0c4ab;margin:0 0 24px;font-size:14px">
+        Your upgrade is confirmed</p>
+      <div style="background:rgba(255,255,255,0.06);border-radius:8px;padding:20px;margin-bottom:20px">
+        <p style="margin:0 0 12px;font-size:15px"><strong style="color:#7DDFAA">✓ Unlimited receipt scans</strong></p>
+        <p style="margin:0 0 12px;font-size:15px"><strong style="color:#7DDFAA">✓ Unlimited AI chat queries</strong></p>
+        <p style="margin:0 0 12px;font-size:15px"><strong style="color:#7DDFAA">✓ Priority price alerts</strong></p>
+        <p style="margin:0;font-size:15px"><strong style="color:#7DDFAA">✓ Advanced spending insights</strong></p>
+      </div>
+      <p style="font-size:13px;color:#a0c4ab;text-align:center">
+        Your subscription is active until <strong style="color:#e8f5ec">{expires_str}</strong></p>
+      <p style="font-size:12px;color:#6a8a72;text-align:center;margin-top:20px">
+        Thank you for supporting SmartDocket! 💚</p>
+    </div>
+    """
+
+    await send_email(email, "👑 Welcome to SmartDocket Pro!", html)
+    log.info("Pro welcome email sent to %s", email)

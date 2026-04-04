@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Alert, Switch, Pressable, Image, TextInput, ScrollView, Share, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -39,6 +40,14 @@ export default function ProfileScreen() {
   const [editingName, setEditingName] = useState(false);
   const [nameText, setNameText] = useState(profile?.full_name ?? '');
   const [uploading, setUploading] = useState(false);
+
+  // Refresh profile data every time this tab is focused
+  const fetchProfile = useAuthStore((s) => s.fetchProfile);
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfile();
+    }, [fetchProfile])
+  );
 
   const updateProfile = async (updates: Record<string, unknown>) => {
     if (!profile) return;

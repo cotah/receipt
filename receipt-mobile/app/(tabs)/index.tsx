@@ -67,11 +67,13 @@ export default function HomeScreen() {
     api.get('/prices/price-memory?limit=3').then(({ data }) => setPriceMemories(data.memories || [])).catch(() => {});
   }, []);
 
-  // Refetch receipts every time Home gets focus (catches status changes like failed duplicates)
+  // Refetch receipts + savings every time Home gets focus
   useFocusEffect(
     useCallback(() => {
       fetchReceipts(1);
       fetchAlerts();
+      api.get('/prices/savings-summary').then(({ data }) => setSavings(data)).catch(() => {});
+      api.get('/prices/price-memory?limit=3').then(({ data }) => setPriceMemories(data.memories || [])).catch(() => {});
     }, [])
   );
 

@@ -12,6 +12,7 @@ export default function ProfileAvatar({ size = 30 }: Props) {
   const router = useRouter();
   const profile = useAuthStore((s) => s.profile);
   const borderRadius = size / 2;
+  const isPro = profile?.plan === 'pro';
 
   const name = profile?.full_name;
   const initials = name
@@ -20,16 +21,23 @@ export default function ProfileAvatar({ size = 30 }: Props) {
 
   return (
     <Pressable onPress={() => router.push('/(tabs)/profile')} hitSlop={12}>
-      {profile?.avatar_url ? (
-        <Image
-          source={{ uri: profile.avatar_url }}
-          style={[styles.img, { width: size, height: size, borderRadius }]}
-        />
-      ) : (
-        <View style={[styles.fallback, { width: size, height: size, borderRadius }]}>
-          <Text style={[styles.initials, { fontSize: size * 0.38 }]}>{initials}</Text>
-        </View>
-      )}
+      <View>
+        {profile?.avatar_url ? (
+          <Image
+            source={{ uri: profile.avatar_url }}
+            style={[styles.img, { width: size, height: size, borderRadius }, isPro && styles.proBorder]}
+          />
+        ) : (
+          <View style={[styles.fallback, { width: size, height: size, borderRadius }, isPro && styles.proBorder]}>
+            <Text style={[styles.initials, { fontSize: size * 0.38 }]}>{initials}</Text>
+          </View>
+        )}
+        {isPro && size >= 30 && (
+          <View style={[styles.crown, { top: -4, right: -4 }]}>
+            <Text style={{ fontSize: size * 0.3 }}>👑</Text>
+          </View>
+        )}
+      </View>
     </Pressable>
   );
 }
@@ -49,5 +57,12 @@ const styles = StyleSheet.create({
   initials: {
     fontFamily: 'DMSans_700Bold',
     color: '#7DDFAA',
+  },
+  proBorder: {
+    borderColor: '#E8A020',
+    borderWidth: 2,
+  },
+  crown: {
+    position: 'absolute' as const,
   },
 });

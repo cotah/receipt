@@ -56,6 +56,6 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: BorderRadius.sm,
   },
   text: { fontSize: 15, lineHeight: 22 },
-  textUser: { fontFamily: 'DMSans_400Regular', color: Colors.text.inverse },
+  textUser: { fontFamily: 'DMSans_400Regular', color: '#FFFFFF' },
   textAssistant: { fontFamily: 'DMSans_400Regular', color: Colors.text.primary },
 });

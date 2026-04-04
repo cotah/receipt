@@ -29,12 +29,13 @@ async def get_relevant_context(user_id: str, query: str, history: list[dict] = N
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     prev_month_start = (month_start - timedelta(days=1)).replace(day=1)
 
-    # Current month receipts (with store and date)
+    # Current month receipts (with store and date) — only completed with real totals
     month_receipts = (
         db.table("receipts")
         .select("id, total_amount, store_name, purchased_at")
         .eq("user_id", user_id)
         .gte("purchased_at", month_start.isoformat())
+        .gt("total_amount", 0)
         .order("purchased_at", desc=True)
         .execute()
     )
