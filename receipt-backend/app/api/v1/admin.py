@@ -402,7 +402,7 @@ async def send_test_email(_admin: str = Depends(require_admin)):
 
 @router.get("/activity")
 async def admin_activity(_admin: str = Depends(require_admin)):
-    """Scans per day for the last 14 days."""
+    """Scans per day for the last 14 days, with store breakdown."""
     db = get_service_client()
     now = datetime.now(timezone.utc)
     days: list[dict] = []
@@ -413,14 +413,22 @@ async def admin_activity(_admin: str = Depends(require_admin)):
         next_day = day + timedelta(days=1)
         q = (
             db.table("receipts")
-            .select("id", count="exact")
+            .select("id, store_name")
             .gte("created_at", day.isoformat())
             .lt("created_at", next_day.isoformat())
             .execute()
         )
+        count = len(q.data or [])
+        # Store breakdown for tooltip
+        stores: dict[str, int] = {}
+        for r in (q.data or []):
+            s = r.get("store_name", "Unknown")
+            stores[s] = stores.get(s, 0) + 1
+        stores_list = [f"{v}x {k}" for k, v in sorted(stores.items(), key=lambda x: -x[1])]
         days.append({
             "date": day.strftime("%d/%m"),
-            "scans": q.count or 0,
+            "scans": count,
+            "stores": ", ".join(stores_list) if stores_list else "",
         })
     return {"days": days}
 
