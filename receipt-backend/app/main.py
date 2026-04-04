@@ -271,9 +271,13 @@ async def debug_run_email_report(request: Request):
     """Send monthly email report NOW — requires X-Admin-Key."""
     _verify_admin_key(request)
     from app.workers.email_report_worker import run_email_report_job
+    import traceback
 
-    await run_email_report_job()
-    return {"status": "done", "message": "Email report job executed — check Railway logs"}
+    try:
+        await run_email_report_job()
+        return {"status": "done", "message": "Email report job executed — check Railway logs"}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "trace": traceback.format_exc()[-500:]}
 
 
 def _verify_admin_key(request: Request):
