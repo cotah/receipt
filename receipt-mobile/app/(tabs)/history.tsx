@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet, RefreshControl, Modal, FlatList, ScrollView, LayoutAnimation, UIManager, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet, RefreshControl, Modal, FlatList, LayoutAnimation, UIManager, Platform } from 'react-native';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -55,9 +55,20 @@ export default function HistoryScreen() {
     }
   };
 
+  const [monthPickerVisible, setMonthPickerVisible] = useState(false);
+
+  const selectedMonthLabel = selectedMonth
+    ? monthOptions.find(m => m.key === selectedMonth)?.label ?? 'All Dates'
+    : 'All Dates';
+
   const handleSelect = (store: string) => {
     setSelectedStore(store === 'All' ? null : store);
     setPickerVisible(false);
+  };
+
+  const handleMonthSelect = (key: string | null) => {
+    setSelectedMonth(key);
+    setMonthPickerVisible(false);
   };
 
   
@@ -67,34 +78,18 @@ export default function HistoryScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>History</Text>
-        <Pressable onPress={() => setPickerVisible(true)} style={styles.dropdownBtn}>
-          <Text style={styles.dropdownText}>{selectedStore ?? 'All Stores'}</Text>
-          <Feather name="chevron-down" size={16} color={Colors.text.secondary} />
-        </Pressable>
-      </View>
-
-      {/* Month filter pills */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.monthRow}
-      >
-        <Pressable
-          onPress={() => setSelectedMonth(null)}
-          style={[styles.monthPill, !selectedMonth && styles.monthPillActive]}
-        >
-          <Text style={[styles.monthPillText, !selectedMonth && styles.monthPillTextActive]}>All</Text>
-        </Pressable>
-        {monthOptions.map((m) => (
-          <Pressable
-            key={m.key}
-            onPress={() => setSelectedMonth(m.key)}
-            style={[styles.monthPill, selectedMonth === m.key && styles.monthPillActive]}
-          >
-            <Text style={[styles.monthPillText, selectedMonth === m.key && styles.monthPillTextActive]}>{m.label}</Text>
+        <View style={styles.filterRow}>
+          <Pressable onPress={() => setMonthPickerVisible(true)} style={styles.dropdownBtn}>
+            <Feather name="calendar" size={14} color={'rgba(255,255,255,0.5)'} />
+            <Text style={styles.dropdownText}>{selectedMonthLabel}</Text>
+            <Feather name="chevron-down" size={14} color={'rgba(255,255,255,0.5)'} />
           </Pressable>
-        ))}
-      </ScrollView>
+          <Pressable onPress={() => setPickerVisible(true)} style={styles.dropdownBtn}>
+            <Text style={styles.dropdownText}>{selectedStore ?? 'All Stores'}</Text>
+            <Feather name="chevron-down" size={14} color={'rgba(255,255,255,0.5)'} />
+          </Pressable>
+        </View>
+      </View>
 
       {/* Store picker modal */}
       <Modal visible={pickerVisible} transparent animationType="fade" onRequestClose={() => setPickerVisible(false)}>
@@ -109,6 +104,28 @@ export default function HistoryScreen() {
                 return (
                   <Pressable onPress={() => handleSelect(item)} style={[styles.pickerItem, isActive && styles.pickerItemActive]}>
                     <Text style={[styles.pickerItemText, isActive && styles.pickerItemTextActive]}>{item}</Text>
+                    {isActive && <Feather name="check" size={16} color={'#7DDFAA'} />}
+                  </Pressable>
+                );
+              }}
+            />
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Month picker modal */}
+      <Modal visible={monthPickerVisible} transparent animationType="fade" onRequestClose={() => setMonthPickerVisible(false)}>
+        <Pressable style={styles.overlay} onPress={() => setMonthPickerVisible(false)}>
+          <View style={styles.pickerCard}>
+            <Text style={styles.pickerTitle}>Filter by month</Text>
+            <FlatList
+              data={[{ key: null as string | null, label: 'All Dates' }, ...monthOptions.map(m => ({ key: m.key as string | null, label: m.label }))]}
+              keyExtractor={(item) => item.key ?? 'all'}
+              renderItem={({ item }) => {
+                const isActive = item.key === selectedMonth;
+                return (
+                  <Pressable onPress={() => handleMonthSelect(item.key)} style={[styles.pickerItem, isActive && styles.pickerItemActive]}>
+                    <Text style={[styles.pickerItemText, isActive && styles.pickerItemTextActive]}>{item.label}</Text>
                     {isActive && <Feather name="check" size={16} color={'#7DDFAA'} />}
                   </Pressable>
                 );
@@ -151,6 +168,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
   },
   title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 28, color: '#FFFFFF' },
   dropdownBtn: {
@@ -211,30 +232,4 @@ const styles = StyleSheet.create({
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xxl },
   emptyTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm },
   emptyText: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.secondary, textAlign: 'center' },
-  monthRow: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.sm,
-    gap: 8,
-  },
-  monthPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 9999,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.20)',
-  },
-  monthPillActive: {
-    backgroundColor: 'rgba(80,200,120,0.30)',
-    borderColor: 'rgba(80,200,120,0.4)',
-  },
-  monthPillText: {
-    fontFamily: 'DMSans_600SemiBold',
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.6)',
-  },
-  monthPillTextActive: {
-    color: '#7DDFAA',
-  },
 });
