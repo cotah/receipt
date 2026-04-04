@@ -1169,29 +1169,35 @@ async def scrape_lidl_leaflet() -> None:
 
         product_links: list[dict] = []
         for pg in pages:
-            # Try links[] first (original format)
+            # Try links[] — accept both "product" and "standard" displayType
+            # (Schwarz API changed from "product" to "standard" around April 2026)
             for link in pg.get("links", []):
-                if link.get("displayType") == "product":
-                    pd = link.get("productDetails", {})
-                    title = (
-                        link.get("title")
-                        or pd.get("title", "")
-                    )
+                dtype = link.get("displayType", "")
+                pd = link.get("productDetails", {})
+                title = (
+                    link.get("title")
+                    or pd.get("title", "")
+                )
+                url = link.get("url", "")
+
+                # Accept if displayType is product OR standard with a URL
+                # In a leaflet context, standard links with URLs are products
+                is_product = dtype == "product"
+                is_standard_with_url = dtype == "standard" and url
+
+                if (is_product or is_standard_with_url) and title:
                     product_id = pd.get("productId", "")
-                    url = link.get("url", "")
-                    # Try to get price directly from API data
                     price_raw = (
                         pd.get("price")
                         or pd.get("currentPrice")
                         or link.get("price")
                     )
-                    if title:
-                        product_links.append({
-                            "title": title.strip(),
-                            "productId": product_id,
-                            "url": url,
-                            "api_price": price_raw,
-                        })
+                    product_links.append({
+                        "title": title.strip(),
+                        "productId": product_id,
+                        "url": url,
+                        "api_price": price_raw,
+                    })
 
             # Fallback: try hotspots[] (newer API format)
             if not product_links:
