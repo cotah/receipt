@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_PRICE_ID: str = "price_1TEgHuJCkMVDczV1sUGEZhNO"
+    REVENUECAT_SECRET_KEY: str = ""
+    REVENUECAT_WEBHOOK_SECRET: str = ""
 
     # Sentry
     SENTRY_DSN: str = ""
