@@ -31,6 +31,7 @@ export default function PricesScreen() {
   const [tab, setTab] = useState<'compare' | 'offers'>('compare');
   const [searchText, setSearchText] = useState('');
   const [autoSelectFirst, setAutoSelectFirst] = useState(false);
+  const [autoSelectKey, setAutoSelectKey] = useState<string | null>(null);
   const navHistoryRef = useRef<NavHistoryEntry[]>([]);
   const [eligibleAlerts, setEligibleAlerts] = useState<EligibleAlert[]>([]);
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
@@ -129,11 +130,21 @@ export default function PricesScreen() {
     }
   }, []);
 
-  // Auto-select first result when clicking from "Also available"
+  // Auto-select result when clicking from "Also available" or barcode
   useEffect(() => {
     if (autoSelectFirst && searchResults.length > 0 && !isSearching) {
       setAutoSelectFirst(false);
-      selectProduct(searchResults[0]);
+      // Try to match by product_key first (exact match)
+      if (autoSelectKey) {
+        const match = searchResults.find(r =>
+          r.stores?.some((s: any) => s.product_name === autoSelectKey) ||
+          r.product_key === autoSelectKey
+        );
+        setAutoSelectKey(null);
+        selectProduct(match || searchResults[0]);
+      } else {
+        selectProduct(searchResults[0]);
+      }
     }
   }, [searchResults, isSearching, autoSelectFirst]);
 
@@ -319,15 +330,14 @@ export default function PricesScreen() {
                               searchText,
                               productKey: selectedProduct?.product_key ?? null,
                             });
-                            // Strip store name for better search matching
-                            const stores = ['tesco', 'lidl', 'aldi', 'dunnes', 'supervalu', 'centra', 'spar'];
-                            const cleanName = alt.product_name.split(' ').filter(
-                              w => !stores.includes(w.toLowerCase())
-                            ).join(' ');
-                            setSearchText(cleanName);
+                            // Use the search_term from backend (it already found this product)
+                            // Fall back to product_name if search_term is empty
+                            const term = (alt as any).search_term || alt.product_name;
+                            setSearchText(term);
+                            setAutoSelectKey(alt.product_name);
                             clearSelection();
                             setAutoSelectFirst(true);
-                            smartSearch(cleanName);
+                            smartSearch(term);
                           }}
                           style={[styles.altRow, i === alternatives.length - 1 && { borderBottomWidth: 0 }]}
                         >
