@@ -91,7 +91,16 @@ export default function RootLayout() {
 
     // First launch — show onboarding before anything else
     if (!hasSeenOnboarding && !inOnboarding) {
-      router.replace('/onboarding');
+      // Re-check AsyncStorage in case onboarding just finished
+      AsyncStorage.getItem(ONBOARDING_KEY).then((val) => {
+        if (val === 'true') {
+          setHasSeenOnboarding(true);
+        } else {
+          router.replace('/onboarding');
+        }
+      }).catch(() => {
+        router.replace('/onboarding');
+      });
       return;
     }
 

@@ -216,7 +216,7 @@ export default function OnboardingScreen() {
 
   const handleFinish = useCallback(async () => {
     await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
-    router.replace('/(tabs)');
+    router.replace('/(auth)/login');
   }, [router]);
 
   const renderSlide = useCallback(({ item }: { item: typeof slides[0] }) => {
