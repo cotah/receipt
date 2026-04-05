@@ -32,12 +32,13 @@ function getMonthOptions(): { key: string; label: string }[] {
 export default function HistoryScreen() {
   const router = useRouter();
   const { receipts, isLoading, pagination, fetchReceipts } = useReceipts();
+  const monthOptions = useMemo(() => getMonthOptions(), []);
+  const currentMonthKey = monthOptions[0]?.key ?? null;
+
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(currentMonthKey);
   const [refreshing, setRefreshing] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
-
-  const monthOptions = useMemo(() => getMonthOptions(), []);
 
   useEffect(() => {
     fetchReceipts(1, selectedStore ?? undefined, selectedMonth ?? undefined);
