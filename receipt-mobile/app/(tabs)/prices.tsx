@@ -1,4 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+
+type NavHistoryEntry = {
+  searchText: string;
+  productKey: string | null;
+};
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -26,6 +31,7 @@ export default function PricesScreen() {
   const [tab, setTab] = useState<'compare' | 'offers'>('compare');
   const [searchText, setSearchText] = useState('');
   const [autoSelectFirst, setAutoSelectFirst] = useState(false);
+  const navHistoryRef = useRef<NavHistoryEntry[]>([]);
   const [eligibleAlerts, setEligibleAlerts] = useState<EligibleAlert[]>([]);
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [addedToList, setAddedToList] = useState<Map<string, string>>(new Map());
@@ -142,6 +148,7 @@ export default function PricesScreen() {
 
   const handleSearchChange = (text: string) => {
     setSearchText(text);
+    navHistoryRef.current = [];  // New search = fresh history
     if (selectedProduct) clearSelection();
     smartSearch(text);
   };
@@ -151,7 +158,17 @@ export default function PricesScreen() {
   };
 
   const handleBack = () => {
-    clearSelection();
+    const history = navHistoryRef.current;
+    if (history.length > 0) {
+      // Go back to previous product
+      const prev = history.pop()!;
+      clearSelection();
+      setSearchText(prev.searchText);
+      setAutoSelectFirst(true);
+      smartSearch(prev.searchText);
+    } else {
+      clearSelection();
+    }
   };
 
   
@@ -297,6 +314,11 @@ export default function PricesScreen() {
                         <Pressable
                           key={`${alt.product_key}-${i}`}
                           onPress={() => {
+                            // Save current state to history for back navigation
+                            navHistoryRef.current.push({
+                              searchText,
+                              productKey: selectedProduct?.product_key ?? null,
+                            });
                             // Strip store name for better search matching
                             const stores = ['tesco', 'lidl', 'aldi', 'dunnes', 'supervalu', 'centra', 'spar'];
                             const cleanName = alt.product_name.split(' ').filter(
