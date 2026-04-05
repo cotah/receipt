@@ -332,14 +332,6 @@ async def smart_search(query: str, limit: int = 30) -> dict:
     # Format response
     results = []
     for group in groups[:limit]:
-        cheapest = group["stores"][0]
-        most_expensive = group["stores"][-1] if len(group["stores"]) > 1 else None
-        saving = (
-            round(most_expensive["unit_price"] - cheapest["unit_price"], 2)
-            if most_expensive and most_expensive["unit_price"] > cheapest["unit_price"]
-            else None
-        )
-
         stores = []
         # Reference weight: use the heaviest in the group for comparison
         ref_weight = group.get("weight_g")
@@ -388,13 +380,44 @@ async def smart_search(query: str, limit: int = 30) -> dict:
                         entry["weight_note"] = f"{int(diff)}g less"
             stores.append(entry)
 
+        # --- FRESHNESS-AWARE SORTING ---
+        # If the cheapest price is stale (>5 days old) but a fresher price
+        # exists, re-sort so fresh prices appear first. This prevents showing
+        # an old promotional price as "cheapest" when it's probably gone.
+        STALE_DAYS = 5
+        fresh_stores = [s for s in stores if (s["days_ago"] or 0) <= STALE_DAYS]
+        stale_stores = [s for s in stores if (s["days_ago"] or 0) > STALE_DAYS]
+
+        if fresh_stores and stale_stores:
+            # Sort each group by price
+            fresh_stores.sort(key=lambda x: x["unit_price"])
+            stale_stores.sort(key=lambda x: x["unit_price"])
+            # Fresh prices first, then stale
+            stores = fresh_stores + stale_stores
+            # Recalculate is_cheapest — only fresh prices get the badge
+            for j, s in enumerate(stores):
+                s["is_cheapest"] = (j == 0 and len(stores) > 1)
+
+        # Recalculate cheapest/saving based on fresh-aware sort
+        cheapest = group["stores"][0]  # original cheapest by price
+        best_fresh = fresh_stores[0] if fresh_stores else stores[0] if stores else cheapest
+        # If cheapest is stale, use the best fresh price for savings calc
+        cheapest_price = best_fresh["unit_price"] if fresh_stores else cheapest["unit_price"]
+        cheapest_store = best_fresh["store_name"] if fresh_stores else cheapest["store_name"]
+        most_exp = stores[-1] if len(stores) > 1 else None
+        saving = (
+            round(most_exp["unit_price"] - cheapest_price, 2)
+            if most_exp and most_exp["unit_price"] > cheapest_price
+            else None
+        )
+
         results.append({
             "display_name": group["display_name"],
             "product_key": group["product_key"],
             "stores": stores,
             "store_count": len(stores),
-            "cheapest_price": cheapest["unit_price"],
-            "cheapest_store": cheapest["store_name"],
+            "cheapest_price": cheapest_price,
+            "cheapest_store": cheapest_store,
             "potential_saving": saving,
         })
 
