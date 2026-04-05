@@ -23,7 +23,8 @@
       },
       "package": "ie.receipt.app",
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -57,7 +58,13 @@
       "expo-asset"
     ],
     "extra": {
-      "eas": {}
-    }
+      "eas": {
+        "projectId": "ddabb21b-fa4a-4748-b70f-b24fed54e16e"
+      },
+      "router": {
+        "origin": "https://smartdocket.ie"
+      }
+    },
+    "owner": "pasquetto"
   }
 }
