@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '../stores/authStore';
 import { registerForPushNotifications } from '../services/notifications';
+import { configurePurchases, loginPurchases } from '../services/purchases';
 import { ONBOARDING_KEY } from './onboarding';
 
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN ?? '';
@@ -101,10 +102,15 @@ export default function RootLayout() {
     }
   }, [isAuthenticated, isLoading, fontsLoaded, segments, hasSeenOnboarding]);
 
-  // Register for push notifications when authenticated
+  // Register for push notifications + init RevenueCat when authenticated
   useEffect(() => {
     if (isAuthenticated) {
       registerForPushNotifications().catch(() => {});
+      // Initialize RevenueCat for In-App Purchases
+      const userId = useAuthStore.getState().user?.id;
+      configurePurchases(userId).then(() => {
+        if (userId) loginPurchases(userId);
+      }).catch(() => {});
     }
   }, [isAuthenticated]);
 

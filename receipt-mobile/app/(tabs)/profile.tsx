@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Alert, Switch, Pressable, Image, TextInput, ScrollView, Share, Modal } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, Alert, Switch, Pressable, Image, TextInput, ScrollView, Share, Modal, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -13,6 +13,8 @@ import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/typography';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../services/supabase';
+import { getOfferings, purchasePackage, restorePurchases } from '../../services/purchases';
+import type { PurchasesPackage } from 'react-native-purchases';
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return '?';
@@ -35,6 +37,8 @@ export default function ProfileScreen() {
   const setProfile = useAuthStore((s) => s.setProfile);
 
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [proPackage, setProPackage] = useState<PurchasesPackage | null>(null);
+  const [isPurchasing, setIsPurchasing] = useState(false);
   const [editingArea, setEditingArea] = useState(false);
   const [areaText, setAreaText] = useState(profile?.home_area ?? '');
   const [editingName, setEditingName] = useState(false);
@@ -48,6 +52,66 @@ export default function ProfileScreen() {
       fetchProfile();
     }, [fetchProfile])
   );
+
+  // Load IAP offerings when upgrade modal opens
+  useEffect(() => {
+    if (showUpgrade && !proPackage) {
+      (async () => {
+        const offering = await getOfferings();
+        if (offering?.monthly) {
+          setProPackage(offering.monthly);
+        } else if (offering?.availablePackages?.length) {
+          setProPackage(offering.availablePackages[0]);
+        }
+      })();
+    }
+  }, [showUpgrade]);
+
+  const handlePurchase = async () => {
+    if (!proPackage) {
+      // Fallback: open web checkout if IAP not configured
+      Linking.openURL('https://www.smartdocket.ie/#pricing');
+      return;
+    }
+    setIsPurchasing(true);
+    const result = await purchasePackage(proPackage);
+    setIsPurchasing(false);
+
+    if (result.success) {
+      // Sync Pro status with Supabase
+      if (profile?.id) {
+        await supabase.from('profiles').update({
+          plan: 'pro',
+          plan_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        }).eq('id', profile.id);
+      }
+      setShowUpgrade(false);
+      fetchProfile();
+      Alert.alert('Welcome to Pro! 👑', 'You now have unlimited scans, AI chat, and more.');
+    } else if (result.error && result.error !== 'cancelled') {
+      Alert.alert('Purchase failed', result.error);
+    }
+  };
+
+  const handleRestore = async () => {
+    setIsPurchasing(true);
+    const restored = await restorePurchases();
+    setIsPurchasing(false);
+
+    if (restored) {
+      if (profile?.id) {
+        await supabase.from('profiles').update({
+          plan: 'pro',
+          plan_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        }).eq('id', profile.id);
+      }
+      setShowUpgrade(false);
+      fetchProfile();
+      Alert.alert('Restored!', 'Your Pro subscription has been restored.');
+    } else {
+      Alert.alert('No purchases found', 'We couldn\'t find any previous Pro subscriptions.');
+    }
+  };
 
   const updateProfile = async (updates: Record<string, unknown>) => {
     if (!profile) return;
@@ -435,19 +499,28 @@ export default function ProfileScreen() {
               <View style={[styles.planCard, styles.planCardPro]}>
                 <View style={styles.popularTag}><Text style={styles.popularTagText}>POPULAR</Text></View>
                 <Text style={[styles.planName, { color: '#FFF' }]}>Pro</Text>
-                <Text style={[styles.planPrice, { color: '#FFF' }]}>€4.99</Text>
+                <Text style={[styles.planPrice, { color: '#FFF' }]}>
+                  {proPackage?.product?.priceString || '€4.99'}
+                </Text>
                 <Text style={[styles.planPeriod, { color: 'rgba(255,255,255,0.7)' }]}>/month</Text>
                 {['Unlimited scans', 'Full history', 'Price alerts', 'Store comparison', 'Monthly email report', 'Unlimited AI chat', 'Trends analysis', 'Data export'].map((f) => (
                   <Text key={f} style={[styles.planFeature, { color: 'rgba(255,255,255,0.9)' }]}>✓ {f}</Text>
                 ))}
                 <Pressable
-                  style={styles.proBtn}
-                  onPress={() => {
-                    setShowUpgrade(false);
-                    Linking.openURL(`${(process.env.EXPO_PUBLIC_API_URL || '').replace(/\/api\/v1$/, '')}/admin/pro.html`);
-                  }}
+                  style={[styles.proBtn, isPurchasing && { opacity: 0.6 }]}
+                  onPress={handlePurchase}
+                  disabled={isPurchasing}
                 >
-                  <Text style={styles.proBtnText}>Upgrade</Text>
+                  {isPurchasing ? (
+                    <ActivityIndicator size="small" color="#0D2B1D" />
+                  ) : (
+                    <Text style={styles.proBtnText}>Subscribe</Text>
+                  )}
+                </Pressable>
+                <Pressable onPress={handleRestore} style={{ marginTop: 8 }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, textAlign: 'center' }}>
+                    Restore purchase
+                  </Text>
                 </Pressable>
               </View>
             </View>
