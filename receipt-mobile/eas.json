@@ -7,23 +7,38 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "ios": {
-        "simulator": true
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ujbchdxtpieynxtzupwd.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqYmNoZHh0cGlleW54dHp1cHdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMDQ5NzgsImV4cCI6MjA4OTg4MDk3OH0.HImmZHR0RcsiUVrMR7jiweDhWnc1AKK3hFelxYHSMoY",
+        "EXPO_PUBLIC_API_URL": "https://receipt-production-ebc4.up.railway.app/api/v1",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://aa241ef6c6cd655d0fb814ccd6d46d0c@o4510932417576960.ingest.de.sentry.io/4511101299195984"
       }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ujbchdxtpieynxtzupwd.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqYmNoZHh0cGlleW54dHp1cHdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMDQ5NzgsImV4cCI6MjA4OTg4MDk3OH0.HImmZHR0RcsiUVrMR7jiweDhWnc1AKK3hFelxYHSMoY",
+        "EXPO_PUBLIC_API_URL": "https://receipt-production-ebc4.up.railway.app/api/v1",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://aa241ef6c6cd655d0fb814ccd6d46d0c@o4510932417576960.ingest.de.sentry.io/4511101299195984"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ujbchdxtpieynxtzupwd.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqYmNoZHh0cGlleW54dHp1cHdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMDQ5NzgsImV4cCI6MjA4OTg4MDk3OH0.HImmZHR0RcsiUVrMR7jiweDhWnc1AKK3hFelxYHSMoY",
+        "EXPO_PUBLIC_API_URL": "https://receipt-production-ebc4.up.railway.app/api/v1",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://aa241ef6c6cd655d0fb814ccd6d46d0c@o4510932417576960.ingest.de.sentry.io/4511101299195984"
+      }
     }
   },
   "submit": {
     "production": {
       "ios": {
-        "appleId": "YOUR_APPLE_ID",
-        "ascAppId": "YOUR_ASC_APP_ID",
-        "appleTeamId": "YOUR_TEAM_ID"
+        "appleId": "cotah.pasquetto@gmail.com",
+        "ascAppId": "6761672513",
+        "appleTeamId": "K957F4Y88B"
       },
       "android": {
         "serviceAccountKeyPath": "./google-services.json",
