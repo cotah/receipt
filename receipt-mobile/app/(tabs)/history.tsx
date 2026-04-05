@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   dropdownText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: 'rgba(255,255,255,0.7)' },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.xl,
@@ -196,10 +196,12 @@ const styles = StyleSheet.create({
   pickerCard: {
     width: '100%',
     maxWidth: 320,
-    backgroundColor: Colors.surface.card,
+    backgroundColor: '#1C2E25',
     borderRadius: 16,
     padding: Spacing.md,
     maxHeight: 400,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   pickerTitle: {
     fontFamily: 'DMSans_700Bold',
