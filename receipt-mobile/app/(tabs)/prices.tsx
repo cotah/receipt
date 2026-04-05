@@ -244,17 +244,22 @@ export default function PricesScreen() {
                       const barWidth = Math.max(15, (store.unit_price / maxPrice) * 100);
                       const storeKey = store.store_name.toLowerCase().replace(/\s/g, '');
                       const barColor = (Colors.stores as any)[storeKey] || 'rgba(255,255,255,0.15)';
+                      const daysAgo = (store as any).days_ago;
+                      const isStale = daysAgo != null && daysAgo > 5;
                       return (
                         <View key={store.store_name} style={styles.barRow}>
                           <Text style={styles.barStoreName}>{store.store_name.length > 6 ? store.store_name.substring(0, 6) : store.store_name}</Text>
                           <View style={styles.barTrack}>
-                            <View style={[styles.barFill, { width: `${barWidth}%` as any, backgroundColor: barColor }]} />
+                            <View style={[styles.barFill, { width: `${barWidth}%` as any, backgroundColor: barColor, opacity: isStale ? 0.5 : 1 }]} />
                           </View>
-                          <Text style={[styles.barPrice, i === 0 && styles.barPriceCheapest]}>{formatCurrency(store.unit_price)}</Text>
-                          {i === 0 && (
+                          <Text style={[styles.barPrice, i === 0 && !isStale && styles.barPriceCheapest, isStale && styles.barPriceStale]}>{formatCurrency(store.unit_price)}</Text>
+                          {i === 0 && !isStale && (
                             <View style={styles.barCheck}>
                               <Feather name="check" size={10} color="#7DDFAA" />
                             </View>
+                          )}
+                          {isStale && (
+                            <Text style={styles.barStaleTag}>{daysAgo}d</Text>
                           )}
                         </View>
                       );
@@ -710,6 +715,8 @@ const styles = StyleSheet.create({
   barFill: { height: '100%', borderRadius: 10 },
   barPrice: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 13, color: 'rgba(255,255,255,0.6)', width: 44 },
   barPriceCheapest: { color: '#7DDFAA' },
+  barPriceStale: { color: 'rgba(255,255,255,0.3)' },
+  barStaleTag: { fontFamily: 'DMSans_500Medium', fontSize: 9, color: 'rgba(255,200,100,0.7)', marginLeft: 2 },
   barCheck: {
     width: 18, height: 18, borderRadius: 9,
     backgroundColor: 'rgba(80,200,120,0.25)',

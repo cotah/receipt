@@ -348,6 +348,17 @@ async def smart_search(query: str, limit: int = 30) -> dict:
 
         for i, s in enumerate(group["stores"]):
             pup = _per_unit_price(s["unit_price"], s["product_name"])
+
+            # Freshness: how many days since this price was observed
+            days_ago = None
+            observed = s.get("observed_at")
+            if observed:
+                try:
+                    obs_dt = datetime.fromisoformat(observed.replace("Z", "+00:00"))
+                    days_ago = (now - obs_dt).days
+                except (ValueError, TypeError):
+                    pass
+
             entry = {
                 "store_name": s["store_name"],
                 "product_name": s["product_name"],
@@ -358,6 +369,13 @@ async def smart_search(query: str, limit: int = 30) -> dict:
                 "price_per_unit_label": "per 100g" if pup else None,
                 "promotion_text": s.get("promotion_text"),
                 "weight_note": None,
+                "days_ago": days_ago,
+                "freshness": (
+                    "today" if days_ago is not None and days_ago == 0
+                    else f"{days_ago}d ago" if days_ago is not None and days_ago <= 7
+                    else "old" if days_ago is not None and days_ago > 7
+                    else None
+                ),
             }
             # Add weight difference note if products vary in size
             s_weight = s.get("weight_g")

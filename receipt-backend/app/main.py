@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 import sentry_sdk
@@ -59,6 +60,30 @@ async def lifespan(app: FastAPI):
     # Product dedup — every Sunday at 03:00 UTC
     from app.workers.dedup_worker import setup_dedup_scheduler
     setup_dedup_scheduler(scheduler)
+
+    # Expired price cleanup — every 6 hours
+    async def _cleanup_expired_prices():
+        """Delete prices past their expires_at date."""
+        from app.database import get_service_client as _get_db
+        db = _get_db()
+        now = datetime.now(timezone.utc)
+        result = (
+            db.table("collective_prices")
+            .delete()
+            .lt("expires_at", now.isoformat())
+            .execute()
+        )
+        deleted = len(result.data or [])
+        if deleted > 0:
+            log.info("Price cleanup: deleted %d expired prices", deleted)
+
+    scheduler.add_job(
+        _cleanup_expired_prices, "interval",
+        hours=settings.PRICE_CLEANUP_INTERVAL_HOURS,
+        id="price_cleanup",
+        replace_existing=True,
+    )
+    log.info("Price cleanup scheduled every %dh", settings.PRICE_CLEANUP_INTERVAL_HOURS)
 
     # Deals engine — every 2 days at 04:00 UTC (after scrapers)
     from app.workers.deals_worker import generate_all_deals, snapshot_prices_to_history
