@@ -57,9 +57,7 @@
       "expo-asset"
     ],
     "extra": {
-      "eas": {
-        "projectId": "your-project-id"
-      }
+      "eas": {}
     }
   }
 }
