@@ -11,7 +11,8 @@
         "EXPO_PUBLIC_SUPABASE_URL": "https://ujbchdxtpieynxtzupwd.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqYmNoZHh0cGlleW54dHp1cHdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMDQ5NzgsImV4cCI6MjA4OTg4MDk3OH0.HImmZHR0RcsiUVrMR7jiweDhWnc1AKK3hFelxYHSMoY",
         "EXPO_PUBLIC_API_URL": "https://receipt-production-ebc4.up.railway.app/api/v1",
-        "EXPO_PUBLIC_SENTRY_DSN": "https://aa241ef6c6cd655d0fb814ccd6d46d0c@o4510932417576960.ingest.de.sentry.io/4511101299195984"
+        "EXPO_PUBLIC_SENTRY_DSN": "https://aa241ef6c6cd655d0fb814ccd6d46d0c@o4510932417576960.ingest.de.sentry.io/4511101299195984",
+        "EXPO_PUBLIC_RC_APPLE_KEY": "appl_GrBIuqNLFnpAkijrhlvoPTzdhQp"
       }
     },
     "preview": {
@@ -20,7 +21,8 @@
         "EXPO_PUBLIC_SUPABASE_URL": "https://ujbchdxtpieynxtzupwd.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqYmNoZHh0cGlleW54dHp1cHdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMDQ5NzgsImV4cCI6MjA4OTg4MDk3OH0.HImmZHR0RcsiUVrMR7jiweDhWnc1AKK3hFelxYHSMoY",
         "EXPO_PUBLIC_API_URL": "https://receipt-production-ebc4.up.railway.app/api/v1",
-        "EXPO_PUBLIC_SENTRY_DSN": "https://aa241ef6c6cd655d0fb814ccd6d46d0c@o4510932417576960.ingest.de.sentry.io/4511101299195984"
+        "EXPO_PUBLIC_SENTRY_DSN": "https://aa241ef6c6cd655d0fb814ccd6d46d0c@o4510932417576960.ingest.de.sentry.io/4511101299195984",
+        "EXPO_PUBLIC_RC_APPLE_KEY": "appl_GrBIuqNLFnpAkijrhlvoPTzdhQp"
       }
     },
     "production": {
@@ -29,7 +31,8 @@
         "EXPO_PUBLIC_SUPABASE_URL": "https://ujbchdxtpieynxtzupwd.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqYmNoZHh0cGlleW54dHp1cHdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMDQ5NzgsImV4cCI6MjA4OTg4MDk3OH0.HImmZHR0RcsiUVrMR7jiweDhWnc1AKK3hFelxYHSMoY",
         "EXPO_PUBLIC_API_URL": "https://receipt-production-ebc4.up.railway.app/api/v1",
-        "EXPO_PUBLIC_SENTRY_DSN": "https://aa241ef6c6cd655d0fb814ccd6d46d0c@o4510932417576960.ingest.de.sentry.io/4511101299195984"
+        "EXPO_PUBLIC_SENTRY_DSN": "https://aa241ef6c6cd655d0fb814ccd6d46d0c@o4510932417576960.ingest.de.sentry.io/4511101299195984",
+        "EXPO_PUBLIC_RC_APPLE_KEY": "appl_GrBIuqNLFnpAkijrhlvoPTzdhQp"
       }
     }
   },
