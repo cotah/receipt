@@ -31,15 +31,25 @@ let isConfigured = false;
 export async function configurePurchases(userId?: string): Promise<void> {
   const apiKey = Platform.OS === 'ios' ? API_KEYS.apple : API_KEYS.google;
 
+  console.log('[Purchases] Configure called, platform:', Platform.OS, 'key:', apiKey ? apiKey.substring(0, 10) + '...' : 'MISSING');
+
   if (!apiKey) {
     console.warn('[Purchases] No RevenueCat API key configured');
     return;
   }
 
-  if (isConfigured) return;
+  if (isConfigured) {
+    console.log('[Purchases] Already configured');
+    return;
+  }
 
-  Purchases.configure({ apiKey, appUserID: userId || undefined });
-  isConfigured = true;
+  try {
+    Purchases.configure({ apiKey, appUserID: userId || undefined });
+    isConfigured = true;
+    console.log('[Purchases] Configured successfully for user:', userId || 'anonymous');
+  } catch (e) {
+    console.error('[Purchases] Configure failed:', e);
+  }
 
   if (__DEV__) {
     Purchases.setLogLevel(Purchases.LOG_LEVEL.DEBUG);
@@ -88,9 +98,16 @@ export async function checkProStatus(): Promise<boolean> {
  * Get available subscription packages.
  */
 export async function getOfferings(): Promise<PurchasesOffering | null> {
-  if (!isConfigured) return null;
+  if (!isConfigured) {
+    console.warn('[Purchases] Not configured — cannot get offerings');
+    return null;
+  }
   try {
     const offerings = await Purchases.getOfferings();
+    console.log('[Purchases] Offerings loaded:', {
+      current: offerings.current?.identifier,
+      packages: offerings.current?.availablePackages?.map(p => p.identifier),
+    });
     return offerings.current;
   } catch (e) {
     console.warn('[Purchases] Offerings fetch failed:', e);

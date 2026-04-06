@@ -6,7 +6,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as Linking from 'expo-linking';
 
 import Card from '../../components/ui/Card';
 import { Colors } from '../../constants/colors';
@@ -39,6 +38,7 @@ export default function ProfileScreen() {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [proPackage, setProPackage] = useState<PurchasesPackage | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const [iapStatus, setIapStatus] = useState<string>('');
   const [editingArea, setEditingArea] = useState(false);
   const [areaText, setAreaText] = useState(profile?.home_area ?? '');
   const [editingName, setEditingName] = useState(false);
@@ -55,13 +55,18 @@ export default function ProfileScreen() {
 
   // Load IAP offerings when upgrade modal opens
   useEffect(() => {
-    if (showUpgrade && !proPackage) {
+    if (showUpgrade) {
+      setIapStatus('Loading...');
       (async () => {
         const offering = await getOfferings();
         if (offering?.monthly) {
           setProPackage(offering.monthly);
+          setIapStatus('');
         } else if (offering?.availablePackages?.length) {
           setProPackage(offering.availablePackages[0]);
+          setIapStatus('');
+        } else {
+          setIapStatus('IAP not ready — check App Store Connect');
         }
       })();
     }
@@ -69,8 +74,10 @@ export default function ProfileScreen() {
 
   const handlePurchase = async () => {
     if (!proPackage) {
-      // Fallback: open web checkout if IAP not configured
-      Linking.openURL('https://www.smartdocket.ie/#pricing');
+      Alert.alert(
+        'Not available yet',
+        'In-App Purchase is being set up. Please try again later.',
+      );
       return;
     }
     setIsPurchasing(true);
@@ -507,11 +514,13 @@ export default function ProfileScreen() {
                   <Text key={f} style={[styles.planFeature, { color: 'rgba(255,255,255,0.9)' }]}>✓ {f}</Text>
                 ))}
                 <Pressable
-                  style={[styles.proBtn, isPurchasing && { opacity: 0.6 }]}
+                  style={[styles.proBtn, (isPurchasing || iapStatus === 'Loading...') && { opacity: 0.6 }]}
                   onPress={handlePurchase}
-                  disabled={isPurchasing}
+                  disabled={isPurchasing || iapStatus === 'Loading...'}
                 >
                   {isPurchasing ? (
+                    <ActivityIndicator size="small" color="#0D2B1D" />
+                  ) : iapStatus === 'Loading...' ? (
                     <ActivityIndicator size="small" color="#0D2B1D" />
                   ) : (
                     <Text style={styles.proBtnText}>Subscribe</Text>
@@ -522,6 +531,11 @@ export default function ProfileScreen() {
                     Restore purchase
                   </Text>
                 </Pressable>
+                {iapStatus ? (
+                  <Text style={{ color: '#E8A020', fontSize: 11, textAlign: 'center', marginTop: 8 }}>
+                    {iapStatus}
+                  </Text>
+                ) : null}
               </View>
             </View>
 
