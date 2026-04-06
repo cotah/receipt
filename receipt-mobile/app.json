@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "scheme": "receipt",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "ie.receipt.app",
@@ -24,7 +24,8 @@
       "package": "ie.receipt.app",
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "com.android.vending.BILLING"
       ]
     },
     "plugins": [
