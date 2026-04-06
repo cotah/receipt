@@ -13,7 +13,8 @@
       "bundleIdentifier": "ie.receipt.app",
       "infoPlist": {
         "NSCameraUsageDescription": "SmartDocket needs camera access to scan your grocery receipts",
-        "NSPhotoLibraryUsageDescription": "SmartDocket needs photo library access to import receipt images"
+        "NSPhotoLibraryUsageDescription": "SmartDocket needs photo library access to import receipt images",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -23,6 +24,8 @@
       },
       "package": "ie.receipt.app",
       "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ]
@@ -65,6 +68,12 @@
         "origin": "https://smartdocket.ie"
       }
     },
-    "owner": "pasquetto"
+    "owner": "pasquetto",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ddabb21b-fa4a-4748-b70f-b24fed54e16e"
+    }
   }
 }
