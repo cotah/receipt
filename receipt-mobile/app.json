@@ -26,12 +26,7 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
-<<<<<<< HEAD
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
-=======
         "com.android.vending.BILLING"
->>>>>>> e4114aab459bd1ec0b172d66e6a98e966d4e5f83
       ]
     },
     "plugins": [
