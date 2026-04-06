@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "scheme": "receipt",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "ie.receipt.app",
