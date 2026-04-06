@@ -57,8 +57,7 @@
         }
       ],
       "expo-secure-store",
-      "expo-asset",
-      "react-native-purchases"
+      "expo-asset"
     ],
     "extra": {
       "eas": {
