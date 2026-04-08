@@ -12,7 +12,7 @@ import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/typography';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../services/supabase';
-import { getOfferings, purchasePackage, restorePurchases, getConfigDebug } from '../../services/purchases';
+import { getOfferings, purchasePackage, restorePurchases } from '../../services/purchases';
 import type { PurchasesPackage } from 'react-native-purchases';
 
 function getInitials(name: string | null | undefined): string {
@@ -56,29 +56,21 @@ export default function ProfileScreen() {
   // Load IAP offerings when upgrade modal opens
   useEffect(() => {
     if (showUpgrade) {
-      const debugInfo = getConfigDebug();
-      setIapStatus(`Loading... (${debugInfo})`);
+      setIapStatus('Loading...');
       (async () => {
         try {
           const offering = await getOfferings();
-          if (!offering) {
-            setIapStatus(`No offering returned. ${debugInfo}`);
-            return;
-          }
-          const pkgCount = offering.availablePackages?.length ?? 0;
-          const pkgIds = offering.availablePackages?.map(p => p.identifier).join(', ') || 'none';
-          
-          if (offering.monthly) {
+          if (offering?.monthly) {
             setProPackage(offering.monthly);
             setIapStatus('');
-          } else if (offering.availablePackages?.length) {
+          } else if (offering?.availablePackages?.length) {
             setProPackage(offering.availablePackages[0]);
             setIapStatus('');
           } else {
-            setIapStatus(`Offering="${offering.identifier}" but 0 packages. StoreKit can't find product. ${debugInfo}`);
+            setIapStatus('');
           }
         } catch (e: any) {
-          setIapStatus(`Error: ${e?.message || String(e)}`);
+          setIapStatus('');
         }
       })();
     }
