@@ -95,6 +95,21 @@ export async function checkProStatus(): Promise<boolean> {
 }
 
 /**
+ * Check if RevenueCat SDK is configured.
+ */
+export function isPurchasesConfigured(): boolean {
+  return isConfigured;
+}
+
+/**
+ * Get the API key being used (first 15 chars for debug).
+ */
+export function getConfigDebug(): string {
+  const apiKey = Platform.OS === 'ios' ? API_KEYS.apple : API_KEYS.google;
+  return `configured=${isConfigured} platform=${Platform.OS} key=${apiKey ? apiKey.substring(0, 15) + '...' : 'NONE'}`;
+}
+
+/**
  * Get available subscription packages.
  */
 export async function getOfferings(): Promise<PurchasesOffering | null> {
