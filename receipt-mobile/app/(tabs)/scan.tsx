@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, Image, StyleSheet, Alert, ScrollView, Pressable, Vibration } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
@@ -41,6 +42,17 @@ export default function ScanScreen() {
       if (fakeIntervalRef.current) clearInterval(fakeIntervalRef.current);
     };
   }, []);
+
+  // Reset progress when returning to scan tab (fixes stuck at 100%)
+  useFocusEffect(
+    useCallback(() => {
+      if (fakeProgress >= 100) {
+        setFakeProgress(0);
+        setPhotos([]);
+        setShowCamera(true);
+      }
+    }, [fakeProgress])
+  );
 
   const startFakeProgress = useCallback(() => {
     setFakeProgress(0);
@@ -202,6 +214,7 @@ export default function ScanScreen() {
                 currentReceiptIdRef.current = null;
                 setTimeout(() => {
                   if (!isMounted.current) return;
+                  setFakeProgress(0); // Reset progress for next scan
                   setPhotos([]);
                   setShowCamera(true);
                   // Ask user if they want to scan barcodes for double points
