@@ -116,10 +116,6 @@ export default function RegisterScreen() {
           ) : (
             <View style={styles.form}>
               {/* OAuth buttons */}
-              <Pressable style={styles.oauthBtnApple} onPress={() => {}}>
-                <Feather name="smartphone" size={18} color="#FFF" />
-                <Text style={styles.oauthBtnAppleText}>Continue with Apple</Text>
-              </Pressable>
               <Pressable style={styles.oauthBtnGoogle} onPress={handleGoogleOAuth}>
                 <Image source={googleIcon} style={styles.googleImg} />
                 <Text style={styles.oauthBtnGoogleText}>Continue with Google</Text>
@@ -193,11 +189,6 @@ const styles = StyleSheet.create({
   title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 32, color: '#FFFFFF' },
   subtitle: { fontFamily: 'DMSans_500Medium', fontSize: 16, color: Colors.text.secondary, marginTop: 4 },
   form: { gap: Spacing.sm },
-  oauthBtnApple: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: '#000', paddingVertical: 14, borderRadius: 12,
-  },
-  oauthBtnAppleText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#FFF' },
   oauthBtnGoogle: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     backgroundColor: '#FFF', paddingVertical: 14, borderRadius: 12,

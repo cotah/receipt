@@ -60,7 +60,7 @@ LAW 1 — LINE CLASSIFICATION
 Every line in a receipt is exactly ONE of these types:
 - TYPE A — PRODUCT LINE: contains a product name AND a price (€X.XX or X.XX at end)
 - TYPE B — CONTINUATION LINE: contains text but NO price → belongs to the product on the PREVIOUS Type A line
-- TYPE C — QUANTITY LINE: matches pattern digit(s) x/×/@ digit(s).digit(s) → modifies the PREVIOUS product
+- TYPE C — QUANTITY/WEIGHT LINE: a line that contains ONLY numbers, multipliers, and optionally units. Matches patterns like: digit(s) x/×/@ digit(s).digit(s), or standalone weight/quantity info. These lines ALWAYS modify the PREVIOUS product and are NEVER products themselves. CRITICAL: a line like "3x 0.85" or "2 x 0.850" or "0.456 kg" or "3 @ 1.29" is ALWAYS TYPE C — it is quantity/weight info, NOT a product.
 - TYPE D — DISCOUNT LINE: starts with or contains: Cc, Clubcard, Saving, Promotional, Meal Deal, Multibuy, Price Match, Deal, BOGOF, or has a negative price (-€X.XX) → modifies the PREVIOUS product
 - TYPE E — DEPOSIT LINE: contains "Deposit" or "deposit" → SKIP ENTIRELY
 - TYPE F — METADATA LINE: store header, address, date, time, subtotal, total, payment method, VAT summary, barcode, "Thank you", receipt number, cashier info → NOT a product, extract metadata only
@@ -69,7 +69,8 @@ Classification procedure for each line:
 1. Does it match Type E? → skip
 2. Does it match Type F? → extract metadata, skip as product
 3. Does it match Type D? → apply discount to previous product
-4. Does it match Type C? → apply quantity to previous product
+4. Does it match Type C? → apply quantity/weight to previous product
+   CRITICAL CHECK: if the line contains ONLY digits, spaces, "x", "×", "@", ".", "kg", "g", "ml", "L" and NO alphabetic product name words → it is ALWAYS Type C, never Type A
 5. Does it have a price (€X.XX pattern at or near end of line)? → Type A (new product)
 6. No price found? → Type B (continuation of previous product name)
 
@@ -79,13 +80,18 @@ Multiple consecutive Type B lines all merge into the same product.
 CRITICAL: the price may appear on the FIRST line or the LAST line of a multi-line block. Scan ALL lines in the block to find the price. The price is ALWAYS the rightmost €-prefixed or decimal number at the end of any line in the block.
 NEVER create a product with quantity 0 or price 0.00 from a continuation line.
 
-LAW 3 — QUANTITY EXTRACTION
+LAW 3 — QUANTITY/WEIGHT EXTRACTION
 When a Type C line is found:
-- Extract multiplier and per-unit price
+- Extract multiplier and per-unit price (or weight)
 - Apply to the IMMEDIATELY PRECEDING product
 - Set: quantity = multiplier, unit_price = per-unit price
 - The total_price on the product line = quantity × unit_price (before discounts)
-Patterns: "2 x 1.79" "3 x €0.99" "2 × 1.79" "4 @ 0.75" "4 @ €0.75"
+Patterns: "2 x 1.79" "3 x €0.99" "2 × 1.79" "4 @ 0.75" "4 @ €0.75" "3x 0.85" "0.456 kg" "2 x 0.850"
+CRITICAL: Lines that contain ONLY numbers and x/×/@ symbols (no product name words) are ALWAYS quantity/weight info. They must NEVER be created as separate products. Examples:
+  "3x 0.85" → quantity=3, unit_price=0.85 for the previous product
+  "2 x 0.850" → quantity=2, unit_price=0.85 for the previous product  
+  "0.456 kg" → weight info for the previous product (set unit="kg")
+  "1 x 2.49" → quantity=1, unit_price=2.49 for the previous product
 
 LAW 4 — DISCOUNT APPLICATION
 When a Type D line is found:
