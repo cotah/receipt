@@ -11,6 +11,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "ie.receipt.app",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "SmartDocket needs camera access to scan your grocery receipts",
         "NSPhotoLibraryUsageDescription": "SmartDocket needs photo library access to import receipt images",
@@ -57,7 +58,8 @@
         }
       ],
       "expo-secure-store",
-      "expo-asset"
+      "expo-asset",
+      "expo-apple-authentication"
     ],
     "extra": {
       "eas": {
