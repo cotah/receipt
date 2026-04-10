@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { Link } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
@@ -97,6 +98,33 @@ export default function RegisterScreen() {
     }
   };
 
+  const handleAppleSignIn = async () => {
+    setError('');
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (credential.identityToken) {
+        const { error: signInError } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+        });
+        if (signInError) {
+          setError(signInError.message);
+        }
+      } else {
+        setError('Apple Sign-In failed — no identity token received');
+      }
+    } catch (e: any) {
+      if (e.code === 'ERR_REQUEST_CANCELED') return;
+      const msg = e instanceof Error ? e.message : 'Apple Sign-In failed';
+      setError(msg);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
@@ -116,6 +144,12 @@ export default function RegisterScreen() {
           ) : (
             <View style={styles.form}>
               {/* OAuth buttons */}
+              {Platform.OS === 'ios' && (
+                <Pressable style={styles.oauthBtnApple} onPress={handleAppleSignIn}>
+                  <Feather name="smartphone" size={18} color="#FFF" />
+                  <Text style={styles.oauthBtnAppleText}>Continue with Apple</Text>
+                </Pressable>
+              )}
               <Pressable style={styles.oauthBtnGoogle} onPress={handleGoogleOAuth}>
                 <Image source={googleIcon} style={styles.googleImg} />
                 <Text style={styles.oauthBtnGoogleText}>Continue with Google</Text>
@@ -189,6 +223,11 @@ const styles = StyleSheet.create({
   title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 32, color: '#FFFFFF' },
   subtitle: { fontFamily: 'DMSans_500Medium', fontSize: 16, color: Colors.text.secondary, marginTop: 4 },
   form: { gap: Spacing.sm },
+  oauthBtnApple: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    backgroundColor: '#000', paddingVertical: 14, borderRadius: 12,
+  },
+  oauthBtnAppleText: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#FFF' },
   oauthBtnGoogle: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     backgroundColor: '#FFF', paddingVertical: 14, borderRadius: 12,
