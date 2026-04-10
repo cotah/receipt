@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView } from 'react-native';
-import * as AppleAuthentication from 'expo-apple-authentication';
 import { Link } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
@@ -101,25 +100,26 @@ export default function RegisterScreen() {
   const handleAppleSignIn = async () => {
     setError('');
     try {
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
+      const redirectTo = Linking.createURL('auth/callback');
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
       });
-      if (credential.identityToken) {
-        const { error: signInError } = await supabase.auth.signInWithIdToken({
-          provider: 'apple',
-          token: credential.identityToken,
-        });
-        if (signInError) {
-          setError(signInError.message);
-        }
-      } else {
-        setError('Apple Sign-In failed — no identity token received');
+      if (oauthError) {
+        setError(oauthError.message);
+        return;
       }
-    } catch (e: any) {
-      if (e.code === 'ERR_REQUEST_CANCELED') return;
+      if (data?.url) {
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+        if (result.type === 'success' && result.url) {
+          const { handleDeepLink } = useAuthStore.getState();
+          await handleDeepLink(result.url);
+        }
+      }
+    } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Apple Sign-In failed';
       setError(msg);
     }
@@ -144,12 +144,10 @@ export default function RegisterScreen() {
           ) : (
             <View style={styles.form}>
               {/* OAuth buttons */}
-              {Platform.OS === 'ios' && (
-                <Pressable style={styles.oauthBtnApple} onPress={handleAppleSignIn}>
-                  <Feather name="smartphone" size={18} color="#FFF" />
-                  <Text style={styles.oauthBtnAppleText}>Continue with Apple</Text>
-                </Pressable>
-              )}
+              <Pressable style={styles.oauthBtnApple} onPress={handleAppleSignIn}>
+                <Feather name="smartphone" size={18} color="#FFF" />
+                <Text style={styles.oauthBtnAppleText}>Continue with Apple</Text>
+              </Pressable>
               <Pressable style={styles.oauthBtnGoogle} onPress={handleGoogleOAuth}>
                 <Image source={googleIcon} style={styles.googleImg} />
                 <Text style={styles.oauthBtnGoogleText}>Continue with Google</Text>

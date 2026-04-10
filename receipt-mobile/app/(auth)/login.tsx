@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
-import * as AppleAuthentication from 'expo-apple-authentication';
 
 let wordmarkSource: ReturnType<typeof require> | null = null;
 try {
@@ -105,25 +104,26 @@ export default function LoginScreen() {
   const handleAppleSignIn = async () => {
     setError('');
     try {
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
+      const redirectTo = Linking.createURL('auth/callback');
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
       });
-      if (credential.identityToken) {
-        const { error: signInError } = await supabase.auth.signInWithIdToken({
-          provider: 'apple',
-          token: credential.identityToken,
-        });
-        if (signInError) {
-          setError(signInError.message);
-        }
-      } else {
-        setError('Apple Sign-In failed — no identity token received');
+      if (oauthError) {
+        setError(oauthError.message);
+        return;
       }
-    } catch (e: any) {
-      if (e.code === 'ERR_REQUEST_CANCELED') return; // User cancelled
+      if (data?.url) {
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+        if (result.type === 'success' && result.url) {
+          const { handleDeepLink } = useAuthStore.getState();
+          await handleDeepLink(result.url);
+        }
+      }
+    } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Apple Sign-In failed';
       setError(msg);
     }
@@ -167,12 +167,10 @@ export default function LoginScreen() {
         ) : (
           <View style={styles.form}>
             {/* OAuth buttons */}
-            {Platform.OS === 'ios' && (
-              <Pressable style={styles.oauthBtnApple} onPress={handleAppleSignIn}>
-                <Feather name="smartphone" size={18} color="#FFF" />
-                <Text style={styles.oauthBtnAppleText}>Continue with Apple</Text>
-              </Pressable>
-            )}
+            <Pressable style={styles.oauthBtnApple} onPress={handleAppleSignIn}>
+              <Feather name="smartphone" size={18} color="#FFF" />
+              <Text style={styles.oauthBtnAppleText}>Continue with Apple</Text>
+            </Pressable>
             <Pressable style={styles.oauthBtnGoogle} onPress={handleGoogleOAuth}>
               <Image source={googleIcon} style={styles.googleImg} />
               <Text style={styles.oauthBtnGoogleText}>Continue with Google</Text>
