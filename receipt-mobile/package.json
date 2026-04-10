@@ -20,7 +20,6 @@
     "base64-arraybuffer": "^1.0.2",
     "date-fns": "^3.6.0",
     "expo": "^54.0.0",
-    "expo-apple-authentication": "^55.0.13",
     "expo-asset": "~12.0.12",
     "expo-camera": "~17.0.10",
     "expo-constants": "~18.0.13",
