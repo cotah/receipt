@@ -105,6 +105,7 @@ export default function LoginScreen() {
     setError('');
     try {
       const redirectTo = Linking.createURL('auth/callback');
+      console.log('[AppleSignIn] redirectTo:', redirectTo);
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
@@ -113,18 +114,26 @@ export default function LoginScreen() {
         },
       });
       if (oauthError) {
+        console.log('[AppleSignIn] OAuth error:', oauthError.message);
         setError(oauthError.message);
         return;
       }
       if (data?.url) {
+        console.log('[AppleSignIn] Opening browser with URL:', data.url);
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+        console.log('[AppleSignIn] Browser result:', JSON.stringify(result));
         if (result.type === 'success' && result.url) {
           const { handleDeepLink } = useAuthStore.getState();
           await handleDeepLink(result.url);
+        } else {
+          // Show debug info to help diagnose
+          const info = `type: ${result.type}` + ('url' in result ? `, url: ${(result as any).url?.substring(0, 80)}` : '');
+          setError(`Sign in returned: ${info}`);
         }
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Apple Sign-In failed';
+      console.log('[AppleSignIn] Error:', msg);
       setError(msg);
     }
   };

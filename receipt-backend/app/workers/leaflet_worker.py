@@ -2849,6 +2849,9 @@ async def scrape_aldi_leaflet() -> None:
 
             log.info("Aldi scraper: found leaflet at %s", leaflet_url)
 
+            # Strip /page/N suffix if present (spreads.json is at the base URL)
+            leaflet_url = _re.sub(r'/page/\d+$', '', leaflet_url)
+
             # Step 2: Fetch spreads.json for actual page image URLs
             spreads_url = f"{leaflet_url}/spreads.json"
             spreads_resp = await client.get(spreads_url)
