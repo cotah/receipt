@@ -4,7 +4,7 @@ import { Link } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
@@ -145,7 +145,7 @@ export default function RegisterScreen() {
             <View style={styles.form}>
               {/* OAuth buttons */}
               <Pressable style={styles.oauthBtnApple} onPress={handleAppleSignIn}>
-                <Feather name="smartphone" size={18} color="#FFF" />
+                <Ionicons name="logo-apple" size={20} color="#FFF" />
                 <Text style={styles.oauthBtnAppleText}>Continue with Apple</Text>
               </Pressable>
               <Pressable style={styles.oauthBtnGoogle} onPress={handleGoogleOAuth}>
@@ -203,6 +203,18 @@ export default function RegisterScreen() {
 
               <Button title="Create Account" onPress={handleRegister} loading={loading} fullWidth icon="user-plus" />
 
+              <Text style={styles.legalText}>
+                By creating an account, you agree to our{' '}
+                <Text style={styles.legalLink} onPress={() => Linking.openURL('https://www.smartdocket.ie/terms.html')}>
+                  Terms of Use
+                </Text>
+                {' '}and{' '}
+                <Text style={styles.legalLink} onPress={() => Linking.openURL('https://www.smartdocket.ie/privacy.html')}>
+                  Privacy Policy
+                </Text>
+                .
+              </Text>
+
               <Link href="/(auth)/login" asChild>
                 <Text style={styles.link}>Already have an account? Sign in</Text>
               </Link>
@@ -240,4 +252,6 @@ const styles = StyleSheet.create({
   sentBox: { alignItems: 'center', padding: Spacing.lg },
   sentTitle: { fontFamily: 'DMSans_700Bold', fontSize: 20, color: Colors.text.primary, marginBottom: Spacing.sm },
   sentText: { fontFamily: 'DMSans_400Regular', fontSize: 15, color: Colors.text.secondary, textAlign: 'center', lineHeight: 22 },
+  legalText: { fontFamily: 'DMSans_400Regular', fontSize: 11, color: Colors.text.tertiary, textAlign: 'center', lineHeight: 16, marginTop: 4 },
+  legalLink: { color: '#7DDFAA', textDecorationLine: 'underline' as const },
 });

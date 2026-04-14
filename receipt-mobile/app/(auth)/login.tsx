@@ -13,7 +13,7 @@ import { Link } from 'expo-router';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
@@ -105,7 +105,6 @@ export default function LoginScreen() {
     setError('');
     try {
       const redirectTo = Linking.createURL('auth/callback');
-      console.log('[AppleSignIn] redirectTo:', redirectTo);
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
@@ -114,26 +113,22 @@ export default function LoginScreen() {
         },
       });
       if (oauthError) {
-        console.log('[AppleSignIn] OAuth error:', oauthError.message);
         setError(oauthError.message);
         return;
       }
       if (data?.url) {
-        console.log('[AppleSignIn] Opening browser with URL:', data.url);
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-        console.log('[AppleSignIn] Browser result:', JSON.stringify(result));
         if (result.type === 'success' && result.url) {
           const { handleDeepLink } = useAuthStore.getState();
           await handleDeepLink(result.url);
+        } else if (result.type === 'cancel' || result.type === 'dismiss') {
+          // User cancelled — do nothing, this is normal
         } else {
-          // Show debug info to help diagnose
-          const info = `type: ${result.type}` + ('url' in result ? `, url: ${(result as any).url?.substring(0, 80)}` : '');
-          setError(`Sign in returned: ${info}`);
+          setError('Apple Sign-In could not be completed. Please try again.');
         }
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Apple Sign-In failed';
-      console.log('[AppleSignIn] Error:', msg);
       setError(msg);
     }
   };
@@ -177,7 +172,7 @@ export default function LoginScreen() {
           <View style={styles.form}>
             {/* OAuth buttons */}
             <Pressable style={styles.oauthBtnApple} onPress={handleAppleSignIn}>
-              <Feather name="smartphone" size={18} color="#FFF" />
+              <Ionicons name="logo-apple" size={20} color="#FFF" />
               <Text style={styles.oauthBtnAppleText}>Continue with Apple</Text>
             </Pressable>
             <Pressable style={styles.oauthBtnGoogle} onPress={handleGoogleOAuth}>
