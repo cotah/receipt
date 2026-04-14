@@ -34,6 +34,7 @@ class UserProfileUpdate(BaseModel):
     home_area: Optional[str] = None
     notify_alerts: Optional[bool] = None
     notify_reports: Optional[bool] = None
+    push_token: Optional[str] = None
 
 
 class UserStats(BaseModel):

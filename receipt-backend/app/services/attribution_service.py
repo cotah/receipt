@@ -60,7 +60,7 @@ async def check_attribution(
     # 2. Fetch alerts sent to this user around the purchase time
     alerts_resp = (
         db.table("alerts")
-        .select("id, type, title, message, metadata, created_at")
+        .select("id, type, product_name, store_name, message, data, created_at")
         .eq("user_id", user_id)
         .gte("created_at", window_start.isoformat())
         .lte("created_at", purchase_time.isoformat())
@@ -93,14 +93,14 @@ async def check_attribution(
     created: list[dict] = []
 
     for alert in alerts:
-        meta = alert.get("metadata") or {}
+        alert_data = alert.get("data") or {}
         alert_product = (
-            meta.get("product_name") or meta.get("product") or ""
+            alert.get("product_name") or ""
         ).lower().strip()
         alert_store = (
-            meta.get("store_name") or meta.get("store") or ""
+            alert.get("store_name") or alert_data.get("store") or ""
         ).lower().strip()
-        alert_price = meta.get("price") or meta.get("unit_price")
+        usual_price = alert_data.get("usual_price") or alert_data.get("price_elsewhere") or 0
         alerted_at = alert["created_at"]
 
         if not alert_product:
@@ -147,8 +147,10 @@ async def check_attribution(
             continue
 
         # Calculate saving
-        price_paid = matched_item.get("unit_price") or 0
-        price_elsewhere = float(alert_price) if alert_price else 0
+        # price_paid = what the user paid on the receipt (the deal price)
+        # price_elsewhere = what they usually pay (from alert's usual_price)
+        price_paid = float(matched_item.get("unit_price") or 0)
+        price_elsewhere = float(usual_price) if usual_price else 0
         saving = max(price_elsewhere - price_paid, 0)
 
         if saving <= 0:
@@ -198,7 +200,7 @@ async def confirm_saving(
     # Fetch the alert
     alert_resp = (
         db.table("alerts")
-        .select("id, metadata, created_at")
+        .select("id, product_name, store_name, data, created_at")
         .eq("id", alert_id)
         .eq("user_id", user_id)
         .single()
@@ -208,7 +210,7 @@ async def confirm_saving(
         return None
 
     alert = alert_resp.data
-    meta = alert.get("metadata") or {}
+    alert_data = alert.get("data") or {}
 
     # Check time window
     from dateutil import parser as dateutil_parser
@@ -236,12 +238,10 @@ async def confirm_saving(
         return None  # Already attributed
 
     # Build record
-    product_name = (
-        meta.get("product_name") or meta.get("product") or "Unknown"
-    )
-    store = meta.get("store_name") or meta.get("store") or "Unknown"
-    price_paid = meta.get("recommended_price") or meta.get("price") or 0
-    price_elsewhere = meta.get("original_price") or meta.get("price_elsewhere") or 0
+    product_name = alert.get("product_name") or "Unknown"
+    store = alert.get("store_name") or alert_data.get("store") or "Unknown"
+    price_paid = alert_data.get("current_price") or 0
+    price_elsewhere = alert_data.get("usual_price") or 0
     saving = max(float(price_elsewhere) - float(price_paid), 0)
 
     record = {
