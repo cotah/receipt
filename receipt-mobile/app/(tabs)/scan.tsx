@@ -297,7 +297,7 @@ export default function ScanScreen() {
     return (
       <View style={[styles.container, styles.center]}>
         <Text style={styles.permText}>Camera permission is required to scan receipts</Text>
-        <Button title="Grant Permission" onPress={requestPermission} />
+        <Button title="Continue" onPress={requestPermission} />
       </View>
     );
   }

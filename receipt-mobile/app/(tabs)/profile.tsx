@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, Switch, Pressable, Image, TextInput, ScrollView, Share, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Alert, Switch, Pressable, Image, TextInput, ScrollView, Share, Modal, ActivityIndicator, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -12,6 +12,7 @@ import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/typography';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../services/supabase';
+import api from '../../services/api';
 import { getOfferings, purchasePackage, restorePurchases } from '../../services/purchases';
 import type { PurchasesPackage } from 'react-native-purchases';
 
@@ -225,6 +226,67 @@ export default function ProfileScreen() {
         },
       },
     ]);
+  };
+
+  const executeDeleteAccount = async () => {
+    try {
+      await api.delete('/users/me');
+      await signOut();
+      router.replace('/(auth)/login');
+      Alert.alert('Account Deleted', 'Your account and all data have been permanently deleted.');
+    } catch (e: any) {
+      console.error('Delete account error:', e);
+      Alert.alert('Error', 'Failed to delete account. Please try again or contact support.');
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This will permanently delete your account and all your data (receipts, history, chat, points). This action cannot be undone.\n\nAre you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes, Delete My Account',
+          style: 'destructive',
+          onPress: () => {
+            if (Platform.OS === 'ios') {
+              // iOS: use Alert.prompt for extra safety
+              Alert.prompt(
+                'Confirm Deletion',
+                'Type DELETE to permanently delete your account.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete Forever',
+                    style: 'destructive',
+                    onPress: (typed: string | undefined) => {
+                      if (typed?.trim().toUpperCase() !== 'DELETE') {
+                        Alert.alert('Cancelled', 'You must type DELETE to confirm.');
+                        return;
+                      }
+                      executeDeleteAccount();
+                    },
+                  },
+                ],
+                'plain-text',
+                '',
+              );
+            } else {
+              // Android: Alert.prompt doesn't exist — use second confirmation
+              Alert.alert(
+                'Final Confirmation',
+                'This is your last chance. All data will be lost forever.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Delete Forever', style: 'destructive', onPress: executeDeleteAccount },
+                ],
+              );
+            }
+          },
+        },
+      ],
+    );
   };
 
   const initials = getInitials(profile?.full_name);
@@ -484,6 +546,12 @@ export default function ProfileScreen() {
           <Feather name="log-out" size={18} color="#F09595" />
           <Text style={styles.signOutText}>Sign Out</Text>
         </Pressable>
+
+        {/* Delete Account (Apple requirement 5.1.1(v)) */}
+        <Pressable style={styles.deleteBtn} onPress={handleDeleteAccount}>
+          <Feather name="trash-2" size={18} color="#F09595" />
+          <Text style={styles.deleteText}>Delete Account</Text>
+        </Pressable>
       </ScrollView>
 
       {/* Upgrade Modal */}
@@ -541,6 +609,21 @@ export default function ProfileScreen() {
                   </Text>
                 ) : null}
               </View>
+            </View>
+
+            {/* Subscription info + legal links (Apple requirement 3.1.2(c)) */}
+            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, textAlign: 'center', marginTop: 14, lineHeight: 15 }}>
+              Pro Monthly — €4.99/month auto-renewable subscription.{'\n'}
+              Payment is charged to your Apple ID at confirmation of purchase.{'\n'}
+              Subscription renews automatically unless cancelled at least 24 hours before the end of the current period.
+            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 8 }}>
+              <Pressable onPress={() => Linking.openURL('https://www.smartdocket.ie/terms.html')}>
+                <Text style={{ color: '#7DDFAA', fontSize: 11, textDecorationLine: 'underline' }}>Terms of Use</Text>
+              </Pressable>
+              <Pressable onPress={() => Linking.openURL('https://www.smartdocket.ie/privacy.html')}>
+                <Text style={{ color: '#7DDFAA', fontSize: 11, textDecorationLine: 'underline' }}>Privacy Policy</Text>
+              </Pressable>
             </View>
 
             <Pressable onPress={() => setShowUpgrade(false)} style={styles.modalClose}>
@@ -760,5 +843,15 @@ const styles = StyleSheet.create({
   },
   signOutText: {
     fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#F09595',
+  },
+  deleteBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, marginTop: Spacing.sm,
+    borderRadius: 12, borderWidth: 0.5, borderColor: 'rgba(240,149,149,0.15)',
+    backgroundColor: 'rgba(240,149,149,0.04)',
+    marginBottom: Spacing.lg,
+  },
+  deleteText: {
+    fontFamily: 'DMSans_500Medium', fontSize: 13, color: 'rgba(240,149,149,0.6)',
   },
 });

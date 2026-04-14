@@ -14,6 +14,7 @@
       "infoPlist": {
         "NSCameraUsageDescription": "SmartDocket needs camera access to scan your grocery receipts",
         "NSPhotoLibraryUsageDescription": "SmartDocket needs photo library access to import receipt images",
+        "NSLocationWhenInUseUsageDescription": "SmartDocket uses your location to find nearby supermarkets and show you the best local deals. For example, we detect stores like Tesco, Lidl and Aldi near you.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -57,7 +58,13 @@
         }
       ],
       "expo-secure-store",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "SmartDocket uses your location to find nearby supermarkets and show you the best local deals. For example, we detect stores like Tesco, Lidl and Aldi near you."
+        }
+      ]
     ],
     "extra": {
       "eas": {

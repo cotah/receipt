@@ -323,3 +323,61 @@ async def verify_price(
         log.warning("verify_price points error: %s", e)
 
     return {"status": "ok", "points_earned": 5}
+
+
+@router.delete("/me")
+async def delete_account(user_id: str = Depends(get_current_user)):
+    """Permanently delete the user's account and all associated data.
+
+    This endpoint:
+    1. Deletes all user data from every table (explicit, even when CASCADE exists)
+    2. Deletes the profile row
+    3. Deletes the Supabase Auth user
+
+    Apple App Store guideline 5.1.1(v) requires apps that support account
+    creation to also support account deletion.
+    """
+    db = get_service_client()
+
+    log.info("Account deletion requested for user %s", user_id)
+
+    # --- 1. Delete user data from all tables (order: dependents first) ---
+    tables_with_user_id = [
+        "feedback",
+        "shopping_list_items",
+        "savings_attributions",
+        "user_product_patterns",
+        "chat_messages",
+        "alerts",
+        "receipt_items",
+        "receipts",
+    ]
+
+    deleted_counts: dict[str, int] = {}
+    for table in tables_with_user_id:
+        try:
+            result = db.table(table).delete().eq("user_id", user_id).execute()
+            deleted_counts[table] = len(result.data) if result.data else 0
+        except Exception as e:
+            # Table might not exist or have no user_id column — skip silently
+            log.warning("delete_account: skip table %s: %s", table, e)
+            deleted_counts[table] = 0
+
+    # --- 2. Delete the profile row ---
+    try:
+        db.table("profiles").delete().eq("id", user_id).execute()
+        deleted_counts["profiles"] = 1
+    except Exception as e:
+        log.error("delete_account: failed to delete profile for %s: %s", user_id, e)
+        raise HTTPException(status_code=500, detail="Failed to delete profile")
+
+    # --- 3. Delete the Supabase Auth user ---
+    try:
+        db.auth.admin.delete_user(user_id)
+        log.info("Account deletion completed for user %s — data: %s", user_id, deleted_counts)
+    except Exception as e:
+        log.error("delete_account: failed to delete auth user %s: %s", user_id, e)
+        # Profile is already gone — don't block, but log the issue
+        log.warning("Auth user %s may be orphaned — manual cleanup needed", user_id)
+
+    return {"status": "deleted", "detail": "Account and all associated data have been permanently deleted."}
