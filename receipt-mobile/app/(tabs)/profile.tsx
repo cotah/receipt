@@ -846,7 +846,7 @@ const styles = StyleSheet.create({
   },
   deleteBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 14, marginTop: Spacing.sm,
+    gap: 8, paddingVertical: 14, marginTop: Spacing.md,
     borderRadius: 12, borderWidth: 0.5, borderColor: 'rgba(240,149,149,0.15)',
     backgroundColor: 'rgba(240,149,149,0.04)',
     marginBottom: Spacing.lg,
