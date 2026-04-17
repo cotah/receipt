@@ -27,11 +27,11 @@ async def submit_feedback(
         db.table("profiles")
         .select("email, full_name")
         .eq("id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     user_email = (profile.data or {}).get("email", "unknown")
-    user_name = (profile.data or {}).get("full_name", "User")
+    user_name = ((profile.data or {}).get("full_name") or "User")
 
     # Save to DB
     db.table("feedback").insert({

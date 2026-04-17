@@ -849,10 +849,11 @@ async def barcode_lookup(
                     "product_key": product_key,
                     "brand": found_brand or "",
                     "category": found_category or "Other",
+                    "package_size": "",
                     "image_url": found_image or "",
-                }).execute()
-            except Exception:
-                pass
+                }, on_conflict="barcode").execute()
+            except Exception as upsert_err:
+                log.warning("barcode_catalog upsert failed for %s: %s", barcode, upsert_err)
             # Now continue with normal flow using this data
             bc_result = type("R", (), {"data": [{
                 "barcode": barcode,
@@ -1121,7 +1122,7 @@ async def barcode_contribute(
 
     # Award 10 points
     try:
-        profile = db.table("profiles").select("points").eq("id", user_id).single().execute()
+        profile = db.table("profiles").select("points").eq("id", user_id).maybe_single().execute()
         current = (profile.data or {}).get("points") or 0
         db.table("profiles").update({"points": current + 10}).eq("id", user_id).execute()
     except Exception:
@@ -1705,7 +1706,7 @@ async def respond_to_confirmation(
         .select("id, user_id")
         .eq("id", confirmation_id)
         .eq("user_id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     if not record.data:

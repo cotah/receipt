@@ -254,7 +254,7 @@ class TestFeedback:
         # Mock profile query
         mock_profile = MagicMock()
         mock_profile.data = {"email": "test@test.com", "full_name": "Test User"}
-        mock_db.return_value.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_profile
+        mock_db.return_value.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_profile
 
         # Mock insert
         mock_insert = MagicMock()
@@ -406,7 +406,7 @@ class TestReferral:
         """Cannot use own referral code."""
         mock_me = MagicMock()
         mock_me.data = {"referred_by": None, "referral_code": "SMART-ABC123"}
-        mock_db.return_value.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_me
+        mock_db.return_value.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_me
 
         response = client.post(
             "/api/v1/users/me/redeem-referral",
@@ -420,7 +420,7 @@ class TestReferral:
         """Cannot redeem if already referred."""
         mock_me = MagicMock()
         mock_me.data = {"referred_by": "SMART-OLDCODE", "referral_code": "SMART-MYCODE"}
-        mock_db.return_value.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_me
+        mock_db.return_value.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_me
 
         response = client.post(
             "/api/v1/users/me/redeem-referral",

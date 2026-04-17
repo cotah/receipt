@@ -23,7 +23,7 @@ async def send_message(
         db.table("profiles")
         .select("plan, plan_expires_at, chat_queries_today, chat_queries_reset")
         .eq("id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     check_chat_limit(db, user_id, profile_row.data or {})

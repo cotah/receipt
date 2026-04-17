@@ -40,7 +40,7 @@ async def require_admin(request: Request) -> str:
                     db.table("profiles")
                     .select("is_admin")
                     .eq("id", user_id)
-                    .single()
+                    .maybe_single()
                     .execute()
                 )
                 if row.data and row.data.get("is_admin"):
@@ -384,11 +384,11 @@ async def send_test_email(_admin: str = Depends(require_admin)):
         db.table("profiles")
         .select("email, full_name")
         .eq("id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     email = (profile.data or {}).get("email", "")
-    name = (profile.data or {}).get("full_name", "Admin")
+    name = ((profile.data or {}).get("full_name") or "Admin")
     if not email:
         raise HTTPException(status_code=400, detail="No email on profile")
 

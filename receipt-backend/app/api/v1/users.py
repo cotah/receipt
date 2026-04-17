@@ -33,7 +33,7 @@ def _ensure_referral_code(db, user_id: str, profile_data: dict) -> dict:
 @router.get("/me", response_model=UserProfile)
 async def get_profile(user_id: str = Depends(get_current_user)):
     db = get_service_client()
-    result = db.table("profiles").select("*").eq("id", user_id).single().execute()
+    result = db.table("profiles").select("*").eq("id", user_id).maybe_single().execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Profile not found")
     data = _ensure_referral_code(db, user_id, result.data)
@@ -66,7 +66,7 @@ async def get_stats(user_id: str = Depends(get_current_user)):
     db = get_service_client()
 
     # Profile for member_since
-    profile = db.table("profiles").select("created_at").eq("id", user_id).single().execute()
+    profile = db.table("profiles").select("created_at").eq("id", user_id).maybe_single().execute()
     member_since = profile.data["created_at"][:10] if profile.data else "2026-01-01"
 
     # Receipts
@@ -139,7 +139,7 @@ async def redeem_referral(
     # Check current user hasn't already been referred
     me = db.table("profiles").select(
         "referred_by, referral_code"
-    ).eq("id", user_id).single().execute()
+    ).eq("id", user_id).maybe_single().execute()
     if not me.data:
         raise HTTPException(status_code=404, detail="Profile not found")
     if me.data.get("referred_by"):
@@ -150,7 +150,7 @@ async def redeem_referral(
     # Find referrer
     referrer = db.table("profiles").select(
         "id, points, plan"
-    ).eq("referral_code", code).single().execute()
+    ).eq("referral_code", code).maybe_single().execute()
     if not referrer.data:
         raise HTTPException(status_code=404, detail="Invalid referral code")
 
@@ -160,7 +160,7 @@ async def redeem_referral(
     # Referee ALWAYS gets 50 pts
     my_points_q = db.table("profiles").select(
         "points"
-    ).eq("id", user_id).single().execute()
+    ).eq("id", user_id).maybe_single().execute()
     my_points = ((my_points_q.data or {}).get("points") or 0) + 50
 
     db.table("profiles").update({
@@ -204,7 +204,7 @@ async def get_contribute_status(user_id: str = Depends(get_current_user)):
     # Get user points
     profile = db.table("profiles").select(
         "points, scans_this_month, plan, created_at"
-    ).eq("id", user_id).single().execute()
+    ).eq("id", user_id).maybe_single().execute()
     points = (profile.data or {}).get("points") or 0
     scans = (profile.data or {}).get("scans_this_month") or 0
 
@@ -316,7 +316,7 @@ async def verify_price(
 
     # Award points
     try:
-        profile = db.table("profiles").select("points").eq("id", user_id).single().execute()
+        profile = db.table("profiles").select("points").eq("id", user_id).maybe_single().execute()
         current = (profile.data or {}).get("points") or 0
         db.table("profiles").update({"points": current + 5}).eq("id", user_id).execute()
     except Exception as e:

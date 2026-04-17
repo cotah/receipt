@@ -36,7 +36,7 @@ async def get_weekly_deals(user_id: str = Depends(get_current_user)):
             db.table("profiles")
             .select("plan, plan_expires_at")
             .eq("id", user_id)
-            .single()
+            .maybe_single()
             .execute()
         )
         from app.utils.plan_utils import is_pro

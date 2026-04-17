@@ -331,7 +331,7 @@ async def _ai_suggest_deals(
             db.table("profiles")
             .select("full_name, home_area")
             .eq("id", user_id)
-            .single()
+            .maybe_single()
             .execute()
         )
         area = (profile.data or {}).get("home_area", "Dublin")

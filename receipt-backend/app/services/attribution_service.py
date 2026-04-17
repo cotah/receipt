@@ -34,7 +34,7 @@ async def check_attribution(
         db.table("receipts")
         .select("store_name, purchased_at, created_at")
         .eq("id", receipt_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     receipt_data = receipt_resp.data or {}
@@ -203,7 +203,7 @@ async def confirm_saving(
         .select("id, product_name, store_name, data, created_at")
         .eq("id", alert_id)
         .eq("user_id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     if not alert_resp.data:
@@ -264,7 +264,7 @@ async def confirm_saving(
         db.table("profiles")
         .select("points")
         .eq("id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     current_pts = (profile.data or {}).get("points") or 0

@@ -296,6 +296,9 @@ async def _run_apify_actor(
                 timeout_secs, poll_interval,
             )
 
+    except asyncio.CancelledError:
+        log.warning("Apify: actor %s cancelled (scheduler timeout)", actor_id)
+        return []
     except Exception as e:
         log.error("Apify: error running actor %s: %s", actor_id, e)
         return []

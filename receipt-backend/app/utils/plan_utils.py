@@ -98,7 +98,7 @@ def increment_scan_count(db, user_id: str) -> None:  # noqa: ANN001
         db.table("profiles")
         .select("scans_this_month, scans_month_reset")
         .eq("id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     data = profile.data or {}
@@ -127,7 +127,7 @@ def increment_chat_count(db, user_id: str) -> None:  # noqa: ANN001
         db.table("profiles")
         .select("chat_queries_today, chat_queries_reset")
         .eq("id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     data = profile.data or {}

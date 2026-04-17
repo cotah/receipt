@@ -64,7 +64,7 @@ def test_get_receipt_not_found(mock_db):
     """Return 404 for non-existent receipt."""
     mock_result = MagicMock()
     mock_result.data = None
-    mock_db.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = mock_result
+    mock_db.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_result
 
     response = client.get("/api/v1/receipts/non-existent-id")
     assert response.status_code == 404
@@ -75,7 +75,7 @@ def test_delete_receipt_not_found(mock_db):
     """Return 404 when deleting non-existent receipt."""
     mock_result = MagicMock()
     mock_result.data = None
-    mock_db.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = mock_result
+    mock_db.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_result
 
     response = client.delete("/api/v1/receipts/non-existent-id")
     assert response.status_code == 404
@@ -103,7 +103,7 @@ async def test_pdf_text_extraction_used_for_digital_pdf(
     profile_result.data = {"home_area": "Dublin"}
 
     db_instance = mock_db.return_value
-    db_instance.table.return_value.select.return_value.eq.return_value.single.return_value.execute.side_effect = [
+    db_instance.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.side_effect = [
         source_result, profile_result
     ]
     db_instance.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
@@ -153,7 +153,7 @@ async def test_pdf_ocr_fallback_for_image_pdf(
     profile_result.data = {"home_area": "Cork"}
 
     db_instance = mock_db.return_value
-    db_instance.table.return_value.select.return_value.eq.return_value.single.return_value.execute.side_effect = [
+    db_instance.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.side_effect = [
         source_result, profile_result
     ]
     db_instance.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()

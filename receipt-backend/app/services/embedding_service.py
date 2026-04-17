@@ -165,7 +165,7 @@ async def get_relevant_context(user_id: str, query: str, history: list[dict] = N
             db.table("profiles")
             .select("full_name")
             .eq("id", user_id)
-            .single()
+            .maybe_single()
             .execute()
         )
         if profile.data and profile.data.get("full_name"):

@@ -87,11 +87,11 @@ async def send_golden_deal_alerts(db, golden_deals: list[dict], user_id: str) ->
             db.table("profiles")
             .select("push_token, full_name")
             .eq("id", user_id)
-            .single()
+            .maybe_single()
             .execute()
         )
         token = (profile.data or {}).get("push_token")
-        name = (profile.data or {}).get("full_name", "").split(" ")[0] or "Hey"
+        name = ((profile.data or {}).get("full_name") or "").split(" ")[0] or "Hey"
 
         if not token:
             return 0

@@ -63,7 +63,7 @@ async def revenuecat_webhook(request: Request):
 
         if event_type == "INITIAL_PURCHASE":
             try:
-                user_q = db.table("profiles").select("email").eq("id", app_user_id).single().execute()
+                user_q = db.table("profiles").select("email").eq("id", app_user_id).maybe_single().execute()
                 email = (user_q.data or {}).get("email")
                 if email:
                     await _send_pro_welcome_email(email, expires_at)
@@ -140,11 +140,11 @@ async def stripe_webhook(request: Request):
 def _award_deferred_referral(db, user_id: str):
     """Award referral points when user upgrades to Pro."""
     try:
-        profile = db.table("profiles").select("referred_by").eq("id", user_id).single().execute()
+        profile = db.table("profiles").select("referred_by").eq("id", user_id).maybe_single().execute()
         referred_by = (profile.data or {}).get("referred_by")
         if not referred_by:
             return
-        referrer = db.table("profiles").select("id, points, plan").eq("referral_code", referred_by).single().execute()
+        referrer = db.table("profiles").select("id, points, plan").eq("referral_code", referred_by).maybe_single().execute()
         if not referrer.data:
             return
         current_pts = referrer.data.get("points") or 0

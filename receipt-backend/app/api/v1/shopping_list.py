@@ -52,7 +52,7 @@ async def get_shopping_list(
             db.table("profiles")
             .select("list_shared_with")
             .eq("id", user_id)
-            .single()
+            .maybe_single()
             .execute()
         )
         partner_id = (profile.data or {}).get("list_shared_with")
@@ -63,10 +63,10 @@ async def get_shopping_list(
                 db.table("profiles")
                 .select("full_name")
                 .eq("id", partner_id)
-                .single()
+                .maybe_single()
                 .execute()
             )
-            shared_with_name = (partner.data or {}).get("full_name", "Partner")
+            shared_with_name = ((partner.data or {}).get("full_name") or "Partner")
     except Exception:
         pass
 
@@ -390,7 +390,7 @@ async def share_list(user_id: str = Depends(get_current_user)):
         db.table("profiles")
         .select("list_share_code, full_name")
         .eq("id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
 
@@ -418,7 +418,7 @@ async def join_shared_list(
         db.table("profiles")
         .select("id, full_name")
         .eq("list_share_code", code.upper().strip())
-        .single()
+        .maybe_single()
         .execute()
     )
 
@@ -435,7 +435,7 @@ async def join_shared_list(
 
     return {
         "status": "ok",
-        "shared_with": owner.data.get("full_name", "Partner"),
+        "shared_with": (owner.data.get("full_name") or "Partner"),
     }
 
 
@@ -449,7 +449,7 @@ async def unlink_shared_list(user_id: str = Depends(get_current_user)):
         db.table("profiles")
         .select("list_shared_with")
         .eq("id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     partner_id = (profile.data or {}).get("list_shared_with")
@@ -471,7 +471,7 @@ async def share_status(user_id: str = Depends(get_current_user)):
         db.table("profiles")
         .select("list_share_code, list_shared_with")
         .eq("id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
 
@@ -484,10 +484,10 @@ async def share_status(user_id: str = Depends(get_current_user)):
             db.table("profiles")
             .select("full_name")
             .eq("id", partner_id)
-            .single()
+            .maybe_single()
             .execute()
         )
-        partner_name = (partner.data or {}).get("full_name", "Partner")
+        partner_name = ((partner.data or {}).get("full_name") or "Partner")
 
     return {
         "share_code": data.get("list_share_code"),

@@ -88,7 +88,7 @@ async def generate_price_drop_alerts(db: Client, user_id: str) -> None:
             db.table("profiles")
             .select("plan, plan_expires_at, push_token")
             .eq("id", user_id)
-            .single()
+            .maybe_single()
             .execute()
         )
         if not is_pro(profile.data or {}):

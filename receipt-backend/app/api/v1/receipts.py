@@ -46,7 +46,7 @@ async def upload_receipt(
         db.table("profiles")
         .select("plan, plan_expires_at, scans_this_month, scans_month_reset")
         .eq("id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     check_scan_limit(db, user_id, profile_row.data or {})
@@ -107,7 +107,7 @@ async def upload_multi_receipt(
         db.table("profiles")
         .select("plan, plan_expires_at, scans_this_month, scans_month_reset")
         .eq("id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     check_scan_limit(db, user_id, profile_row.data or {})
@@ -309,7 +309,7 @@ async def process_receipt_async(
         }).eq("id", receipt_id).execute()
 
         # 1. OCR — try direct text extraction for PDFs first
-        source_row = db.table("receipts").select("source").eq("id", receipt_id).single().execute()
+        source_row = db.table("receipts").select("source").eq("id", receipt_id).maybe_single().execute()
         receipt_source = source_row.data.get("source", "photo") if source_row.data else "photo"
         log.info(f"[{receipt_id}] Source: {receipt_source}")
 
@@ -441,7 +441,7 @@ async def _process_from_text(
                     db.table("profiles")
                     .select("plan, plan_expires_at")
                     .eq("id", user_id)
-                    .single()
+                    .maybe_single()
                     .execute()
                 )
                 user_is_pro = is_pro(profile_plan.data or {})
@@ -484,27 +484,31 @@ async def _process_from_text(
         log.info(f"[{receipt_id}] Receipt record updated (saving items...)")
 
         # 4. Insert items
-        profile = db.table("profiles").select("home_area").eq("id", user_id).single().execute()
+        profile = db.table("profiles").select("home_area").eq("id", user_id).maybe_single().execute()
         home_area = profile.data.get("home_area") if profile.data else None
 
         for idx, item in enumerate(items):
             item_id = str(uuid.uuid4())
-            db.table("receipt_items").insert({
-                "id": item_id,
-                "receipt_id": receipt_id,
-                "user_id": user_id,
-                "raw_name": item.get("raw_name", ""),
-                "normalized_name": item.get("normalized_name", item.get("raw_name", "")),
-                "category": item.get("category", "Other"),
-                "brand": item.get("brand"),
-                "quantity": item.get("quantity", 1),
-                "unit": item.get("unit"),
-                "unit_price": item.get("unit_price", 0),
-                "total_price": item.get("total_price", 0),
-                "discount_amount": item.get("discount_amount", 0),
-                "is_on_offer": item.get("is_on_offer", False),
-                "barcode": item.get("barcode"),
-            }).execute()
+            try:
+                db.table("receipt_items").insert({
+                    "id": item_id,
+                    "receipt_id": receipt_id,
+                    "user_id": user_id,
+                    "raw_name": item.get("raw_name", ""),
+                    "normalized_name": item.get("normalized_name", item.get("raw_name", "")),
+                    "category": item.get("category", "Other"),
+                    "brand": item.get("brand"),
+                    "quantity": item.get("quantity", 1),
+                    "unit": item.get("unit"),
+                    "unit_price": item.get("unit_price", 0),
+                    "total_price": item.get("total_price", 0),
+                    "discount_amount": item.get("discount_amount", 0),
+                    "is_on_offer": item.get("is_on_offer", False),
+                    "barcode": item.get("barcode"),
+                }).execute()
+            except Exception as item_err:
+                log.error(f"[{receipt_id}] Failed to insert item {idx}: {item_err}")
+                continue
 
             # 5. Contribute to collective prices (anonymous)
             try:
@@ -532,7 +536,7 @@ async def _process_from_text(
                 db.table("profiles")
                 .select("points, plan, plan_expires_at")
                 .eq("id", user_id)
-                .single()
+                .maybe_single()
                 .execute()
             )
             pts_data = profile_pts.data or {}
@@ -624,7 +628,7 @@ async def list_receipts(
         db.table("profiles")
         .select("plan, plan_expires_at")
         .eq("id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     user_is_pro = is_pro(profile_row.data or {})
@@ -713,7 +717,7 @@ async def get_receipt_detail(
         .select("*")
         .eq("id", receipt_id)
         .eq("user_id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     if not receipt.data:
@@ -824,7 +828,7 @@ async def get_receipt_status(
         .select("id, status, error_reason")
         .eq("id", receipt_id)
         .eq("user_id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     if not result.data:
@@ -864,7 +868,7 @@ async def delete_receipt(
         .select("id")
         .eq("id", receipt_id)
         .eq("user_id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     if not result.data:
@@ -909,7 +913,7 @@ async def get_items_needing_weight(
         .select("id, status")
         .eq("id", receipt_id)
         .eq("user_id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     if not receipt.data:
@@ -973,7 +977,7 @@ async def confirm_item_weights(
         .select("id")
         .eq("id", receipt_id)
         .eq("user_id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     if not receipt.data:
@@ -995,7 +999,7 @@ async def confirm_item_weights(
             db.table("receipt_items")
             .select("normalized_name")
             .eq("id", item.item_id)
-            .single()
+            .maybe_single()
             .execute()
         )
         if existing.data:
@@ -1030,7 +1034,7 @@ async def get_barcode_items(
         .select("id, store_name")
         .eq("id", receipt_id)
         .eq("user_id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     if not receipt.data:
@@ -1083,7 +1087,7 @@ async def link_barcode_to_item(
         db.table("receipt_items")
         .select("id, normalized_name, category, unit_price, user_id")
         .eq("id", item_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     if not item.data or item.data.get("user_id") != user_id:
@@ -1108,7 +1112,7 @@ async def link_barcode_to_item(
 
     # 3. Award 30 points (double)
     try:
-        profile = db.table("profiles").select("points").eq("id", user_id).single().execute()
+        profile = db.table("profiles").select("points").eq("id", user_id).maybe_single().execute()
         current = (profile.data or {}).get("points") or 0
         db.table("profiles").update({"points": current + 30}).eq("id", user_id).execute()
     except Exception:
