@@ -63,7 +63,7 @@ export default function ScanScreen() {
           if (fakeIntervalRef.current) clearInterval(fakeIntervalRef.current);
           return 90;
         }
-        return prev + 3;
+        return prev + 5;
       });
     }, 200);
   }, []);
