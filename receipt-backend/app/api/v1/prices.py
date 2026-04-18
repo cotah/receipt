@@ -1095,15 +1095,17 @@ async def barcode_contribute(
     product_key: str | None = Query(None),
     user_id: str = Depends(get_current_user),
 ):
-    """User links a barcode to a product (existing or new). Awards 10 points."""
+    """User links a barcode to a product (existing or new). Awards 10 points only for new barcodes."""
     from app.utils.text_utils import generate_product_key
 
     db = get_service_client()
     key = product_key or generate_product_key(product_name)
+    already_exists = False
 
     try:
         # Check if barcode already exists
         existing = db.table("barcode_catalog").select("barcode").eq("barcode", barcode).execute()
+        already_exists = bool(existing.data)
         row = {
             "barcode": barcode,
             "product_name": product_name,
@@ -1112,7 +1114,7 @@ async def barcode_contribute(
             "category": "Other",
             "image_url": "",
         }
-        if existing.data:
+        if already_exists:
             db.table("barcode_catalog").update(row).eq("barcode", barcode).execute()
         else:
             db.table("barcode_catalog").insert(row).execute()
@@ -1120,15 +1122,23 @@ async def barcode_contribute(
         log.error("barcode-contribute failed for barcode %s: %s", barcode, e)
         raise HTTPException(status_code=500, detail="Could not save barcode. Please try again.")
 
-    # Award 10 points
-    try:
-        profile = db.table("profiles").select("points").eq("id", user_id).maybe_single().execute()
-        current = (profile.data or {}).get("points") or 0
-        db.table("profiles").update({"points": current + 10}).eq("id", user_id).execute()
-    except Exception:
-        pass
+    # Award 10 points ONLY for new barcodes
+    points_earned = 0
+    if not already_exists:
+        points_earned = 10
+        try:
+            profile = db.table("profiles").select("points").eq("id", user_id).maybe_single().execute()
+            current = (profile.data or {}).get("points") or 0
+            db.table("profiles").update({"points": current + 10}).eq("id", user_id).execute()
+        except Exception:
+            pass
 
-    return {"status": "ok", "points_earned": 10, "product_key": product_key}
+    return {
+        "status": "ok",
+        "points_earned": points_earned,
+        "already_exists": already_exists,
+        "product_key": product_key,
+    }
 
 
 @router.get("/my-usual-shop")

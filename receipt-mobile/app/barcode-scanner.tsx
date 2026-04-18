@@ -146,11 +146,15 @@ export default function BarcodeScannerScreen() {
     if (!scannedBarcode) return;
     setIsContributing(true);
     try {
-      await api.post('/prices/barcode-contribute', null, {
+      const { data } = await api.post('/prices/barcode-contribute', null, {
         params: { barcode: scannedBarcode, product_name: productName, product_key: productKey },
       });
       setContributed(true);
-      Alert.alert('Linked!', `${productName} linked to this barcode. +10 points!`);
+      if (data.already_exists) {
+        Alert.alert('Already registered', `We already have this barcode in our database.`);
+      } else {
+        Alert.alert('Linked!', `${productName} linked to this barcode. +10 points!`);
+      }
     } catch {
       Alert.alert('Error', 'Could not link product');
     } finally {
@@ -163,11 +167,15 @@ export default function BarcodeScannerScreen() {
     if (!searchQuery.trim() || !scannedBarcode) return;
     setIsContributing(true);
     try {
-      await api.post('/prices/barcode-contribute', null, {
+      const { data } = await api.post('/prices/barcode-contribute', null, {
         params: { barcode: scannedBarcode, product_name: searchQuery.trim() },
       });
       setContributed(true);
-      Alert.alert('Thanks!', 'Product added to our database. +10 points!');
+      if (data.already_exists) {
+        Alert.alert('Already registered', 'We already have this barcode in our database.');
+      } else {
+        Alert.alert('Thanks!', 'Product added to our database. +10 points!');
+      }
     } catch {
       Alert.alert('Error', 'Could not save product');
     } finally {
