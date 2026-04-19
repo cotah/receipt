@@ -14,23 +14,29 @@ async def list_alerts(
     per_page: int = 20,
     user_id: str = Depends(get_current_user),
 ):
+    from datetime import datetime, timedelta, timezone
     db = get_service_client()
 
-    # Unread count
+    # Only show alerts from last 30 days
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+
+    # Unread count (last 30 days only)
     unread_resp = (
         db.table("alerts")
         .select("id", count="exact")
         .eq("user_id", user_id)
         .eq("is_read", False)
+        .gte("created_at", cutoff)
         .execute()
     )
     unread_count = unread_resp.count or 0
 
-    # Query alerts
+    # Query alerts (last 30 days)
     query = (
         db.table("alerts")
         .select("*", count="exact")
         .eq("user_id", user_id)
+        .gte("created_at", cutoff)
         .order("created_at", desc=True)
     )
     if unread_only:

@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as Linking from 'expo-linking';
+import * as Notifications from 'expo-notifications';
 import * as Sentry from '@sentry/react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '../stores/authStore';
+import { useAlertStore } from '../stores/alertStore';
 import { registerForPushNotifications } from '../services/notifications';
 import { configurePurchases, loginPurchases } from '../services/purchases';
 import { ONBOARDING_KEY } from './onboarding';
@@ -122,6 +124,40 @@ export default function RootLayout() {
       }).catch(() => {});
     }
   }, [isAuthenticated]);
+
+  // Push notification listeners — handle tap navigation + refresh alerts
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // When user TAPS a push notification → navigate to the right screen
+    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, any> | undefined;
+      if (!data?.screen) return;
+
+      // Map screen names from backend to app routes
+      switch (data.screen) {
+        case 'offers':
+        case 'prices':
+          router.push('/(tabs)/prices');
+          break;
+        case 'alerts':
+          router.push('/alerts');
+          break;
+        default:
+          router.push('/(tabs)');
+      }
+    });
+
+    // When notification arrives while app is OPEN → refresh the bell badge
+    const receivedSub = Notifications.addNotificationReceivedListener(() => {
+      useAlertStore.getState().fetchAlerts();
+    });
+
+    return () => {
+      responseSub.remove();
+      receivedSub.remove();
+    };
+  }, [isAuthenticated, router]);
 
   if (!fontsLoaded || isLoading || hasSeenOnboarding === null) return null;
 

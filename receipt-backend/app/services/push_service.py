@@ -71,6 +71,8 @@ async def send_push_notification(
 async def send_golden_deal_alerts(db, golden_deals: list[dict], user_id: str) -> int:
     """Send push notification for new Golden Deals to a PRO user.
 
+    Also saves the alert to the alerts table so it appears in the bell.
+
     Args:
         db: Supabase client
         golden_deals: List of golden deal dicts
@@ -93,9 +95,6 @@ async def send_golden_deal_alerts(db, golden_deals: list[dict], user_id: str) ->
         token = (profile.data or {}).get("push_token")
         name = ((profile.data or {}).get("full_name") or "").split(" ")[0] or "Hey"
 
-        if not token:
-            return 0
-
         # Build notification
         best = max(golden_deals, key=lambda d: d.get("discount_pct", 0))
         count = len(golden_deals)
@@ -113,13 +112,34 @@ async def send_golden_deal_alerts(db, golden_deals: list[dict], user_id: str) ->
                 f"products are at exceptional prices right now"
             )
 
-        sent = await send_push_notification(
-            push_token=token,
-            title=title,
-            body=body,
-            data={"screen": "offers", "deal_type": "golden"},
-        )
-        return 1 if sent else 0
+        # Save to alerts table so it shows in the bell
+        try:
+            db.table("alerts").insert({
+                "user_id": user_id,
+                "type": "price_drop",
+                "product_name": best["product_name"],
+                "store_name": best.get("store_name"),
+                "message": body,
+                "data": {
+                    "deal_type": "golden",
+                    "deals_count": count,
+                    "discount_pct": best.get("discount_pct", 0),
+                    "current_price": float(best.get("current_price", 0)),
+                },
+            }).execute()
+        except Exception as alert_err:
+            log.warning("Failed to save golden deal alert for %s: %s", user_id[:8], alert_err)
+
+        # Send push notification
+        if token:
+            sent = await send_push_notification(
+                push_token=token,
+                title=title,
+                body=body,
+                data={"screen": "offers", "deal_type": "golden"},
+            )
+            return 1 if sent else 0
+        return 0
 
     except Exception as e:
         log.warning("Golden deal alert failed for %s: %s", user_id[:8], e)
