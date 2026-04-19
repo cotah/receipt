@@ -3,7 +3,10 @@
     "allow": [
       "Bash(node .agents/skills/impeccable/scripts/cleanup-deprecated.mjs)",
       "Bash(node *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(cp \"C:/Users/henri/Desktop/New folder/manchester back.jpeg\" \"C:/Users/henri/Desktop/receipt/receipt-mobile/assets/raffle/rooney-jersey.jpeg\")",
+      "Bash(cp \"C:/Users/henri/Desktop/New folder/boots.jpeg\" \"C:/Users/henri/Desktop/receipt/receipt-mobile/assets/raffle/boots-card.jpeg\")",
+      "Bash(cp \"C:/Users/henri/Desktop/New folder/gift.jpeg\" \"C:/Users/henri/Desktop/receipt/receipt-mobile/assets/raffle/one4all-card.jpeg\")"
     ]
   }
 }
