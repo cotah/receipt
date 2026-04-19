@@ -43,7 +43,7 @@ export default function ReceiptCard({
   const nStore = normalizeStore(store_name);
 
   return (
-    <Card onPress={onPress} style={[styles.card, { borderLeftColor: STORE_COLORS[nStore] || '#7DDFAA' }]}>
+    <Card onPress={onPress} style={[styles.card, { borderLeftColor: STORE_STRIPE[nStore] || Colors.accent.green }]}>
       <View style={styles.row}>
         <View style={styles.left}>
           <View style={[styles.dot, { backgroundColor: dotColor }]} />
@@ -69,12 +69,12 @@ export default function ReceiptCard({
   );
 }
 
-const STORE_COLORS: Record<string, string> = {
-  Tesco: '#85B7EB',
-  Lidl: '#F0997B',
-  Aldi: '#7C8CF0',
-  SuperValu: '#F0D68A',
-  Dunnes: '#5DCAA5',
+const STORE_STRIPE: Record<string, string> = {
+  Tesco: Colors.stores.tesco,
+  Lidl: Colors.stores.lidl,
+  Aldi: Colors.stores.aldi,
+  SuperValu: Colors.stores.supervalu,
+  Dunnes: Colors.stores.dunnes,
 };
 
 function normalizeStore(name: string): string {

@@ -41,7 +41,7 @@ export default function LevelsScreen() {
         </Pressable>
 
         {/* Current level hero */}
-        <Card variant="elevated" style={styles.heroCard}>
+        <Card variant="rewardHero" style={styles.heroCard}>
           <Text style={styles.heroEmoji}>{current.emoji}</Text>
           <Text style={[styles.heroLevel, { color: current.color }]}>{current.name}</Text>
           <Text style={styles.heroPoints}>{points} points</Text>
@@ -49,7 +49,7 @@ export default function LevelsScreen() {
           {next && (
             <View style={styles.progressSection}>
               <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${progressToNext * 100}%`, backgroundColor: next.color }]} />
+                <View style={[styles.progressFill, { width: `${progressToNext * 100}%` }]} />
               </View>
               <Text style={styles.progressText}>
                 {next.min - points} pts to {next.name} {next.emoji}
@@ -96,14 +96,22 @@ const styles = StyleSheet.create({
   backText: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: '#FFFFFF' },
   heroCard: {
     alignItems: 'center', paddingVertical: 32,
-    backgroundColor: 'rgba(80,200,120,0.12)', borderRadius: 24, marginBottom: Spacing.lg,
+    borderRadius: 24, marginBottom: Spacing.lg,
   },
   heroEmoji: { fontSize: 56 },
   heroLevel: { fontFamily: 'DMSans_700Bold', fontSize: 24, marginTop: 8 },
   heroPoints: { fontFamily: 'JetBrainsMono_600SemiBold', fontSize: 16, color: 'rgba(255,255,255,0.6)', marginTop: 4 },
   progressSection: { width: '80%', marginTop: 20 },
   progressBar: { height: 8, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 4, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 4 },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: Colors.accent.amber,
+    shadowColor: '#F0D68A',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+  },
   progressText: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginTop: 8 },
   maxLevel: { fontFamily: 'DMSans_500Medium', fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 16 },
   sectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm },

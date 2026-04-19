@@ -72,8 +72,10 @@ export default function ReferScreen() {
         </Pressable>
 
         {/* Hero */}
-        <Card variant="elevated" style={styles.heroCard}>
-          <Text style={styles.heroEmoji}>🎁</Text>
+        <Card variant="rewardHero" style={styles.heroCard}>
+          <View style={styles.giftHalo}>
+            <Text style={styles.heroEmoji}>🎁</Text>
+          </View>
           <Text style={styles.heroTitle}>Earn 50 points each</Text>
           <Text style={styles.heroDesc}>Share your code with a friend. When they sign up, you both earn 50 bonus points!</Text>
         </Card>
@@ -141,7 +143,16 @@ const styles = StyleSheet.create({
   backText: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: '#FFFFFF' },
   heroCard: {
     alignItems: 'center', paddingVertical: 32,
-    backgroundColor: 'rgba(80,200,120,0.12)', borderRadius: 24, marginBottom: Spacing.lg,
+    borderRadius: 24, marginBottom: Spacing.lg,
+  },
+  giftHalo: {
+    width: 88, height: 88, borderRadius: 44,
+    backgroundColor: 'rgba(240,214,138,0.20)',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#F0D68A',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
   },
   heroEmoji: { fontSize: 48 },
   heroTitle: { fontFamily: 'DMSans_700Bold', fontSize: 22, color: Colors.accent.amber, marginTop: 12 },

@@ -696,8 +696,10 @@ const styles = StyleSheet.create({
   rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   iconCircle: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(80,200,120,0.12)',
+    width: 34, height: 34, borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.10)',
     alignItems: 'center', justifyContent: 'center',
   },
   rowLabel: {

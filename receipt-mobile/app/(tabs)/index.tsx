@@ -6,8 +6,10 @@ import { useFocusEffect } from 'expo-router';
 
 import { useRouter } from 'expo-router';
 import Card from '../../components/ui/Card';
+import GlassCard from '../../components/ui/GlassCard';
 import Badge from '../../components/ui/Badge';
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import ProfileAvatar from '../../components/ui/ProfileAvatar';
 import ReceiptCard from '../../components/receipts/ReceiptCard';
 import { Colors, Shadows } from '../../constants/colors';
@@ -154,6 +156,26 @@ export default function HomeScreen() {
 
         {/* Main card — Spent this month */}
         <View style={s.mainCard}>
+          <LinearGradient
+            colors={['rgba(27,94,59,0.8)', 'rgba(13,40,24,0.95)']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <LinearGradient
+            colors={['rgba(125,223,170,0.08)', 'rgba(125,223,170,0)']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={s.mainCardTopGlow}
+            pointerEvents="none"
+          />
+          <LinearGradient
+            colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.12)']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={s.mainCardInnerShadow}
+            pointerEvents="none"
+          />
           <Text style={s.mainLabel}>Spent this month</Text>
           <Text style={s.mainAmount}>{formatCurrency(monthTotal)}</Text>
           <Text style={s.mainSub}>{monthReceipts.length} shops</Text>
@@ -161,15 +183,15 @@ export default function HomeScreen() {
 
         {/* Stats row */}
         <View style={s.statsRow}>
-          <View style={s.statCard}>
+          <GlassCard style={[s.statCard, s.statCardMint]}>
             <Text style={s.statValue}>{monthReceipts.length}</Text>
             <Text style={s.statLabel}>Shops</Text>
-          </View>
-          <View style={s.statCard}>
+          </GlassCard>
+          <GlassCard style={[s.statCard, s.statCardAmber]}>
             <Text style={s.statValue}>{formatCurrency(monthDiscounts)}</Text>
             <Text style={s.statLabel}>Discounts</Text>
-          </View>
-          <View style={s.statCard}>
+          </GlassCard>
+          <GlassCard style={[s.statCard, s.statCardMint]}>
             <Text style={[s.statValue, savings?.attributed_savings > 0 && { color: '#7DDFAA' }]}>
               {formatCurrency(savings?.attributed_savings ?? 0)}
             </Text>
@@ -177,11 +199,11 @@ export default function HomeScreen() {
             {savings?.attributed_savings > 0 && (
               <Text style={s.comingSoon}>with SmartDocket</Text>
             )}
-          </View>
+          </GlassCard>
         </View>
 
         {/* My Usual Shop shortcut */}
-        <Pressable onPress={() => router.push('/usual-shop')} style={s.usualShopBtn}>
+        <GlassCard onPress={() => router.push('/usual-shop')} style={s.usualShopBtn}>
           <View style={s.usualShopLeft}>
             <Feather name="shopping-bag" size={18} color="#7DDFAA" />
             <View>
@@ -190,7 +212,7 @@ export default function HomeScreen() {
             </View>
           </View>
           <Feather name="chevron-right" size={18} color="rgba(255,255,255,0.35)" />
-        </Pressable>
+        </GlassCard>
 
         {/* Running Low */}
         {runningLow.length > 0 && (
@@ -198,13 +220,13 @@ export default function HomeScreen() {
             <Text style={s.sectionTitle}>Running Low</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
               {runningLow.slice(0, 5).map((item) => (
-                <View key={item.product_name} style={s.lowCard}>
+                <GlassCard key={item.product_name} style={s.lowCard}>
                   <Text style={s.lowName}>{item.product_name}</Text>
                   <Badge text={`${item.overdue_by_days}d overdue`} variant={item.urgency === 'high' ? 'danger' : 'warning'} size="sm" />
                   {item.best_current_price && (
                     <Text style={s.lowPrice}>{formatCurrency(item.best_current_price.price)} at {item.best_current_price.store}</Text>
                   )}
-                </View>
+                </GlassCard>
               ))}
             </ScrollView>
           </View>
@@ -215,7 +237,7 @@ export default function HomeScreen() {
           <View style={s.section}>
             <Text style={s.sectionTitle}>Price Memory</Text>
             {priceMemories.map((m, i) => (
-              <View key={i} style={s.memoryCard}>
+              <GlassCard key={i} style={s.memoryCard}>
                 <Text style={s.memoryProduct} numberOfLines={1}>{m.product_name}</Text>
                 <Text style={s.memoryDetail}>
                   You paid {formatCurrency(m.paid_price)} at {m.paid_store}
@@ -238,7 +260,7 @@ export default function HomeScreen() {
                     </Pressable>
                   </View>
                 </View>
-              </View>
+              </GlassCard>
             ))}
             <Pressable onPress={() => router.push('/(tabs)/prices')}>
               <Text style={s.seeAll}>See all price comparisons →</Text>
@@ -261,13 +283,13 @@ export default function HomeScreen() {
         )}
 
         {/* Shopping List shortcut */}
-        <Pressable style={s.shoppingListBar} onPress={() => router.push('/shopping-list')}>
+        <GlassCard onPress={() => router.push('/shopping-list')} style={s.shoppingListBar}>
           <View style={s.shoppingListLeft}>
             <Feather name="shopping-cart" size={18} color="#7DDFAA" />
             <Text style={s.shoppingListText}>Shopping List</Text>
           </View>
           <Feather name="chevron-right" size={18} color="rgba(255,255,255,0.35)" />
-        </Pressable>
+        </GlassCard>
 
         {/* This Month's Receipts */}
         <View style={s.section}>
@@ -277,10 +299,10 @@ export default function HomeScreen() {
               <ReceiptCard key={r.id} {...r} onPress={() => router.push(`/receipt/${r.id}`)} />
             ))
           ) : (
-            <View style={s.emptyMonth}>
+            <GlassCard style={s.emptyMonth}>
               <Text style={s.emptyMonthText}>No receipts yet this month</Text>
               <Text style={s.emptyMonthSub}>Scan your first receipt to start tracking</Text>
-            </View>
+            </GlassCard>
           )}
         </View>
       </ScrollView>
@@ -319,21 +341,52 @@ const s = StyleSheet.create({
 
   // Main card — Spent this month (green accent glass)
   mainCard: {
-    backgroundColor: 'rgba(80,200,120,0.12)',
-    borderWidth: 0.5, borderColor: 'rgba(80,200,120,0.25)',
-    borderRadius: 18, padding: 20, alignItems: 'center', marginBottom: 12,
+    backgroundColor: 'rgba(13,40,24,0.95)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(125,223,170,0.15)',
+    borderRadius: 18,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  mainCardTopGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '55%',
+  },
+  mainCardInnerShadow: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '45%',
   },
   mainLabel: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: 'rgba(255,255,255,0.5)' },
-  mainAmount: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 36, color: '#FFFFFF', marginVertical: 4 },
+  mainAmount: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 44, color: '#FFFFFF', marginVertical: 6, letterSpacing: -0.5 },
   mainSub: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.4)' },
 
   // Stats row
   statsRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   statCard: {
     flex: 1, alignItems: 'center', paddingVertical: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.15)',
     borderRadius: 16,
+  },
+  statCardMint: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(125,223,170,0.25)',
+    borderTopColor: 'rgba(125,223,170,0.25)',
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(125,223,170,0.6)',
+  },
+  statCardAmber: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(240,214,138,0.25)',
+    borderTopColor: 'rgba(240,214,138,0.25)',
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(240,214,138,0.6)',
   },
   statValue: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 18, color: '#FFFFFF' },
   statLabel: { fontFamily: 'DMSans_500Medium', fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -342,8 +395,6 @@ const s = StyleSheet.create({
   // My Usual Shop
   usualShopBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.15)',
     borderRadius: 16, padding: 14, marginBottom: 18,
   },
   usualShopLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -352,13 +403,11 @@ const s = StyleSheet.create({
 
   // Sections
   section: { marginBottom: 18 },
-  sectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: 'rgba(255,255,255,0.7)', marginBottom: 8 },
+  sectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#FFFFFF', marginBottom: 8 },
 
   // Running Low
   lowCard: {
     width: 140, padding: 10, gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.15)',
     borderRadius: 14,
   },
   lowName: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: '#FFFFFF' },
@@ -367,8 +416,6 @@ const s = StyleSheet.create({
   // Price Memory
   memoryCard: {
     marginBottom: 6, padding: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.15)',
     borderRadius: 14,
   },
   memoryProduct: { fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#FFFFFF' },
@@ -403,8 +450,6 @@ const s = StyleSheet.create({
   // Shopping list shortcut
   shoppingListBar: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.15)',
     borderRadius: 16, padding: 14, marginBottom: 18,
   },
   shoppingListLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -413,8 +458,6 @@ const s = StyleSheet.create({
   // Empty month
   emptyMonth: {
     padding: 16, alignItems: 'center' as const,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.10)',
     borderRadius: 14,
   },
   emptyMonthText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: 'rgba(255,255,255,0.55)' },

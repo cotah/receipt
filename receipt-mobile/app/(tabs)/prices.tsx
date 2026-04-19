@@ -12,6 +12,7 @@ import { Feather } from '@expo/vector-icons';
 
 import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
+import GlassCard from '../../components/ui/GlassCard';
 import Badge from '../../components/ui/Badge';
 import StoreTag from '../../components/prices/StoreTag';
 import ExpiryBadge from '../../components/prices/ExpiryBadge';
@@ -254,7 +255,7 @@ export default function PricesScreen() {
                 </View>
 
                 {/* Comparison card with bars */}
-                <View style={styles.barsCard}>
+                <GlassCard style={styles.barsCard}>
                   <View style={styles.barsHeader}>
                     <Text style={styles.barsCount}>{selectedProduct.stores.length} stores compared</Text>
                     {selectedProduct.potential_saving && selectedProduct.potential_saving > 0 && (
@@ -292,7 +293,7 @@ export default function PricesScreen() {
                         </View>
                       );
                     })}
-                </View>
+                </GlassCard>
 
                 {/* Value tip */}
                 {selectedProduct.value_tip && (
@@ -320,7 +321,7 @@ export default function PricesScreen() {
                   )}
 
                   {alternatives.length > 0 && (
-                    <View style={styles.altCard}>
+                    <GlassCard style={styles.altCard}>
                       {alternatives.map((alt, i) => (
                         <Pressable
                           key={`${alt.product_key}-${i}`}
@@ -355,7 +356,7 @@ export default function PricesScreen() {
                           <Feather name="chevron-right" size={14} color="rgba(255,255,255,0.2)" />
                         </Pressable>
                       ))}
-                    </View>
+                    </GlassCard>
                   )}
                 </View>
 
@@ -438,7 +439,17 @@ export default function PricesScreen() {
 
             {!selectedProduct && !isSearching && searchText.length < 2 && (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyEmoji}>🛒</Text>
+                <View style={styles.compareIllustration}>
+                  <View style={[styles.illoBar, { width: '92%', backgroundColor: Colors.stores.tesco }]} />
+                  <View style={[styles.illoBar, { width: '76%', backgroundColor: Colors.stores.lidl }]} />
+                  <View style={[styles.illoBar, { width: '62%', backgroundColor: Colors.stores.aldi }]} />
+                  <View style={styles.illoCheapestRow}>
+                    <View style={[styles.illoBar, styles.illoBarCheapest, { width: '48%', backgroundColor: Colors.stores.dunnes }]} />
+                    <View style={styles.illoCheapestDot}>
+                      <Feather name="check" size={10} color={Colors.accent.green} />
+                    </View>
+                  </View>
+                </View>
                 <Text style={styles.emptyTitle}>Compare prices across stores</Text>
                 <Text style={styles.emptyText}>
                   Search for any product to see prices at SuperValu, Tesco, and Lidl. We'll show you the cheapest option and suggest alternatives.
@@ -465,7 +476,7 @@ export default function PricesScreen() {
                     <Text style={styles.dealSectionTitle}>🥇 Golden Offers</Text>
                     <Text style={styles.dealSectionSub}>Exceptional deals matched to your profile</Text>
                     {weeklyDeals.golden.map((deal) => (
-                      <Card key={deal.id} style={styles.goldenCard}>
+                      <Card key={deal.id} variant="rewardOffer" style={styles.goldenCard}>
                         <View style={styles.dealRow}>
                           <View style={styles.dealLeft}>
                             <StoreTag storeName={deal.store_name} size="md" />
@@ -723,8 +734,6 @@ const styles = StyleSheet.create({
 
   // Bars card
   barsCard: {
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)',
     borderRadius: 18, padding: 16, marginBottom: 12,
   },
   barsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
@@ -767,12 +776,10 @@ const styles = StyleSheet.create({
 
   // Alternatives — "Also available"
   altSection: { marginTop: 8, marginBottom: 12 },
-  altTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: 'rgba(255,255,255,0.7)', marginBottom: 8 },
+  altTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#FFFFFF', marginBottom: 8 },
   altEmpty: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.35)', textAlign: 'center', paddingVertical: Spacing.md },
   altCard: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 16, paddingHorizontal: 14, overflow: 'hidden',
+    borderRadius: 16, paddingHorizontal: 14,
   },
   altRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -792,6 +799,42 @@ const styles = StyleSheet.create({
   emptyTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, textAlign: 'center', marginBottom: Spacing.xs },
   emptyText: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.tertiary, textAlign: 'center', lineHeight: 20 },
 
+  // Compare empty-state illustration (mini preview of the Compare feature)
+  compareIllustration: {
+    width: 160,
+    height: 140,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.10)',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    marginBottom: Spacing.lg,
+    justifyContent: 'space-between',
+  },
+  illoBar: {
+    height: 12,
+    borderRadius: 6,
+  },
+  illoCheapestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  illoBarCheapest: {
+    opacity: 1,
+  },
+  illoCheapestDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(125,223,170,0.18)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(125,223,170,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   // Deals sections
   dealSection: { marginBottom: Spacing.lg },
   dealSectionTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: 2 },
@@ -805,7 +848,7 @@ const styles = StyleSheet.create({
   dealRight: { alignItems: 'flex-end', gap: 4, marginLeft: Spacing.sm },
   dealPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 18, color: Colors.accent.amber },
 
-  goldenCard: { marginBottom: Spacing.sm, borderWidth: 2, borderColor: '#F0D68A', borderRadius: BorderRadius.md },
+  goldenCard: { marginBottom: Spacing.sm, borderRadius: BorderRadius.md },
   goldenName: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: Colors.text.primary },
   goldenPromo: { fontFamily: 'DMSans_500Medium', fontSize: 12, color: '#7DDFAA' },
   goldenPrice: { fontFamily: 'JetBrainsMono_700Bold', fontSize: 20, color: Colors.accent.amber },

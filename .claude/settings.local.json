@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node .agents/skills/impeccable/scripts/cleanup-deprecated.mjs)",
+      "Bash(node *)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

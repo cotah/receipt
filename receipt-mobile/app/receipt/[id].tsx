@@ -139,7 +139,7 @@ export default function ReceiptDetailScreen() {
 
         {/* Weight confirmation — each product confirms independently */}
         {needsWeight.length > 0 && !weightDismissed && (
-          <Card style={styles.weightCard}>
+          <Card variant="accent" style={styles.weightCard}>
             <View style={styles.weightHeader}>
               <Feather name="info" size={18} color={'#7DDFAA'} />
               <Text style={styles.weightTitle}>Confirm product sizes</Text>
@@ -325,8 +325,7 @@ const styles = StyleSheet.create({
 
   // Weight confirmation styles
   weightCard: {
-    marginTop: Spacing.md, backgroundColor: Colors.accent.greenSoft, borderWidth: 1, borderColor: 'rgba(80,200,120,0.25)',
-    borderRadius: BorderRadius.md,
+    marginTop: Spacing.md, borderRadius: BorderRadius.md,
   },
   weightHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   weightTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#FFFFFF' },

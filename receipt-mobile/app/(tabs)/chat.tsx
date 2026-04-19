@@ -70,6 +70,7 @@ export default function ChatScreen() {
           renderItem={({ item }) => (
             <ChatBubble content={item.content} role={item.role} timestamp={item.created_at} />
           )}
+          style={styles.list}
           contentContainerStyle={styles.messagesList}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => {
@@ -77,10 +78,12 @@ export default function ChatScreen() {
           }}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Image
-                source={require('../../assets/ai-avatar.png')}
-                style={styles.aiAvatar}
-              />
+              <View style={styles.aiAvatar}>
+                <Image
+                  source={require('../../assets/ai-avatar.png')}
+                  style={styles.aiAvatarImage}
+                />
+              </View>
               <Text style={styles.emptyTitle}>{`${chatGreeting}, ${firstName}! 👋`}</Text>
               <Text style={styles.emptyText}>How can I help you save on groceries today? Ask me anything about prices, deals, or your spending.</Text>
             </View>
@@ -99,14 +102,27 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  flex: { flex: 1, backgroundColor: Colors.surface.background },
   container: { flex: 1, backgroundColor: Colors.surface.background },
+  list: { flex: 1, backgroundColor: Colors.surface.background },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.surface.alt },
   title: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 24, color: '#FFFFFF' },
   subtitle: { fontFamily: 'DMSans_400Regular', fontSize: 13, color: Colors.text.secondary },
   messagesList: { paddingVertical: Spacing.md, flexGrow: 1 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xxl, marginTop: 40 },
-  aiAvatar: { width: 100, height: 100, borderRadius: 50, marginBottom: Spacing.md, borderWidth: 2, borderColor: Colors.surface.alt },
+  aiAvatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(125,223,170,0.20)',
+    overflow: 'hidden',
+  },
+  aiAvatarImage: { width: '100%', height: '100%' },
   emptyTitle: { fontFamily: 'DMSans_700Bold', fontSize: 18, color: Colors.text.primary, marginBottom: Spacing.sm },
   emptyText: { fontFamily: 'DMSans_400Regular', fontSize: 14, color: Colors.text.secondary, textAlign: 'center', lineHeight: 22 },
 });
