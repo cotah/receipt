@@ -529,7 +529,7 @@ async def _process_from_text(
             except Exception:
                 pass  # Non-critical
 
-        # 7. Increment scan counter and award points (tiered by receipt total)
+        # 7. Increment scan counter and award points (per item scanned)
         try:
             increment_scan_count(db, user_id)
             profile_pts = (
@@ -542,22 +542,21 @@ async def _process_from_text(
             pts_data = profile_pts.data or {}
             current_pts = pts_data.get("points") or 0
             pro = is_pro(pts_data)
-            receipt_total = float(total_amount or 0)
+            item_count = len(items)
 
-            # Tiered points: bigger receipt = more products = more data = more points
-            if receipt_total >= 120:
-                award = 75 if pro else 30
-            elif receipt_total >= 70:
-                award = 50 if pro else 20
-            elif receipt_total >= 30:
-                award = 35 if pro else 15
-            else:
-                award = 25 if pro else 10
+            # Points per item: Free = 1pt, Pro = 2pts
+            pts_per_item = 2 if pro else 1
+            raw_award = item_count * pts_per_item
+
+            # Apply min/max caps
+            min_pts = 5 if pro else 3
+            max_pts = 80 if pro else 40
+            award = max(min_pts, min(raw_award, max_pts))
 
             db.table("profiles").update(
                 {"points": current_pts + award}
             ).eq("id", user_id).execute()
-            log.info(f"[{receipt_id}] Awarded {award} points (receipt €{receipt_total:.2f}, {'Pro' if pro else 'Free'}, total: {current_pts + award})")
+            log.info(f"[{receipt_id}] Awarded {award} points ({item_count} items × {pts_per_item}pt, {'Pro' if pro else 'Free'}, total: {current_pts + award})")
         except Exception as pts_err:
             log.warning(f"[{receipt_id}] Failed to award points: {pts_err}")
 
@@ -1079,7 +1078,7 @@ async def link_barcode_to_item(
     barcode: str = Query(..., min_length=8),
     user_id: str = Depends(get_current_user),
 ):
-    """Link a barcode to a receipt item. Awards 30 points (double)."""
+    """Link a barcode to a receipt item. Awards 20 pts (Free) or 30 pts (Pro)."""
     db = get_service_client()
 
     # Verify item belongs to user
@@ -1110,12 +1109,15 @@ async def link_barcode_to_item(
     except Exception:
         pass  # Duplicate barcode is fine
 
-    # 3. Award 30 points (double)
+    # 3. Award points: 20 Free, 30 Pro
+    points_earned = 0
     try:
-        profile = db.table("profiles").select("points").eq("id", user_id).maybe_single().execute()
+        profile = db.table("profiles").select("points, plan, plan_expires_at").eq("id", user_id).maybe_single().execute()
         current = (profile.data or {}).get("points") or 0
-        db.table("profiles").update({"points": current + 30}).eq("id", user_id).execute()
+        pro = is_pro(profile.data or {})
+        points_earned = 30 if pro else 20
+        db.table("profiles").update({"points": current + points_earned}).eq("id", user_id).execute()
     except Exception:
         pass
 
-    return {"status": "ok", "points_earned": 30, "product_name": product_name}
+    return {"status": "ok", "points_earned": points_earned, "product_name": product_name}

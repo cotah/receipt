@@ -129,9 +129,8 @@ async def redeem_referral(
     """Redeem a referral code.
 
     - Referee (person using code): ALWAYS gets 50 points immediately.
-    - Referrer (person who shared code):
-      - If referrer is PRO → gets 50 points immediately
-      - If referrer is FREE → gets 50 points when referee subscribes to Pro
+    - Referrer: gets points based on plan.
+    - Limit: each referral code can be used max 5 times per month.
     """
     db = get_service_client()
     code = body.referral_code.strip().upper()
@@ -153,6 +152,22 @@ async def redeem_referral(
     ).eq("referral_code", code).maybe_single().execute()
     if not referrer.data:
         raise HTTPException(status_code=404, detail="Invalid referral code")
+
+    # Check referrer's monthly referral limit (5/month)
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    referrals_this_month = (
+        db.table("profiles")
+        .select("id", count="exact")
+        .eq("referred_by", code)
+        .gte("created_at", month_start.isoformat())
+        .execute()
+    )
+    if (referrals_this_month.count or 0) >= 5:
+        raise HTTPException(
+            status_code=400,
+            detail="This referral code has reached its monthly limit (5 per month). Try again next month."
+        )
 
     referrer_id = referrer.data["id"]
     referrer_plan = referrer.data.get("plan", "free")
@@ -179,12 +194,12 @@ async def redeem_referral(
         }).eq("id", referrer_id).execute()
         referrer_earned = 25
         log.info(
-            "Referral redeemed: %s used code %s (PRO referrer %s). Referee +50, Referrer +25 now (+25 deferred if Pro).",
+            "Referral redeemed: %s used code %s (PRO referrer %s). Referee +50, Referrer +25 now.",
             user_id, code, referrer_id,
         )
     else:
         log.info(
-            "Referral redeemed: %s used code %s (FREE referrer %s). Referee +50 pts. Referrer deferred until referee goes Pro.",
+            "Referral redeemed: %s used code %s (FREE referrer %s). Referee +50 pts. Referrer deferred.",
             user_id, code, referrer_id,
         )
 
@@ -192,7 +207,7 @@ async def redeem_referral(
         "status": "ok",
         "points_earned": 50,
         "referrer_earned": referrer_earned,
-        "referrer_deferred": True,  # Always deferred portion remaining
+        "referrer_deferred": True,
     }
 
 
@@ -235,12 +250,12 @@ async def get_contribute_status(user_id: str = Depends(get_current_user)):
 
     # How to earn points
     actions = [
-        {"action": "Scan a receipt", "points": 10, "points_max": 75, "icon": "camera", "description": "Bigger shop = more points (up to 75 for Pro!)"},
-        {"action": "Link barcodes", "points": 30, "icon": "maximize", "description": "Scan product barcodes after a receipt (2x points!)"},
-        {"action": "Add a product", "points": 10, "icon": "plus-circle", "description": "Add a new product by scanning its barcode"},
-        {"action": "Refer a friend", "points": 50, "icon": "users", "description": "You earn when your friend goes Pro"},
+        {"action": "Scan a receipt", "points": 1, "points_pro": 2, "icon": "camera", "description": "1pt per item (Free) or 2pt per item (Pro). Min 3/5, max 40/80 pts"},
+        {"action": "Link barcodes", "points": 20, "points_pro": 30, "icon": "maximize", "description": "Link product barcodes after scanning a receipt"},
+        {"action": "Add a new barcode", "points": 5, "points_pro": 10, "icon": "plus-circle", "description": "Scan a new product barcode (0 pts if already exists)"},
+        {"action": "Refer a friend", "points": 50, "icon": "users", "description": "You and your friend both earn 50 pts (5 referrals/month max)"},
         {"action": "Confirm a saving", "points": 10, "icon": "thumbs-up", "description": "Confirm SmartDocket helped you save"},
-        {"action": "Monthly raffle", "points": 200, "icon": "gift", "description": "200 pts = 1 ticket to win a signed jersey!"},
+        {"action": "Pro monthly bonus", "points": 200, "icon": "zap", "description": "Pro subscribers get 200 bonus points every month"},
     ]
 
     # Leaderboard — top 10 users by points this month
@@ -272,26 +287,27 @@ async def get_contribute_status(user_id: str = Depends(get_current_user)):
         leaderboard = []
         my_rank = None
 
-    # Raffle info — 200 pts = 1 ticket, monthly draw
+    # Raffle info — 3 prizes, monthly draw
     from calendar import monthrange
     now = datetime.now(timezone.utc)
-    my_tickets = points // 200
+
     # Next draw: first Saturday of next month
     if now.month == 12:
         next_month = now.replace(year=now.year + 1, month=1, day=1)
     else:
         next_month = now.replace(month=now.month + 1, day=1)
-    # Find first Saturday
     first_sat = next_month
     while first_sat.weekday() != 5:  # 5 = Saturday
         first_sat += timedelta(days=1)
 
     raffle = {
-        "my_tickets": my_tickets,
-        "points_per_ticket": 200,
-        "points_to_next_ticket": 200 - (points % 200) if points % 200 != 0 else 0,
+        "prizes": [
+            {"name": "Signed Premier League Jersey", "points_per_ticket": 1500, "emoji": "🥇", "my_tickets": points // 1500},
+            {"name": "Gift Card Boots €30", "points_per_ticket": 1000, "emoji": "🥈", "my_tickets": points // 1000},
+            {"name": "Supermarket Voucher €30", "points_per_ticket": 800, "emoji": "🥉", "my_tickets": points // 800},
+        ],
         "next_draw": first_sat.strftime("%B %d, %Y"),
-        "prize": "Signed Premier League Jersey",
+        "total_points": points,
     }
 
     return {

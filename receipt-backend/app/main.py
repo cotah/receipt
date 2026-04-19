@@ -18,7 +18,7 @@ if settings.SENTRY_DSN:
         send_default_pii=False,
     )
 from fastapi.staticfiles import StaticFiles
-from app.api.v1 import receipts, products, prices, chat, alerts, reports, leaflets, users, admin, payments, deals, shopping_list, feedback
+from app.api.v1 import receipts, products, prices, chat, alerts, reports, leaflets, users, admin, payments, deals, shopping_list, feedback, raffle
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -207,6 +207,7 @@ app.include_router(payments.router, prefix="/api/v1")
 app.include_router(deals.router, prefix="/api/v1")
 app.include_router(shopping_list.router, prefix="/api/v1")
 app.include_router(feedback.router, prefix="/api/v1")
+app.include_router(raffle.router, prefix="/api/v1")
 
 # Admin panel static files
 _admin_dir = Path(__file__).resolve().parent.parent / "admin"

@@ -1095,8 +1095,9 @@ async def barcode_contribute(
     product_key: str | None = Query(None),
     user_id: str = Depends(get_current_user),
 ):
-    """User links a barcode to a product (existing or new). Awards 10 points only for new barcodes."""
+    """User links a barcode to a product (existing or new). Awards 5 pts (Free) or 10 pts (Pro) for new barcodes only."""
     from app.utils.text_utils import generate_product_key
+    from app.utils.plan_utils import is_pro
 
     db = get_service_client()
     key = product_key or generate_product_key(product_name)
@@ -1122,14 +1123,15 @@ async def barcode_contribute(
         log.error("barcode-contribute failed for barcode %s: %s", barcode, e)
         raise HTTPException(status_code=500, detail="Could not save barcode. Please try again.")
 
-    # Award 10 points ONLY for new barcodes
+    # Award points ONLY for new barcodes: 5 Free, 10 Pro
     points_earned = 0
     if not already_exists:
-        points_earned = 10
         try:
-            profile = db.table("profiles").select("points").eq("id", user_id).maybe_single().execute()
+            profile = db.table("profiles").select("points, plan, plan_expires_at").eq("id", user_id).maybe_single().execute()
             current = (profile.data or {}).get("points") or 0
-            db.table("profiles").update({"points": current + 10}).eq("id", user_id).execute()
+            pro = is_pro(profile.data or {})
+            points_earned = 10 if pro else 5
+            db.table("profiles").update({"points": current + points_earned}).eq("id", user_id).execute()
         except Exception:
             pass
 

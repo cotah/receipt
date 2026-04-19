@@ -92,17 +92,21 @@ def check_chat_limit(db, user_id: str, profile: dict) -> None:  # noqa: ANN001
 
 
 def increment_scan_count(db, user_id: str) -> None:  # noqa: ANN001
-    """Increment the monthly scan counter."""
+    """Increment the monthly scan counter. Awards Pro monthly bonus (+200 pts) on first scan of new month."""
+    import logging
+    _log = logging.getLogger(__name__)
+
     today = _this_month()
     profile = (
         db.table("profiles")
-        .select("scans_this_month, scans_month_reset")
+        .select("scans_this_month, scans_month_reset, points, plan, plan_expires_at")
         .eq("id", user_id)
         .maybe_single()
         .execute()
     )
     data = profile.data or {}
     current = data.get("scans_this_month") or 0
+    month_just_reset = False
 
     reset_raw = data.get("scans_month_reset")
     if reset_raw:
@@ -113,11 +117,20 @@ def increment_scan_count(db, user_id: str) -> None:  # noqa: ANN001
         )
         if reset_date < today:
             current = 0
+            month_just_reset = True
 
-    db.table("profiles").update({
+    update_fields = {
         "scans_this_month": current + 1,
         "scans_month_reset": today.isoformat(),
-    }).eq("id", user_id).execute()
+    }
+
+    # Pro monthly bonus: +200 pts on first scan of a new month
+    if month_just_reset and is_pro(data):
+        current_pts = data.get("points") or 0
+        update_fields["points"] = current_pts + 200
+        _log.info("Pro monthly bonus: +200 pts for user %s", user_id[:8])
+
+    db.table("profiles").update(update_fields).eq("id", user_id).execute()
 
 
 def increment_chat_count(db, user_id: str) -> None:  # noqa: ANN001
