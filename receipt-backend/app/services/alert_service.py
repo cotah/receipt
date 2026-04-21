@@ -166,7 +166,11 @@ async def generate_price_drop_alerts(db: Client, user_id: str) -> None:
                     push_token=push_token,
                     title="📉 Price Drop!",
                     body=f"{product['normalized_name']} down to €{best['unit_price']:.2f} at {best['store_name']} — save €{saving:.2f}",
-                    data={"screen": "alerts", "type": "price_drop"},
+                    data={
+                        "screen": "alerts",
+                        "type": "price_drop",
+                        "product_name": product["normalized_name"],
+                    },
                 )
 
 

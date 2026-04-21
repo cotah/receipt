@@ -23,12 +23,16 @@ export default function AlertsScreen() {
       await markAsRead(alert.id);
     }
 
-    // If it's a price drop alert with confirmation pending, ask user
-    if (alert.type === 'price_drop' && alert.data?.needs_confirmation) {
-      try {
-        await api.post(`/alerts/${alert.id}/confirm`);
-        fetchAlerts(); // Refresh
-      } catch {}
+    // Navigate to the right screen based on alert type
+    if (alert.product_name) {
+      // Open the product in the Prices tab
+      router.push({
+        pathname: '/(tabs)/prices',
+        params: { search: String(alert.product_name) },
+      });
+    } else if (alert.type === 'price_drop' || alert.type === 'restock') {
+      // Generic fallback to prices tab
+      router.push('/(tabs)/prices');
     }
   };
 

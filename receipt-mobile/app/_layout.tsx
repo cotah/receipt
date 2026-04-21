@@ -129,12 +129,20 @@ export default function RootLayout() {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    // When user TAPS a push notification → navigate to the right screen
-    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as Record<string, any> | undefined;
-      if (!data?.screen) return;
+    // Helper: navigate based on notification data
+    const navigateFromNotification = (data: Record<string, any> | undefined) => {
+      if (!data) return;
 
-      // Map screen names from backend to app routes
+      // Product-specific navigation (most common case — open product in prices tab)
+      if (data.product_name) {
+        router.push({
+          pathname: '/(tabs)/prices',
+          params: { search: String(data.product_name) },
+        });
+        return;
+      }
+
+      // Screen-based navigation
       switch (data.screen) {
         case 'offers':
         case 'prices':
@@ -146,6 +154,21 @@ export default function RootLayout() {
         default:
           router.push('/(tabs)');
       }
+    };
+
+    // Handle notification that OPENED the app from killed state
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response?.notification?.request?.content?.data) {
+        const data = response.notification.request.content.data as Record<string, any>;
+        // Small delay to let the root navigator mount
+        setTimeout(() => navigateFromNotification(data), 500);
+      }
+    });
+
+    // When user TAPS a push notification (app in background/foreground)
+    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, any> | undefined;
+      navigateFromNotification(data);
     });
 
     // When notification arrives while app is OPEN → refresh the bell badge

@@ -136,7 +136,11 @@ async def send_golden_deal_alerts(db, golden_deals: list[dict], user_id: str) ->
                 push_token=token,
                 title=title,
                 body=body,
-                data={"screen": "offers", "deal_type": "golden"},
+                data={
+                    "screen": "offers",
+                    "deal_type": "golden",
+                    "product_name": best["product_name"],
+                },
             )
             return 1 if sent else 0
         return 0
