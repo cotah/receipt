@@ -60,23 +60,28 @@ export default function HomeScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchReceipts(1);
-    fetchRunningLow();
-    fetchAlerts();
-    // Fetch savings + price memory
-    api.get('/prices/savings-summary').then(({ data }) => setSavings(data)).catch(() => {});
-    api.get('/prices/price-memory?limit=3').then(({ data }) => setPriceMemories(data.memories || [])).catch(() => {});
+  // Parallel fetch helper — runs all API calls simultaneously instead of one-by-one
+  const refreshHomeData = useCallback(() => {
+    // Fire all in parallel — each handles its own errors
+    Promise.allSettled([
+      fetchReceipts(1),
+      fetchAlerts(),
+      api.get('/prices/savings-summary').then(({ data }) => setSavings(data)),
+      api.get('/prices/price-memory?limit=3').then(({ data }) => setPriceMemories(data.memories || [])),
+    ]);
   }, []);
 
-  // Refetch receipts + savings every time Home gets focus
+  useEffect(() => {
+    // Initial load — includes runningLow which only needs to fetch once
+    refreshHomeData();
+    fetchRunningLow();
+  }, []);
+
+  // Refetch when Home gets focus (returning from another screen)
   useFocusEffect(
     useCallback(() => {
-      fetchReceipts(1);
-      fetchAlerts();
-      api.get('/prices/savings-summary').then(({ data }) => setSavings(data)).catch(() => {});
-      api.get('/prices/price-memory?limit=3').then(({ data }) => setPriceMemories(data.memories || [])).catch(() => {});
-    }, [])
+      refreshHomeData();
+    }, [refreshHomeData])
   );
 
   // Auto-detect location on first login if home_area is empty
